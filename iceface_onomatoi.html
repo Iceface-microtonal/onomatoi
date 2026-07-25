@@ -59,7 +59,12 @@
   button.primary { background: var(--pink); color: #fff; padding: 8px 16px; font-size: 12px; }
   button.gray { background: rgba(0,0,0,0.06); color: var(--gray); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .chips button { font-size: 9px; font-weight: 500; }
+  /* チップ = 副操作 (§11: SUB=スライダーつまみ・トグル・タグ)。native の
+     TuningPanel presetButton (Fr.sub) と同じ扱いにする — プリセット/クイック語の一覧は
+     「主操作」ではなく選べる札。2026-07-25 PuppeTwin配色。 */
+  .chips button { font-size: 9px; font-weight: 500;
+    background: rgba(152, 192, 228, 0.18); color: var(--sub); }
+  .chips button:active { background: rgba(152, 192, 228, 0.32); }
   #romaji-input {
     flex: 1; font-family: inherit; font-size: 14px; padding: 8px 10px;
     border: 1.5px solid var(--pink-bg2); border-radius: 7px; outline: none;
@@ -104,7 +109,7 @@
   <a id="about-link" href="./about_onomatoi.html" style="
     font-size: 10px; font-weight: 700; text-decoration: none;
     border-radius: 4px; padding: 5px 9px;
-    background: rgba(152, 192, 228, 0.20); color: var(--accent-ink);">？ <span id="t-about">解説</span></a>
+    background: var(--sub); color: var(--accent-ink);">？ <span id="t-about">解説</span></a>
   <span class="sub">Onomatoi — Phonosymbolic Topology Synthesizer (web)</span>
 </header>
 
