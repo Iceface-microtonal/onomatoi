@@ -96,7 +96,7 @@ bias 表をデータ駆動で再調整する。`FEEDBACK_ENDPOINT` 定数に URL
 
 
 
-企画・音象徴エンジン・実装：Iceface
+企画・音象徴エンジン・実装：PuppeTwin
 
 Voice ・調音設計の検討：しまなかこう (koh Shimanaka)
 

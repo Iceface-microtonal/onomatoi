@@ -7,7 +7,7 @@
 <style>
   :root {
     /* PuppeTwin — 基本5色 (ロール→パーツの正本 = §11 / アプリ内「配役ルール」)。
-       2026-07-25 Icefaceさん指定で旧配色 (--pink #e8488a 系) から移行。 */
+       2026-07-25 に旧配色 (--pink #e8488a 系) から移行。 */
     --base:   #fafaf7;   /* 筐体・背景。パネル/文字/罫線は base 明度から導出 (~70%) */
     --accent: #f27fa5;   /* 主操作: ノブ指針・アクティブ鍵・ON状態・主ボタン (~25%) */
     --sub:    #98c0e4;   /* 副操作: スライダーつまみ・トグル・タグ (~5%) */
@@ -236,7 +236,7 @@
 <script>
 "use strict";
 /* ============================================================
- * ICEFACE Onomatoi — Web version (2026-07-08, core v7 移植)
+ * PUPPETWIN Onomatoi — Web version (2026-07-08, core v7 移植)
  * iPad/Mac 版 OnomatoiCore からの忠実な移植 (簡易化した点):
  *  - 音程変化なし: Resources/Consonants の base wav のみ (pitch variants 不使用)
  *  - warabe (旋律) モードなし / COMPOSE モードなし
@@ -1111,7 +1111,7 @@ function extractAxes(points, w, h) {
   const purse = 0.5 * closedGate * smallGate * roundShapeGate;
   let round = clamp(-spreadRaw + purse - 0.18 * Math.max(0, sharp));
 
-  // P9e (2026-07-15, Icefaceさん立法): 斜めの楕円 = え。横長閉=い(横引き・閉じ)・縦長閉=う
+  // P9e (2026-07-15, 立法): 斜めの楕円 = え。横長閉=い(横引き・閉じ)・縦長閉=う
   // (すぼめ)・丸開=あ の中間 — 斜めに伸びた閉形は「横に引きながら開いた口」= え として読む。
   // horiz = cos2θ は斜め (±45°) で 0 になり伸びの証拠が round から消えていた (楕円なのに
   // 面積だけで open +1 → あ圏)。1−|horiz| は傾きの符号に対称 = 右上がり/左上がりのどちらの
@@ -1141,7 +1141,7 @@ function applyHandCorrection(ax, level, dampenTexture = true) {
 }
 
 // ─── なぞり直しの正準化 (2026-07-17 Step3): 同じ輪郭を N 周なぞったストロークを 1 周へ畳む ───
-// ブーバ/キキは完成形の印象 (Icefaceさん方針)。「2周した円」は「1つの円」と同一視して aaan/
+// ブーバ/キキは完成形の印象 (方針)。「2周した円」は「1つの円」と同一視して aaan/
 // ブーバに読む (Step1/Step2 の輪郭測定へ渡す前に 1 周に折り畳む)。
 // 判定: 重心まわりの巻きが**単調に N·2π** で、かつ**各周が絶対座標で重なる** (= 同じ場所を
 // なぞった) ときのみ畳む。除外 (畳まない=軌跡層の担当のまま):
@@ -1261,7 +1261,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
                                 points[0].y - points[points.length - 1].y);
   const isClosed = closingGap <= pathLen * 0.12;
   // ─── 閉形の正準化 (2026-07-17 Step1): 閉じたストロークは「完成した形 (輪郭)」として測る ───
-  // ブーバ/キキは見えた完成形の印象 (Icefaceさん方針)。軌跡の痕跡 = 始点/終点/描く向きを消す:
+  // ブーバ/キキは見えた完成形の印象 (方針)。軌跡の痕跡 = 始点/終点/描く向きを消す:
   // (a) スナップ = 終端の縮退点 (始点から1歩未満) を除去 — 閉じ足しの微小セグメントが単位
   //     ターンへ逆符号スパイクを注入し、頂点をもつれと誤認させていた (三角レポート
   //     mrnqm2sk-32: 頂点 si/so 0.877 なのに |sSigned|/so 0.567<0.7 で旧救済が不発)。
@@ -1401,7 +1401,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
   const rotationFraction = Math.abs(totalTurning) / (2 * Math.PI);
   // curveConsistency: 符号付き合計 (相殺後) / 絶対値合計 (相殺前)。1.0 = 常に同じ向きに
   // 曲がる (弧)・低い値 = 行ったり来たり (波・ジグザグ)。
-  // v2 (2026-07-16, Icefaceさん報告「⊂ が出にくい」の実測): 点単位の測定は手ブレに脆く、
+  // v2 (2026-07-16, 報告「⊂ が出にくい」の実測): 点単位の測定は手ブレに脆く、
   // ±1.5px のジッタで実弧の cc が 0.33 (正弦波と同値!) まで崩壊・ペンの入り/抜きの 10px
   // フックでも 0.56 に落ちて閾値 0.8 を通らない。**弧長リサンプル** (経路を ~24 等分の粗い
   // 折れ線へ) + **端 5% トリム** (ペン尾の除外) で測る — ジッタは区間内で幾何的に消え、
@@ -1527,7 +1527,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
   const coarseReversals = coarseMotion.flips;
   const coarseDisorder = coarseMotion.disorder;
   // ─── Step2 (2026-07-17): 転回の集中度 → 形の K (P3「真の角→破裂/流れ→清音摩擦」の形式化) ───
-  // ブーバ/キキ=完成形の印象 (Icefaceさん方針)。閉じた輪郭の総転回 (凸形は必ず 2π) が
+  // ブーバ/キキ=完成形の印象 (方針)。閉じた輪郭の総転回 (凸形は必ず 2π) が
   // 「どこに集中して通過するか」で音色を読む:
   //   tc = Σ(真の角の転回ピーク) / 総転回 — 三角/四角 ≈1 (全転回が頂点に集中)・円 =0 (全周に
   //        分散)・多重ループ/渦は分母が 2π を超えて薄まる (=柔らかい)。
@@ -1954,7 +1954,7 @@ function namingGenerateClean(inventory, seed, contrast = 0, maxAttempts = 8, tem
 }
 
 // ─── P11 記号語彙 (2026-07-15): ⊃⊂∩∪ (開いた弧) → 母音+ん / ＜＞∧∨ (開いた一角) → 子音+ん ───
-// Icefaceさん発案: 「向きに依らず形だけで決まる」規則。round/open (口の形) や brightness
+// 発案: 「向きに依らず形だけで決まる」規則。round/open (口の形) や brightness
 // (キャンバス内の位置) は描線の向き・位置に依存するため使わない — corners/cornerSharpness/
 // isClosed/rotationFraction (向き不変な形の特徴) だけで判定する。真っ直ぐな線 (rotationFraction
 // ≈0) や閉じた丸 (≈1 以上) は対象外 — あくまで「弧を描いたが閉じていない」形だけを拾う。
@@ -1978,7 +1978,7 @@ function openChevronSignal(cx) {
 }
 // P12 完全な円 = aaan の判定 (2026-07-17 に純関数化+一周判定)。
 // 従来 (rotationFraction > 0.8 のみ) は多重ループの複雑な一筆 (渦・連ループ・二度なぞり) まで
-// 「完全な円」に吸われて aaan に潰れた (Icefaceさん報告 mrnps275-7: cor=0/lp=2 の連ループが
+// 「完全な円」に吸われて aaan に潰れた (報告 mrnps275-7: cor=0/lp=2 の連ループが
 // あああん になった)。円が「完成する」のは一周して閉じた瞬間だけ — 2周目以降は別の描写
 // (連ループ → 単位語経路が受け持つ)。
 // 判別は**紙面効率** pathRatio/sizeRatio (スケール不変): 円1周 ≈ 2.2・ペン尾込み1.1周 ≈ 2.5・
@@ -2357,7 +2357,7 @@ function sampleKeys() {
 // key に対応する実ファイル名の候補列 (**拡張子込み**・先頭から順に fetch を試す)。
 // v13: diph_* と持続母音テイク (v_aaaa 等) は非圧縮 .wav を最優先 — 1テイク継続読み
 // (任意オフセット・クロスフェード・sustainWrap) は mp3 のフレーム量子化/先頭パディングに
-// 弱いため、これらだけ非圧縮で配る (Icefaceさんが repo へ直接アップロード)。無ければ mp3。
+// 弱いため、これらだけ非圧縮で配る (repo へ直接アップロード)。無ければ mp3。
 function sampleUrlCandidates(key) {
   const names = [];
   const wavFirst = key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key);
@@ -3096,7 +3096,7 @@ function buildNativeVoiceBank(sr) {
     const sustainKey = "v_" + v + v + v + v;
     const sustainArr = nvChan(sustainKey);
     let arr = sustainArr || nvChan("v_" + v);
-    // 個別サンプルの録音レベル差の是正 (2026-07-24 Icefaceさん実聴報告 2件): 長い持続
+    // 個別サンプルの録音レベル差の是正 (2026-07-24 実聴報告 2件): 長い持続
     // テイクのうち v_uuuu (duuuu) と v_iiii (mii の単独 i) が他より大きく聴こえた → 各-3dB。
     // ファイル狙い撃ちの表 (native = Swift ConsonantSampleBank.knownSampleGainDb と対)。
     // sustainArr が実際に使われたときだけ適用 (短い v_u/v_i へのフォールバック時は無変換)。
@@ -3447,7 +3447,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const reasonEl = document.getElementById("fb-reason");
   if (reasonEl) {
     reasonEl.addEventListener("blur", syncReasonToVote);
-    // isComposing ガード (2026-07-24 Icefaceさん報告): 日本語 IME の変換確定 Enter でも
+    // isComposing ガード (2026-07-24 報告): 日本語 IME の変換確定 Enter でも
     // blur が発火し、変換中の blur は Chrome が未確定文字列を確定挿入するため
     // テキストが二重に書き込まれていた。変換確定の Enter は素通しする。
     reasonEl.addEventListener("keydown", e => {
@@ -3460,7 +3460,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ─── なぜ? (Onomatopoeia.explain の移植・日英) — 測って見せる説明 ───
 // ─── Step1/2/3 の「計測」を人に見える言葉にする (2026-07-17) ───
 // 確定▲は角の**位置と向き**しか見せない。ここは「形をどう読んで、その形からどう音色を決めたか」
-// の数値を出す (Icefaceさん依頼: Step1,2 の計測を結果から見えるように)。
+// の数値を出す (依頼: Step1,2 の計測を結果から見えるように)。
 function shapeMeasureLines(cx, ja) {
   const out = [];
   const n2 = v => (v >= 0 ? "+" : "") + v.toFixed(2);
@@ -3896,7 +3896,7 @@ function redraw() {
   }
   // Step1 確定▲ (2026-07-17 ○→▲): ペンアップ判定が使った「形の角」。閉形は正準化後なので
   // 描き始めの頂点 (実況▲が出ない継ぎ目) にも付く — 表示と判定の一致。
-  // ○ をやめた理由 (Icefaceさん 07-17): 丸み+角の分析で、角に丸いマーカーを置くと
+  // ○ をやめた理由 (07-17): 丸み+角の分析で、角に丸いマーカーを置くと
   // 「丸み」と誤読される。▲は角の外向き二等分線の外側から角を指す (apex=角のすぐ外)。
   for (const p of confirmedCorners) {
     drawCornerTri(cctx, p, p.dx, p.dy,
@@ -3962,7 +3962,7 @@ canvas.addEventListener("pointerdown", ev => {
 canvas.addEventListener("pointermove", ev => {
   if (!drawing) return;
   const p = pointerPos(ev);
-  // 2026-07-23 (Icefaceさん報告 mrxb28xr-3): 枠の縁 = 紙の端。setPointerCapture は枠外の
+  // 2026-07-23 (報告 mrxb28xr-3): 枠の縁 = 紙の端。setPointerCapture は枠外の
   // move も配達し続けるため、はみ出した軌跡が「見えないのに判定に読まれて」いた
   // (表示と判定の一致の違反)。枠外に出た瞬間その場でペンアップ扱い — はみ出し分は
   // インクにも判定にも入らない。指を戻しても筆は上がったまま (次の一筆は描き直し)。
@@ -4022,7 +4022,7 @@ canvas.addEventListener("pointerup", ev => {
     const geomPts = (coarse && stroke.length >= 3) ? splineDensified(stroke, 6) : inkPts;
     const cx = strokeComplexity(geomPts, rect.width, rect.height, 16);
     // Step2: 閉形は完成形から読んだ K (formK) が軌跡 K (drawK) を置き換える —
-    // 「最終的な重みは見た目・出来上がった形」(Icefaceさん方針)。開いた線は従来どおり。
+    // 「最終的な重みは見た目・出来上がった形」(方針)。開いた線は従来どおり。
     let kDraw = cx.formK != null ? cx.formK : drawK(ax.sharp, cx.corners, cx.cornerSharpness);
     if (coarse) kDraw = Math.round(kDraw / 0.125) * 0.125;   // K も同じ格子に
     // manner 次元 (2026-07-10): 描線の動態 → 子音の調音方法の親和。
