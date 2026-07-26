@@ -36,9 +36,18 @@
     padding: 10px; margin-bottom: 8px;
   }
   .panel-title { font-size: 10px; font-weight: 800; color: var(--pink); letter-spacing: 0.5px; }
+  /* キャンバスの地 = 画用紙 (2026-07-27・native iPad と同じ素材/同じタイル寸法)。
+     background-size を 627px にして native の 627pt タイルと紙目の粗さを揃える
+     (画像は 1254px なので 2x ディスプレイでも原寸で出る)。canvas 本体は
+     clearRect で透明のまま描くので、この CSS 背景がそのまま紙になる。
+     背景色は素材の平均色 = 画像が読めなかった場合のフォールバック。 */
   #canvas {
     width: 100%; height: 260px; display: block; border: 1px solid var(--pink-bg2);
-    border-radius: 8px; touch-action: none; cursor: crosshair; background: #fff;
+    border-radius: 8px; touch-action: none; cursor: crosshair;
+    background-color: #f5f3ee;
+    background-image: url("paper_texture.webp");
+    background-repeat: repeat;
+    background-size: 627px 627px;
   }
   .row { display: flex; align-items: center; gap: 8px; }
   .result-word { font-size: 30px; font-weight: 700; min-height: 38px; word-break: break-all; }
