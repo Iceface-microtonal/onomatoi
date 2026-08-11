@@ -2602,6 +2602,8 @@ function nvDiphReattackBreaks(idx, moras) {
 }
 
 // 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの run は持続を保つ。
+// 5モーラ以上では、最後の言い直しが末尾1モーラだけを孤立させる場合に限って抑止する。
+// 前半の2モーラ周期は保ち、末尾を3モーラの一続きにしてスタッカート感を避ける。
 function nvSameVowelRunReattacks(idx, moras) {
   if (idx < 2 || idx >= moras.length) return false;
   const cur = moras[idx];
@@ -2621,7 +2623,14 @@ function nvSameVowelRunReattacks(idx, moras) {
     start--;
   }
   const pos = idx - start;
-  return pos >= 2 && pos % 2 === 0;
+  const isScheduledReattack = pos >= 2 && pos % 2 === 0;
+  if (!isScheduledReattack) return false;
+  const wordEndsAfterRun = end + 1 >= moras.length || !!moras[end + 1].isSilentRest;
+  let wordStart = end;
+  while (wordStart > 0 && !moras[wordStart - 1].isSilentRest) wordStart--;
+  const wordMoraCount = end - wordStart + 1;
+  const wouldIsolateFinalMora = idx === end && wordEndsAfterRun;
+  return !(wouldIsolateFinalMora && wordMoraCount >= 5);
 }
 
 // 語中の ん の継続撥音キー (直前が母音モーラならその母音) — continuationNVowel
@@ -3404,7 +3413,7 @@ function axesEqual(a, b) {
 // (Google Apps Script 等で公開ユーザーから収集したい場合用。空なら何もしない)。
 const FEEDBACK_ENDPOINT = "";
 const FB_VERSION = 4;          // v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加 (v3: reason)
-const ENGINE_VERSION = "v20";  // v20: 現行Core再アタック3法/ui・語末diph。v19: 命名配置層。v18: 乱雑度→濁音・拗音
+const ENGINE_VERSION = "v21";  // v21: 5モーラ以上の末尾1モーラ再アタックを抑止。v20: 現行Core再アタック3法/ui・語末diph
 let feedbackLog = [];
 try { feedbackLog = JSON.parse(localStorage.getItem("onomatoi.feedback") || "[]"); } catch (e) {}
 let utteranceSeq = 0;

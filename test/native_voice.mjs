@@ -2,7 +2,8 @@
 //
 // 方式: kou_properties.mjs と同じ「<script> から純粋宣言を抽出して vm 評価」。
 // 音声は合成波形 (サイン波の疑似テイク) で駆動し、以下を固定する:
-//   1. 振り分け: 現行Coreの再アタック3法 (kaii / aaii / iiii) と撥音直前例外
+//   1. 振り分け: 現行Coreの再アタック3法 (kaii / aaii / iiii) と撥音直前例外、
+//      Webの5モーラ以上における末尾1モーラ孤立の抑止
 //      単独ペア (ai) は生 diph、単独CV→V (sai) は cvDiph のまま
 //   2. nvPrepareCvDiph: 整形後のレベル (頭 -12dBFS 付近) と第2母音の復元
 //   3. nvRenderEvent: aauu / an / ai の語中に無音級の谷 (テイク境界の途切れ) が無い
@@ -164,7 +165,7 @@ function rmsWindows(data, sr, winSec = 0.02) {
 const MORA_MS = 250;
 const q = w => api.nvQuantizeMoras(api.segmentWord(w), MORA_MS);
 
-console.log("── 1. 再アタック3法と振り分け (現行Core同等) ──");
+console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末尾孤立例外) ──");
 {
   const bank = makeBank();
   for (const w of ["aauu", "aaii", "oouu", "eeii", "ooii"]) {
@@ -210,8 +211,42 @@ console.log("── 1. 再アタック3法と振り分け (現行Core同等) ─
         !!i4tail && i4tail.baseMs === MORA_MS && i4tail.totalMs === 2 * MORA_MS,
         JSON.stringify(i4tail));
   const i5 = q("iiiii");
-  check("iiiii: 3・5モーラ目で数え直す",
-        api.nvSameVowelRunReattacks(2, i5) && api.nvSameVowelRunReattacks(4, i5));
+  check("iiiii: ii|iii とし、5モーラ目を孤立させない",
+        api.nvSameVowelRunReattacks(2, i5) && !api.nvSameVowelRunReattacks(4, i5));
+  const i5tail = api.nvLongVowelExtension(4, i5);
+  check("iiiii: 末尾3モーラは一続き",
+        !!i5tail && i5tail.baseMs === 2 * MORA_MS
+          && i5tail.totalMs === 3 * MORA_MS,
+        JSON.stringify(i5tail));
+  const i7 = q("iiiiiii");
+  check("iiiiiii: ii|ii|iii とし、7モーラ目を孤立させない",
+        api.nvSameVowelRunReattacks(2, i7) && api.nvSameVowelRunReattacks(4, i7)
+          && !api.nvSameVowelRunReattacks(6, i7));
+  check("iii: 5モーラ未満は従来どおり ii|i",
+        api.nvSameVowelRunReattacks(2, q("iii")));
+  const piuuuu = q("piuuuu");
+  check("piuuuu: 非diphのi→u後を pi|uu|uu にする",
+        piuuuu.length === 5 && !api.nvDiphReattackBreaks(2, piuuuu)
+          && api.nvSameVowelRunReattacks(3, piuuuu)
+          && !api.nvSameVowelRunReattacks(4, piuuuu));
+  const piuuuuTail = api.nvLongVowelExtension(4, piuuuu);
+  check("piuuuu: 最後のuは単独再アタックにならない",
+        !!piuuuuTail && piuuuuTail.baseMs === MORA_MS
+          && piuuuuTail.totalMs === 2 * MORA_MS,
+        JSON.stringify(piuuuuTail));
+  const bouuuu = q("bouuuu");
+  check("bouuuu: diph後の区切りは維持し、末尾だけ孤立させない",
+        bouuuu.length === 5 && api.nvDiphReattackBreaks(2, bouuuu)
+          && !api.nvSameVowelRunReattacks(4, bouuuu));
+  const bouuuuTail = api.nvLongVowelExtension(4, bouuuu);
+  check("bouuuu: bou|uuu の末尾3モーラは一続き",
+        !!bouuuuTail && bouuuuTail.baseMs === 2 * MORA_MS
+          && bouuuuTail.totalMs === 3 * MORA_MS,
+        JSON.stringify(bouuuuTail));
+  const rest = { onset: null, nucleus: "a", durationMs: MORA_MS, gapMs: 0,
+                 amplitude: 0, isN: false, isSilentRest: true };
+  check("bouuuu+休符: COMPOSE内でも語末1モーラを孤立させない",
+        !api.nvSameVowelRunReattacks(4, [...bouuuu, rest]));
   check("iiiin: 直後がんのrunは第3法の例外", !api.nvSameVowelRunReattacks(2, q("iiiin")));
   check("kooon: 子音接頭でもん例外", !api.nvSameVowelRunReattacks(2, q("kooon")));
 
