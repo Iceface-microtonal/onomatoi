@@ -296,6 +296,8 @@
  *    中=第二特徴/末=終止モード) へ変換する第2の生成経路 (namingDecompose/namingSlots/
  *    namingGenerate/namingGenerateClean, P4 対照モード込み)。実況 (generate/legalize,
  *    ENGINE_VERSION) には無変更 — dev 専用 (?dev=1) トグル OFF (既定) では 1 bit も変わらない。
+ * 2026-08-11 Web parity v20 (Warabe/COMPOSEを除く): 現行Coreのdiph再アタック3法、ui/語末fin、
+ *    diph接合−3dB、CV→V先行40ms/20%、ローマ字平音化、NG語「ババ」を移植。
  * ============================================================ */
 
 const SAMPLE_BASE = "./ConsonantsOnomatoi/";   // wav の場所 (開発用: プロジェクト内参照)
@@ -637,7 +639,8 @@ function softmaxSample(scores, temperature, rand) {
 // パラメータ」方式 — 語形テンプレは触らない (音素バイアスのみ・立法最小)。
 const DISORDER_PHONES = { g: 1.0, z: 1.0, j: 1.0, gy: 1.0, d: 0.7, b: 0.7, ch: 0.6 };
 const DISORDER_WEIGHT = 0.9;
-function pickConsonant(target, prevOnset, temperature, rand, kiki = null, manner = null, excludeNil = false, disorder = null) {
+function pickConsonant(target, prevOnset, temperature, rand, kiki = null, manner = null,
+                       excludeNil = false, disorder = null) {
   const scores = [];
   if (!excludeNil) {
     // nil-onset 候補: burst の要否は kiki (あれば) で判断
@@ -1003,6 +1006,7 @@ function romajiOf(event) {
   return s;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ─── AxisExtractor (Swift Phase 1n の移植) ───
 function extractAxes(points, w, h) {
   if (points.length < 2 || w <= 0 || h <= 0) return { size: 0, sharp: 0, tex: 0, bright: 0 };
@@ -1879,6 +1883,7 @@ const NAMING_NG_WORDS = [
   "ペニス", "クンニ", "フェラ", "オナニ", "セックス", "エロ",
   // スカトロ
   "ウンコ", "ウンチ", "シッコ", "クソ", "ゲロ", "ゲリ",
+  "ババ",   // 幼児語の汚物/婆 (Core 2026-07-28 裁定)
   // 暴言
   "シネ", "コロス",
 ];
@@ -2009,8 +2014,8 @@ function circleVocabSignal(cx, ax) {
 // 母音+ん」を上書きする。原理: 鼻音=柔らかさ / ん=収束 (円が完成したときだけ) /
 // 拗音=生物・意思 / 右重心の原則 (コウさんの書字方向: ⊃=接近・i で前に焦点化,
 // ⊂=後退・o で奥に集まる) / ∪ は重力が支配する例外。
-// my行は録音待ち — 語彙は my のまま保持し、再生だけ cv_m<v> へフォールバック
-// (bufferFor / sampleUrlCandidates)。録音が届けばファイルを置くだけで置き替わる。
+// my行は cv_mya/myi/myo/myu を収録済み。未録音の mye は入力時に me へ平音化し、
+// 欠損環境では bufferFor / sampleUrlCandidates が m行へフォールバックする。
 const ARC_VOCAB = {
   right: ["myi", "myii", "myiii"],   // ⊃ 膨らみ右: 横から柔らかな何かが突き出る・飛んでくる
   left:  ["myo", "myoo", "myooo"],   // ⊂ 膨らみ左: 音が引いていく・奥に集まる
@@ -2330,7 +2335,7 @@ function trimLeadingSilence(buf) {
 // (FormantSynth の「v_N フォールバック」の移植)。
 const CONTN_VOWELS = VOWELS;
 const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同じキーで使う
-const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou"];
+const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];
 // CV→V (こう/かい/せい…) 専用の拡張録音 (2026-07-14: native ConsonantSampleBank の
 // cvDiph 移植)。native は 2026-07-06 に「生 diph の末尾から逆算」方式を明示的に廃止
 // している (実音は前半 ~400ms のみ・末尾は減衰+無音のため、ほぼ無音を再生していた —
@@ -2340,7 +2345,8 @@ const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou"];
 // 専用の拡張録音 (diph_aaii 等) を先行オーバーラップで読む。(a,u) ペアは native 側にも
 // 拡張録音が無いため、この機構は使わず**素の母音として発声**する (native の現状の
 // 挙動と同じ・虚偽の継続をしない方が正直)。
-const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou"];   // au は 2026-07-16 に復旧 (誤削除されていた diph_aauu を他 family から回収)
+const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
+const CV_DIPH_FIN_PAIRS = ["au", "ei", "ou"];   // 語末専用: aauu/eeii/oouu_fin
 
 function sampleKeys() {
   const keys = [];
@@ -2358,6 +2364,7 @@ function sampleKeys() {
   for (const v of CONTN_VOWELS) keys.push("v_" + v + "_nn");
   for (const p of DIPH_PAIRS) keys.push("diph_" + p);
   for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
+  for (const p of CV_DIPH_FIN_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1] + "_fin");
   // P12 開いた弧の語彙で使う my行 (2026-07-16 コウさん録音 myi/myo/myu/mya を収録)。
   // 全て実録音あり (未録音なら sampleUrlCandidates が cv_m<v> へフォールバック)。
   keys.push("cv_myi", "cv_myo", "cv_myu", "cv_mya");
@@ -2381,8 +2388,7 @@ function sampleUrlCandidates(key) {
   // v_iiiiwav.wav 事故と同型の反復パターン — web 用 mp3 は正しい名で変換済みだが、
   // dev コピー (native Resources を直参照) はタイポ済み実ファイルに当たる。
   if (key.startsWith("diph_")) names.push(key + "wav" + SAMPLE_EXT);
-  // P12: my行は録音待ち — cv_my<v> が無ければ cv_m<v> (み/も) で代用。
-  // コウさんが cv_myi/cv_myo を録音して置けば、自動的に本来の音へ置き替わる。
+  // P12: my行が欠損した古い配布物では cv_m<v> (み/も) で代用。
   const my = key.match(/^cv_my([aiueo])$/);
   if (my) names.push("cv_m" + my[1] + SAMPLE_EXT);
   return names;
@@ -2445,7 +2451,7 @@ function bufferFor(mora) {
   if (mora.onset === null) return sampleBank.get("v_" + mora.nucleus) ?? null;
   const exact = sampleBank.get("cv_" + mora.onset + mora.nucleus);
   if (exact) return exact;
-  // P12: my行 (録音待ち) は m行で代用 (sampleUrlCandidates の候補列と同じ趣旨の保険)。
+  // P12: my行が欠損した古い配布物は m行で代用 (sampleUrlCandidates と同じ保険)。
   if (mora.onset === "my") {
     const fb = sampleBank.get("cv_m" + mora.nucleus);
     if (fb) return fb;
@@ -2510,12 +2516,14 @@ function analyzeMoras(moras) {
 //  - 摩擦延長テイク (cv_sQs)・V-Q・V-N — web に録音アセットが無い (native も無ければ同じ経路)
 //
 // bank (plain object): { sr, cv: Map("onset|nucleus"→Float32Array), v: Map, nN, contN: Map,
-//   diph: Map("v1v2"→生配列), cvDiph: Map("v1v2"→整形済み), longDiph: Set("v1v2") }
+//   diph: Map("v1v2"→生配列), cvDiph: Map("v1v2"→整形済み),
+//   cvDiphFin: Map("v1v2"→語末専用整形済み), longDiph: Set("v1v2") }
 // contN (v_<v>_nn) はベイク済み mp3 (scripts/bake_contn.py = prepareContN B′) をそのまま使う。
 
 const NV_SAMPLE_FADE_IN_MS = 5;    // FormantSynth.sampleFadeInMs
 const NV_SAMPLE_FADE_OUT_MS = 15;  // FormantSynth.sampleFadeOutMs
 const NV_EVENT_FADE_IN_MS = 5;     // FormantSynth.eventFadeInMs
+const NV_DIPH_JOIN_GAIN = 0.7079;   // FormantSynth.diphJoinGain (-3dB)
 
 // interpolate (ConsonantSampleBank): 線形補間・末尾を越えたら null (native は nil → 次分岐)
 function nvInterp(arr, sr, tSec) {
@@ -2549,6 +2557,8 @@ function nvSustainWrap(t, duration) {
 }
 
 function nvContNPreRollMs(prevDurationMs) { return Math.min(100.0, prevDurationMs * 0.5); }
+// CV→V は鼻音より短い接着区間だけを先行させ、V2 が最大1.5モーラに膨らむのを防ぐ。
+function nvCvDiphPreRollMs(prevDurationMs) { return Math.min(40.0, prevDurationMs * 0.2); }
 
 // bpmQuantized (PhonosymbolicEvent): 促音は原寸 (断ちの音価)・gap は 1 拍・他は 1 拍
 function nvQuantizeMoras(moras, targetMoraMs) {
@@ -2564,6 +2574,54 @@ function nvIsLongVowelStep(prev, cur) {
   return prev.nucleus === cur.nucleus ||
          (prev.nucleus === "e" && cur.nucleus === "i") ||
          (prev.nucleus === "o" && cur.nucleus === "u");
+}
+
+// diph 再アタック3法 (OnomatoiCore 2026-08-01〜02)。判定は音程に依存しない。
+const NV_DIPH_REATTACK_PAIRS = new Set(DIPH_PAIRS);
+
+// 第2法: V1 が2モーラ以上続いた後の V1→V2 境界は diph を使わず V2 を言い直す。
+function nvExtendedRunBoundaryReattacks(idx, moras) {
+  if (idx < 2 || idx >= moras.length) return false;
+  const v2 = moras[idx], v1 = moras[idx - 1], root = moras[idx - 2];
+  if (v2.onset !== null || v2.isN || v2.isSilentRest) return false;
+  if (v1.onset !== null || v1.isN || v1.isSilentRest || v1.nucleus === v2.nucleus) return false;
+  if (root.isN || root.isSilentRest || root.nucleus !== v1.nucleus) return false;
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus);
+}
+
+// 第1法: 実際に鳴った diph の V2 直後に続く同母音は、延長せず言い直す。
+function nvDiphReattackBreaks(idx, moras) {
+  if (idx < 2 || idx >= moras.length) return false;
+  const cur = moras[idx], v2 = moras[idx - 1], v1 = moras[idx - 2];
+  if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
+  if (v2.onset !== null || v2.isN || v2.isSilentRest || v2.nucleus !== cur.nucleus) return false;
+  if (v1.isN || v1.isSilentRest || v1.nucleus === cur.nucleus) return false;
+  // 第2法で V2 自体を言い直した境界なら、次の同母音は通常の長音になる。
+  if (nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus);
+}
+
+// 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの run は持続を保つ。
+function nvSameVowelRunReattacks(idx, moras) {
+  if (idx < 2 || idx >= moras.length) return false;
+  const cur = moras[idx];
+  if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
+  let end = idx;
+  while (end + 1 < moras.length) {
+    const n = moras[end + 1];
+    if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== cur.nucleus) break;
+    end++;
+  }
+  if (end + 1 < moras.length && moras[end + 1].isN) return false;
+  let start = idx;
+  while (start > 0) {
+    const p = moras[start - 1];
+    if (moras[start].onset !== null || p.nucleus !== cur.nucleus || p.isN || p.isSilentRest) break;
+    if (nvDiphReattackBreaks(start, moras) || nvExtendedRunBoundaryReattacks(start, moras)) break;
+    start--;
+  }
+  const pos = idx - start;
+  return pos >= 2 && pos % 2 === 0;
 }
 
 // 語中の ん の継続撥音キー (直前が母音モーラならその母音) — continuationNVowel
@@ -2584,30 +2642,10 @@ function nvVowelRunRootHasOnset(idx, moras) {
   return moras[root].onset !== null;
 }
 
-// 母音根の拡張 run (aauu/aaii/oouu/eeii/ooii) を長尺録音 cvDiph が受け持つか —
-// extendedVRunTakesCvDiph (core v8, 2026-07-16)
+// 第2法で母音根の拡張runは全廃。長尺録音は単独CV→Vと語末finの整形元に限定。
 function nvExtendedVRunTakesCvDiph(idx, moras, bank) {
-  if (idx < 0 || idx + 1 >= moras.length) return false;
-  const cur = moras[idx], next = moras[idx + 1];
-  if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
-  if (next.onset !== null || next.isN || next.isSilentRest) return false;
-  if (cur.nucleus === next.nucleus) return false;
-  if (!bank.longDiph.has(cur.nucleus + next.nucleus)) return false;
-  if (nvVowelRunRootHasOnset(idx, moras)) return false;   // 子音アンカー列は従来判定が担う
-  let v1First = idx;
-  while (v1First > 0) {
-    const p = moras[v1First - 1];
-    if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== cur.nucleus) break;
-    v1First--;
-  }
-  if (idx - v1First + 1 >= 2) return true;
-  let v2Last = idx + 1;
-  while (v2Last + 1 < moras.length) {
-    const n = moras[v2Last + 1];
-    if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== next.nucleus) break;
-    v2Last++;
-  }
-  return v2Last - idx >= 2;
+  void idx; void moras; void bank;
+  return false;
 }
 
 // V+V diph (パターン1) が idx を引き受けるか — vvDiphPart1Takes
@@ -2617,7 +2655,7 @@ function nvVvDiphPart1Takes(idx, moras, bank) {
   if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
   if (next.onset !== null || next.isN || next.isSilentRest) return false;
   if (!bank.diph.has(cur.nucleus + next.nucleus)) return false;
-  if (nvExtendedVRunTakesCvDiph(idx, moras, bank)) return false;   // 長尺録音側へ譲る (v8)
+  if (nvExtendedRunBoundaryReattacks(idx + 1, moras)) return false;
   return !nvVowelRunRootHasOnset(idx, moras);
 }
 function nvNextTakenByVVDiph(idx, moras, bank) { return nvVvDiphPart1Takes(idx + 1, moras, bank); }
@@ -2627,8 +2665,9 @@ function nvCvDiphPrev(idx, moras, bank) {
   if (idx <= 0 || idx >= moras.length) return null;
   const m = moras[idx];
   if (m.onset !== null || m.isN || m.isSilentRest) return null;
+  if (nvDiphReattackBreaks(idx, moras)) return null;
   let first = idx;
-  while (first > 0) {
+  while (first > 0 && !nvDiphReattackBreaks(first, moras)) {
     const p = moras[first - 1];
     if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== m.nucleus) break;
     first--;
@@ -2636,8 +2675,8 @@ function nvCvDiphPrev(idx, moras, bank) {
   if (first <= 0) return null;
   const prev = moras[first - 1];
   if (prev.isN || prev.isSilentRest || prev.nucleus === m.nucleus) return null;
-  if (!nvVowelRunRootHasOnset(first - 1, moras) &&
-      !nvExtendedVRunTakesCvDiph(first - 1, moras, bank)) return null;
+  if (nvExtendedRunBoundaryReattacks(first, moras)) return null;
+  if (!nvVowelRunRootHasOnset(first - 1, moras)) return null;
   let offset = 0;
   for (let i = first; i < idx; i++) offset += moras[i].durationMs;
   return { v1: prev.nucleus, v2: m.nucleus, prevDurationMs: prev.durationMs,
@@ -2648,13 +2687,13 @@ function nvCvDiphPrev(idx, moras, bank) {
 function nvCvDiphRunShape(idx, moras) {
   const nucleus = moras[idx].nucleus;
   let last = idx;
-  while (last + 1 < moras.length) {
+  while (last + 1 < moras.length && !nvDiphReattackBreaks(last + 1, moras)) {
     const n = moras[last + 1];
     if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== nucleus) break;
     last++;
   }
   let first = idx;
-  while (first > 0) {
+  while (first > 0 && !nvDiphReattackBreaks(first, moras)) {
     const p = moras[first - 1];
     if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== nucleus) break;
     first--;
@@ -2669,6 +2708,9 @@ function nvNextUsesLongVowelExtension(idx, moras) {
   if (cur.isN || cur.isSilentRest || idx + 1 >= moras.length) return false;
   const next = moras[idx + 1];
   if (next.onset !== null || next.isN || next.isSilentRest) return false;
+  if (nvDiphReattackBreaks(idx + 1, moras) ||
+      nvExtendedRunBoundaryReattacks(idx + 1, moras) ||
+      nvSameVowelRunReattacks(idx + 1, moras)) return false;
   return cur.nucleus === next.nucleus ||
          (cur.nucleus === "e" && next.nucleus === "i") ||
          (cur.nucleus === "o" && next.nucleus === "u");
@@ -2678,10 +2720,10 @@ function nvNextUsesLongVowelExtension(idx, moras) {
 function nvNextUsesCVtoVDiph(idx, moras, bank) {
   const cur = moras[idx];
   if (cur.isN || cur.isSilentRest || idx + 1 >= moras.length) return false;
-  if (!nvVowelRunRootHasOnset(idx, moras) &&
-      !nvExtendedVRunTakesCvDiph(idx, moras, bank)) return false;
+  if (!nvVowelRunRootHasOnset(idx, moras)) return false;
   const next = moras[idx + 1];
   if (next.onset !== null || next.isN || next.isSilentRest) return false;
+  if (nvExtendedRunBoundaryReattacks(idx + 1, moras)) return false;
   return bank.diph.has(cur.nucleus + next.nucleus);
 }
 
@@ -2716,9 +2758,15 @@ function nvLongVowelExtension(idx, moras) {
   const m = moras[idx];
   if (m.onset !== null || m.isN || m.isSilentRest || idx <= 0) return null;
   if (!nvIsLongVowelStep(moras[idx - 1], m)) return null;
+  if (nvDiphReattackBreaks(idx, moras) ||
+      nvExtendedRunBoundaryReattacks(idx, moras) ||
+      nvSameVowelRunReattacks(idx, moras)) return null;
   let root = idx - 1;
   while (root > 0 && moras[root].onset === null && !moras[root].isN &&
-         nvIsLongVowelStep(moras[root - 1], moras[root])) {
+         nvIsLongVowelStep(moras[root - 1], moras[root]) &&
+         !nvDiphReattackBreaks(root, moras) &&
+         !nvExtendedRunBoundaryReattacks(root, moras) &&
+         !nvSameVowelRunReattacks(root, moras)) {
     root--;
   }
   // v7.15: 直前が同じ母音なのに根が別母音 (oouu の 4 モーラ目) は同一母音 run の先頭を根に
@@ -2736,7 +2784,10 @@ function nvLongVowelExtension(idx, moras) {
   for (let i = root; i < idx; i++) baseMs += moras[i].durationMs;
   let last = idx;
   while (last + 1 < moras.length && moras[last + 1].onset === null && !moras[last + 1].isN &&
-         nvIsLongVowelStep(moras[last], moras[last + 1])) {
+         nvIsLongVowelStep(moras[last], moras[last + 1]) &&
+         !nvDiphReattackBreaks(last + 1, moras) &&
+         !nvExtendedRunBoundaryReattacks(last + 1, moras) &&
+         !nvSameVowelRunReattacks(last + 1, moras)) {
     last++;
   }
   let totalMs = 0;
@@ -2884,13 +2935,16 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // 以下 onset === null (母音モーラ)
     const cvd = nvCvDiphPrev(i, moras, bank);
     if (cvd) {
-      const arr = bank.cvDiph.get(cvd.v1 + cvd.v2);
+      const runShape = nvCvDiphRunShape(i, moras);
+      const finArr = runShape.isWordFinal ? bank.cvDiphFin.get(cvd.v1 + cvd.v2) : null;
+      const arr = finArr || bank.cvDiph.get(cvd.v1 + cvd.v2);
       if (arr) {
         const next = i + 1 < moras.length ? moras[i + 1] : null;
         const continuesRun = !!(next && next.onset === null && !next.isN &&
-                                !next.isSilentRest && next.nucleus === m.nucleus);
+                                !next.isSilentRest && next.nucleus === m.nucleus &&
+                                !nvDiphReattackBreaks(i + 1, moras));
         return { kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
-                 runShape: nvCvDiphRunShape(i, moras), continuesRun };
+                 runShape, continuesRun, usesFin: !!finArr };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
@@ -2975,7 +3029,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = (value === null ? 0 : value) * amp * env * eventFade;
     } else if (plan.kind === "cvDiph") {
       const cvd = plan.cvd;
-      const preRoll = nvContNPreRollMs(cvd.prevDurationMs);
+      const preRoll = nvCvDiphPreRollMs(cvd.prevDurationMs);
       let value = nvInterp(plan.arr, sr,
         nvSustainWrap((preRoll + cvd.timeOffsetMs + phoneT) / 1000, plan.dur));
       if (value === null) value = 0;
@@ -2993,22 +3047,24 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
             env *= c * c;
           }
         } else {
-          // v7.11: 単独 diph モーラは 22% からリリース
+          // 語末専用finは素材の閉じを活かすため、通常diphより少し早くリリースする。
           const u = phoneT / m.durationMs;
-          if (u > 0.22) {
-            const r = Math.min(1, (u - 0.22) / 0.73);
+          const relStart = plan.usesFin ? 0.16 : 0.22;
+          const relWidth = plan.usesFin ? 0.62 : 0.73;
+          if (u > relStart) {
+            const r = Math.min(1, (u - relStart) / relWidth);
             const c = Math.cos(r * Math.PI / 2);
             env *= c * c;
           }
         }
       }
-      val = value * amp * env * eventFade;
+      val = value * NV_DIPH_JOIN_GAIN * amp * env * eventFade;
     } else if (plan.kind === "diph") {
       const t = plan.diph.baseMs + tin;
       const value = nvInterp(plan.arr, sr, t / 1000);
       const envT = plan.isCVtoV ? t + NV_SAMPLE_FADE_IN_MS + 1 : t;
       const env = nvSampleEnvelope(envT, plan.diph.envTotalMs);
-      val = (value === null ? 0 : value) * amp * env * eventFade;
+      val = (value === null ? 0 : value) * NV_DIPH_JOIN_GAIN * amp * env * eventFade;
     } else if (plan.kind === "ext") {
       const ext = plan.ext;
       const timeMs = ext.baseMs + phoneT;
@@ -3058,7 +3114,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // ─── CV→V diph の先行オーバーラップ ───
     if (post.cvDiphArr) {
       const boundary = m.gapMs + m.durationMs;
-      const preRoll = nvContNPreRollMs(m.durationMs);
+      const preRoll = nvCvDiphPreRollMs(m.durationMs);
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
         const dv = nvInterp(post.cvDiphArr, sr, tailT / 1000);
@@ -3093,7 +3149,8 @@ let nvBank = null, nvBankStamp = -1;
 function nvChan(key) { const b = sampleBank.get(key); return b ? b.getChannelData(0) : null; }
 function buildNativeVoiceBank(sr) {
   const bank = { sr, cv: new Map(), v: new Map(), nN: null, contN: new Map(),
-                 diph: new Map(), cvDiph: new Map(), longDiph: new Set() };
+                 diph: new Map(), cvDiph: new Map(), cvDiphFin: new Map(),
+                 longDiph: new Set() };
   for (const [key, buf] of sampleBank) {
     if (!buf || !key.startsWith("cv_")) continue;
     const onset = key.slice(3, -1), nucleus = key.slice(-1);
@@ -3130,6 +3187,11 @@ function buildNativeVoiceBank(sr) {
     } else if (raw) {
       const prepared = nvPrepareCvDiph(raw, sr);   // 長尺が無いペアは生 diph から (native と同じ)
       if (prepared.length) bank.cvDiph.set(p, prepared);
+    }
+    const finRaw = nvChan("diph_" + p[0] + p[0] + p[1] + p[1] + "_fin");
+    if (finRaw) {
+      const preparedFin = nvPrepareCvDiph(finRaw, sr);
+      if (preparedFin.length) bank.cvDiphFin.set(p, preparedFin);
     }
   }
   return bank;
@@ -3274,7 +3336,8 @@ function scheduleEventLegacy(ctx, event) {
   const moraSec = 30.0 / bpm;             // 30000/BPM ms
   const moras = event.moras;
   const plan = analyzeMoras(moras);
-  const preRollSec = Math.min(0.1, moraSec * 0.5);   // FormantSynth.contNPreRollMs の移植
+  const contNPreRollSec = Math.min(0.1, moraSec * 0.5);
+  const cvDiphPreRollSec = Math.min(0.04, moraSec * 0.2);
   let t = ctx.currentTime + 0.04;
   const mouthCells = [];   // P3 口の推移列: モーラごとの実スケジュール時刻
   for (let i = 0; i < moras.length; i++) {
@@ -3288,8 +3351,8 @@ function scheduleEventLegacy(ctx, event) {
       // 2026-07-14: 窓をバッファ実長でクランプ — 短いテイク (v_i_nn=0.26s < 窓0.35s) は
       // 正規化ランプの終端がぶつ切りになり「持ち上がって低くサッと切れる」音が出ていた。
       const buf = contNBufferFor(moras[p.prevIndex].nucleus);
-      if (buf) scheduleOne(ctx, buf, t - preRollSec,
-                           Math.min(moraSec + preRollSec, buf.duration), m.amplitude);
+      if (buf) scheduleOne(ctx, buf, t - contNPreRollSec,
+                           Math.min(moraSec + contNPreRollSec, buf.duration), m.amplitude);
       else { const nb = bufferFor(m); if (nb) scheduleOne(ctx, nb, t, moraSec, m.amplitude); }
     } else if (p.kind === "cvDiphExt") {
       // CV→V 連続母音 (かい/こう等): v1 を保持したまま v2 へ移る拡張録音
@@ -3298,8 +3361,9 @@ function scheduleEventLegacy(ctx, event) {
       // そのものの立ち上がり (leading silence trim 済) — 直前 CV の減衰と重ねて
       // 鳴らすことで再アタック無しに繋がる (contN と同じ様式)。
       const buf = cvDiphExtBufferFor(p.v1, p.v2);
-      if (buf) scheduleOne(ctx, buf, t - preRollSec,
-                           Math.min(moraSec + preRollSec, buf.duration), m.amplitude);
+      if (buf) scheduleOne(ctx, buf, t - cvDiphPreRollSec,
+                           Math.min(moraSec + cvDiphPreRollSec, buf.duration),
+                           m.amplitude * NV_DIPH_JOIN_GAIN);
     } else {
       const buf = bufferFor(m);
       // 次モーラが contN / cvDiphExt (先行オーバーラップで重なる) なら、この母音は
@@ -3307,9 +3371,10 @@ function scheduleEventLegacy(ctx, event) {
       // クロスフェード相当。全音量のまま重ねると二重発声のダブりに聴こえる
       // (2026-07-14: i+in / gya+diphExt で確認)。
       const next = i + 1 < moras.length ? plan[i + 1] : null;
-      const nextOverlaps = next && (next.kind === "contN" || next.kind === "cvDiphExt");
+      const nextPreRoll = next && next.kind === "contN" ? contNPreRollSec
+        : next && next.kind === "cvDiphExt" ? cvDiphPreRollSec : 0;
       if (buf) scheduleOne(ctx, buf, t, moraSec, m.amplitude, 0,
-                           nextOverlaps ? preRollSec : 0.012);
+                           nextPreRoll || 0.012);
     }
     t += moraSec;
   }
@@ -3327,7 +3392,6 @@ let lastEventAxes = null;   // lastEvent を作ったときの軸 (変更検知�
 let presetFirstTapDone = new Set();
 let presetTapCounts = new Map();
 const logEntries = [];   // { axes, romaji, f0, moras, isRedup }
-
 function axesEqual(a, b) {
   if (!a || !b) return false;
   return Math.abs(a.size - b.size) < 1e-9 && Math.abs(a.sharp - b.sharp) < 1e-9 &&
@@ -3340,7 +3404,7 @@ function axesEqual(a, b) {
 // (Google Apps Script 等で公開ユーザーから収集したい場合用。空なら何もしない)。
 const FEEDBACK_ENDPOINT = "";
 const FB_VERSION = 4;          // v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加 (v3: reason)
-const ENGINE_VERSION = "v18";  // 生成/音声実現の版 (集計用)。v18 = 乱雑度→濁音・拗音 (#4 立法提案)。v17 = 8の字ガード+星の救済+労力反転チャネル。v16 = なぞり直し正準化。v15 = 転回集中度→形のK。v14 = 閉形の正準化
+const ENGINE_VERSION = "v20";  // v20: 現行Core再アタック3法/ui・語末diph。v19: 命名配置層。v18: 乱雑度→濁音・拗音
 let feedbackLog = [];
 try { feedbackLog = JSON.parse(localStorage.getItem("onomatoi.feedback") || "[]"); } catch (e) {}
 let utteranceSeq = 0;
@@ -4238,8 +4302,16 @@ function parseMora(token, withQ) {
     return { onset: null, nucleus: token, durationMs: 180, gapMs: gapFor(null), amplitude: 1, isN: false };
   // my は P12 (2026-07-16) の新音素 (みゃ行)。myi=むぃ も実録音あり (myon→みょん が打てるように)。
   for (const c2 of ["sh","ts","ch","ky","gy","ny","my"]) {
-    if (token.startsWith(c2) && VOWELS.includes(token.slice(c2.length)))
-      return { onset: c2, nucleus: token.slice(c2.length), durationMs: 180, gapMs: gapFor(c2), amplitude: 1, isN: false };
+    if (token.startsWith(c2) && VOWELS.includes(token.slice(c2.length))) {
+      const nucleus = token.slice(c2.length);
+      // 拗音 ky/gy/ny は a/u/o のみ。i/e では平音化し、存在しない音声キーへ落ちない。
+      // myi は実録音済みなので保持し、未録音の mye だけ me へ正規化する。
+      let onset = c2;
+      if ((c2 === "ky" || c2 === "gy" || c2 === "ny") && (nucleus === "i" || nucleus === "e"))
+        onset = c2 === "ky" ? "k" : c2 === "gy" ? "g" : "n";
+      if (c2 === "my" && nucleus === "e") onset = "m";
+      return { onset, nucleus, durationMs: 180, gapMs: gapFor(onset), amplitude: 1, isN: false };
+    }
   }
   if (token.length === 2 && CONSONANTS.includes(token[0]) && VOWELS.includes(token[1]))
     return { onset: token[0], nucleus: token[1], durationMs: 180, gapMs: gapFor(token[0]), amplitude: 1, isN: false };

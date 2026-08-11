@@ -2,11 +2,12 @@
 //
 // 方式: kou_properties.mjs と同じ「<script> から純粋宣言を抽出して vm 評価」。
 // 音声は合成波形 (サイン波の疑似テイク) で駆動し、以下を固定する:
-//   1. 振り分け: 母音根の拡張 run (aauu 等) が長尺録音 cvDiph 経路に乗る (core v8 同等)
-//      単独ペア (ai) は生 diph のまま / 子音根 (saai) は従来どおり
+//   1. 振り分け: 現行Coreの再アタック3法 (kaii / aaii / iiii) と撥音直前例外
+//      単独ペア (ai) は生 diph、単独CV→V (sai) は cvDiph のまま
 //   2. nvPrepareCvDiph: 整形後のレベル (頭 -12dBFS 付近) と第2母音の復元
 //   3. nvRenderEvent: aauu / an / ai の語中に無音級の谷 (テイク境界の途切れ) が無い
 //   4. 促音 isQ の音価 (60ms) が量子化で保存される
+//   5. 語末専用 diph テイクが通常テイクより優先される
 //
 // 実行: node test/native_voice.mjs
 
@@ -76,9 +77,12 @@ function extractEngine(html) {
 }
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
-const EXPORTS = ["segmentWord", "nvQuantizeMoras", "nvVowelRunRootHasOnset",
+const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
+  "nvQuantizeMoras", "nvVowelRunRootHasOnset",
   "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
+  "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
+  "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`,
@@ -128,14 +132,16 @@ function synthLongDiphRaw() {
 
 function makeBank() {
   const bank = { sr: SR, cv: new Map(), v: new Map(), nN: null, contN: new Map(),
-                 diph: new Map(), cvDiph: new Map(), longDiph: new Set() };
+                 diph: new Map(), cvDiph: new Map(), cvDiphFin: new Map(), longDiph: new Set() };
   bank.v.set("a", sine(1.0, 200, 0.15));
+  bank.v.set("e", sine(1.0, 270, 0.15));
   bank.v.set("u", sine(1.0, 300, 0.15));
   bank.v.set("i", sine(1.0, 320, 0.15));
   bank.cv.set("s|a", sine(0.5, 210, 0.15));
+  bank.cv.set("s|e", sine(0.5, 270, 0.15));
   bank.nN = sine(0.6, 150, 0.10);
   bank.contN.set("a", sine(0.6, 160, 0.10, 1));   // ベイク済み相当 (頭から鼻音定常)
-  for (const p of ["ai", "au", "ei", "oi", "ou"]) {
+  for (const p of ["ai", "au", "ei", "oi", "ou", "ui"]) {
     bank.diph.set(p, sine(0.6, 250, 0.12));
     const prepared = api.nvPrepareCvDiph(synthLongDiphRaw(), SR);
     bank.cvDiph.set(p, prepared);
@@ -158,26 +164,60 @@ function rmsWindows(data, sr, winSec = 0.02) {
 const MORA_MS = 250;
 const q = w => api.nvQuantizeMoras(api.segmentWord(w), MORA_MS);
 
-console.log("── 1. 振り分け (core v8 同等) ──");
+console.log("── 1. 再アタック3法と振り分け (現行Core同等) ──");
 {
   const bank = makeBank();
   for (const w of ["aauu", "aaii", "oouu", "eeii", "ooii"]) {
     const ms = q(w);
     check(`${w}: 4モーラ`, ms.length === 4, `got ${ms.length}`);
-    check(`${w}: 境界を生 diph が取らない`,
-          !api.nvVvDiphPart1Takes(1, ms, bank));
+    check(`${w}: 第2法がモーラ3境界で発火`,
+          api.nvExtendedRunBoundaryReattacks(2, ms));
+    check(`${w}: 境界を生 diph が取らない`, !api.nvVvDiphPart1Takes(1, ms, bank));
     const c2 = api.nvCvDiphPrev(2, ms, bank);
     const c3 = api.nvCvDiphPrev(3, ms, bank);
-    check(`${w}: モーラ3/4 が cvDiph 経路`, !!c2 && !!c3,
+    check(`${w}: モーラ3/4 は cvDiph 経路に入らない`, !c2 && !c3,
           JSON.stringify({ c2: !!c2, c3: !!c3 }));
-    check(`${w}: 先行オーバーラップ発火`, api.nvNextUsesCVtoVDiph(1, ms, bank));
+    check(`${w}: 先行オーバーラップしない`, !api.nvNextUsesCVtoVDiph(1, ms, bank));
+    check(`${w}: モーラ3は言い直し`, api.nvLongVowelExtension(2, ms) === null);
+    const ext = api.nvLongVowelExtension(3, ms);
+    check(`${w}: モーラ4は言い直したV2を根に延長`,
+          !!ext && ext.sourceNucleus === ms[2].nucleus && ext.baseMs === MORA_MS && ext.totalMs === 2 * MORA_MS,
+          JSON.stringify(ext));
   }
   const ai = q("ai");
   check("ai (単独ペア): 生 diph のまま", api.nvVvDiphPart1Takes(0, ai, bank));
   check("ai (単独ペア): cvDiph に取られない", api.nvCvDiphPrev(1, ai, bank) === null);
+  const sai = q("sai");
+  check("sai (単独CV→V): cvDiph 経路は維持", api.nvCvDiphPrev(1, sai, bank) !== null);
   const saai = q("saai");
-  check("saai (子音根): cvDiph 経路は従来どおり",
-        api.nvCvDiphPrev(saai.length - 1, saai, bank) !== null);
+  check("saai (子音根の長音後): 第2法でcvDiphを使わない",
+        api.nvCvDiphPrev(saai.length - 1, saai, bank) === null);
+
+  for (const w of ["kaii", "uii"]) {
+    const ms = q(w);
+    const breakAt = ms.length - 1;
+    check(`${w}: 第1法がV2直後で発火`, api.nvDiphReattackBreaks(breakAt, ms));
+    check(`${w}: 言い直し点はcvDiph継続に入らない`, api.nvCvDiphPrev(breakAt, ms, bank) === null);
+  }
+
+  const i4 = q("iiii");
+  check("iiii: 第3法は3モーラ目だけで発火",
+        !api.nvSameVowelRunReattacks(1, i4) && api.nvSameVowelRunReattacks(2, i4)
+          && !api.nvSameVowelRunReattacks(3, i4));
+  check("iiii: ii|ii の言い直し点は延長しない", api.nvLongVowelExtension(2, i4) === null);
+  const i4tail = api.nvLongVowelExtension(3, i4);
+  check("iiii: 4モーラ目は3モーラ目を根に継続",
+        !!i4tail && i4tail.baseMs === MORA_MS && i4tail.totalMs === 2 * MORA_MS,
+        JSON.stringify(i4tail));
+  const i5 = q("iiiii");
+  check("iiiii: 3・5モーラ目で数え直す",
+        api.nvSameVowelRunReattacks(2, i5) && api.nvSameVowelRunReattacks(4, i5));
+  check("iiiin: 直後がんのrunは第3法の例外", !api.nvSameVowelRunReattacks(2, q("iiiin")));
+  check("kooon: 子音接頭でもん例外", !api.nvSameVowelRunReattacks(2, q("kooon")));
+
+  check("CV→V pre-roll: BPM120は40ms", api.nvCvDiphPreRollMs(250) === 40);
+  check("CV→V pre-roll: 短拍では1/5以下", api.nvCvDiphPreRollMs(125) === 25);
+  check("diph接合ゲイン: -3dB", Math.abs(api.NV_DIPH_JOIN_GAIN - 0.7079) < 1e-9);
 }
 
 console.log("── 2. nvPrepareCvDiph (整形) ──");
@@ -229,6 +269,34 @@ console.log("── 4. 促音の音価 (量子化) ──");
   const gapped = qk.find(m => m.gapMs > 0);
   check("語中促音の gap は 1 拍へ量子化", !!gapped && gapped.gapMs === MORA_MS,
         JSON.stringify(qk.map(m => m.gapMs)));
+}
+
+console.log("── 5. 語末 diph 専用テイク ──");
+{
+  const normalBank = makeBank();
+  const finalBank = makeBank();
+  // sei の e→i は語末なので cvDiphFin[ei] があれば通常テイクより優先される。
+  finalBank.cvDiphFin.set("ei", sine(0.8, 510, 0.18, 1));
+  const normal = api.nvRenderEvent(api.segmentWord("sei"), normalBank, SR, MORA_MS);
+  const final = api.nvRenderEvent(api.segmentWord("sei"), finalBank, SR, MORA_MS);
+  check("sei: 通常/語末テイクともレンダ成功", !!normal && !!final);
+  if (normal && final) {
+    const n = Math.min(normal.data.length, final.data.length);
+    let diff = 0;
+    for (let i = 0; i < n; i++) diff += Math.abs(normal.data[i] - final.data[i]);
+    check("sei: 語末専用テイクが実際に選択される", diff / n > 0.01,
+          `meanAbsDiff=${(diff / n).toFixed(4)}`);
+  }
+}
+
+console.log("── 6. 現行Core入力正規化・NG語 ──");
+{
+  const wordOf = word => api.romajiOf({ moras: api.segmentWord(word) });
+  const cases = { kyi: "ki", kye: "ke", gyi: "gi", gye: "ge", nyi: "ni", nye: "ne",
+                  myi: "myi", mye: "me" };
+  for (const [input, expected] of Object.entries(cases))
+    check(`${input} → ${expected}`, wordOf(input) === expected, `got ${wordOf(input)}`);
+  check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

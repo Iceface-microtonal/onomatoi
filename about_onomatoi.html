@@ -132,7 +132,7 @@
   <ul>
     <li><strong>描く</strong> — キャンバスに 1 ストローク描くと即発声。✕ 消しゴムでリセット</li>
     <li><strong>PLAY</strong> — 最後の発声をそのまま何度でもリピート</li>
-    <li><strong>TUNE スライダー</strong> — 6 軸を直接動かして実験</li>
+    <li><strong>TUNE スライダー</strong> — 開発画面 (<code>?dev=1</code>) で 6 軸を直接動かして実験</li>
     <li><strong>プリセット</strong> — bouba/kiki/maluma/takete (音象徴研究の古典) +
         日本語オノマトペ 6 種。初回タップは正確な発音、2 回目以降は変奏</li>
     <li><strong>LOG</strong> — 過去の語をタップでそのまま再生</li>
@@ -143,10 +143,11 @@
     Onomatoi は iPad/Mac アプリ <em>Onomatoi (旧 PTS, Phonosymbolic Topology Synthesizer)</em>
     の簡易 Web 版です。本体にはピッチ変化・旋律 (わらべうた) モード・
     複数ストロークの作曲モードなどがあります。
-    声は Edge TTS 由来の収録サンプル <strong>PuppeTwin</strong> (127 ファイル) を使用しています。
+    声は収録サンプル <strong>PuppeTwin</strong> (137 MP3 + 接合精度用20 WAV) を使用しています。
   </p>
   <p>
-    本体コアからの移植 (実在オノマトペ型への整形/長母音サステイン/継続撥音/連続母音かい・こう)
+    本体コアからの移植 (実在オノマトペ型への整形/長母音サステイン/継続撥音/
+    連続母音かい・こう・うぃ/2モーラごとの再アタック規則)
     に加え、口の形から母音を選ぶしくみ (斜めの楕円→え、少し縦長の丸→お を含む)・
     開いた弧や開いた一角が「母音+ん」「子音+ん」になるしくみ・拗音や隣り合うモーラの
     言いやすさの調整などを、この Web 版にも継続して反映しています。
@@ -234,7 +235,8 @@
   <ul>
     <li><strong>Draw</strong> — one stroke on the canvas speaks immediately. ✕ Eraser resets</li>
     <li><strong>PLAY</strong> — repeats the last utterance exactly, as many times as you like</li>
-    <li><strong>TUNE sliders</strong> — drive the six axes directly</li>
+    <li><strong>TUNE sliders</strong> — drive the six axes directly in the developer view
+        (<code>?dev=1</code>)</li>
     <li><strong>Presets</strong> — bouba/kiki/maluma/takete (the classics of sound-symbolism
         research) plus six Japanese onomatopoeia. First tap speaks the canonical word;
         later taps improvise variations</li>
@@ -246,11 +248,13 @@
     Onomatoi is the simplified web edition of the iPad/Mac app
     <em>Onomatoi (formerly PTS, Phonosymbolic Topology Synthesizer)</em>, which adds
     pitch contours, melody (warabe-uta) modes and a multi-stroke composing mode.
-    The voice is <strong>PuppeTwin</strong>, a bank of 127 recorded samples.
+    The voice is <strong>PuppeTwin</strong>, a bank of 137 MP3 samples plus 20 WAV files
+    used for precise joins.
   </p>
   <p>
     Alongside the port from the core engine (shaping into real-sounding onomatopoeia forms,
-    sustained long vowels, continuation-ん, and vowel glides like <em>kai/kou</em>), this web
+    sustained long vowels, continuation-ん, vowel glides like <em>kai/kou/ui</em>,
+    and two-mora reattack laws), this web
     version keeps in step with ongoing refinements to the core: choosing vowels from the shape
     of the mouth (including tilted ellipses → <em>e</em> and slightly-tall circles → <em>o</em>),
     open arcs/angles becoming minimal "vowel/consonant + ん" words, and adjustments to glides
