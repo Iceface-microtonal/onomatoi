@@ -584,9 +584,33 @@ function splineDensified(points, spacing) {
   if (!closed) out.push(points[m - 1]);
   return out;
 }
+// sharpness 制定 (2026-08-19): stage 0=角なし、1...6=代表内角。
+// 角度の再検討時はこの表だけを変更し、Swift SharpnessScale と同時に同期する。
+const SHARPNESS_ANGLE_ANCHORS = [135, 115, 90, 65, 40, 20];
+const SHARPNESS_MIN_CORNER_TURN = 22.5 * Math.PI / 180;
+const SHARPNESS_MAX_SPREAD = 1.45;
+const SHARPNESS_MIN_CONCENTRATION = 0.60;
+function sharpnessStage(interiorAngle) {
+  if (!Number.isFinite(interiorAngle)) return 0;
+  const angle = Math.max(0, Math.min(180, interiorAngle));
+  let best = 0, bestDistance = Infinity;
+  SHARPNESS_ANGLE_ANCHORS.forEach((anchor, i) => {
+    const distance = Math.abs(angle - anchor);
+    if (distance < bestDistance) { best = i; bestDistance = distance; }
+  });
+  return best + 1;
+}
+function sharpnessAxisValue(stage) {
+  const s = Math.max(0, Math.min(SHARPNESS_ANGLE_ANCHORS.length, stage));
+  return -1 + 2 * s / SHARPNESS_ANGLE_ANCHORS.length;
+}
 function bucketedAxes(ax, step) {
   const q = v => Math.round((v ?? 0) / step) * step;
-  return { size: q(ax.size), sharp: q(ax.sharp), tex: q(ax.tex), bright: q(ax.bright),
+  // sharpness は7段階。ほかは従来の step=0.25 (9段階) を維持する。
+  const sharpStep = 2 / SHARPNESS_ANGLE_ANCHORS.length;
+  const qSharp = v => Math.max(-1, Math.min(1,
+    -1 + Math.round((Math.max(-1, Math.min(1, v ?? 0)) + 1) / sharpStep) * sharpStep));
+  return { size: q(ax.size), sharp: qSharp(ax.sharp), tex: q(ax.tex), bright: q(ax.bright),
            round: q(ax.round), open: q(ax.open) };
 }
 
@@ -814,7 +838,8 @@ function chooseTemplate(rootLen, axes, inputHasN, inputHasLong, inputRedup, inpu
 }
 // 任意のモーラ列を実在オノマトペ型へ整形。決定的 (rng を使わない)。
 // lengthHint: 描線の複雑さ由来のモーラ数。大きいほど長い(4-5モーラ)テンプレートを選びやすい。
-function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null, forceMoraicN = false) {
+function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null,
+                  forceMoraicN = false, forbidMoraicN = false) {
   const voiced = moras;   // web 版に rest モーラは無い
   const loops = voiced.filter(m => !m.isN);
   if (loops.length === 0) return moras;
@@ -851,9 +876,8 @@ function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null
   const inputAblaut = detectAblaut(loops);
   const inputRedupN = detectReduplicatedN(voiced);
 
-  // P11 (2026-07-15) 記号語彙: 開いた弧 (⊃⊂∩∪→母音+ん) / 開いた一角 (＜＞∧∨→子音+ん) は
-  // 形が一意に決まっているので、brightness/round 等の向き依存な既存ヒューリスティックを
-  // 経由させず moraicN に固定する (root の onset は generate() 側で既に強制済み)。
+  // P11 記号語彙: 開いた弧は母音開始・開いた一角は子音開始。
+  // 2026-08-14 確認 PF-02: 開いた一角には語末んを付けない。
   const template = forceMoraicN ? "moraicN"
     : chooseTemplate(rootLen, axes, inputHasN, inputHasLong, inputRedup,
                      inputAblaut, inputRedupN, lengthHint, sustained, kiki);
@@ -906,6 +930,7 @@ function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null
     }
   }
   if (out.length > targetLen) out = out.slice(0, targetLen);
+  if (forbidMoraicN) out = out.filter(m => !m.isN);
   // P10 最終ガード: テンプレ再形成/タイルで生まれた隣接違反も左→右で解消 (kiki 経路のみ)
   if (kiki !== null) out = applyOCP(out);
   return out.map(nativize);
@@ -937,7 +962,7 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
   const unique = [];
   let prevOnset = undefined, firstVowel = null, prevNucleus = null;
   for (let i = 0; i < uniqueCount; i++) {
-    // P11 記号語彙: 開いた弧は onset を強制的に消す (母音+ん)・開いた一角は消させない (子音+ん)。
+    // P11/PF-02: 開いた弧は onset を消す。開いた一角は子音開始・語末ん無し。
     const onset = forceNilOnset ? null
       : pickConsonant(axes, prevOnset === undefined ? "" : prevOnset, temperature, rand,
                       kiki, manner, forceConsonantOnset, disorder);
@@ -976,7 +1001,7 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
   // v7: 実在オノマトペ型への整形 (legalize が語末ん/連続母音(かい/こう)/促音っ/長音ー/畳語末尾
   // を音象徴 (axes) から一括で選ぶ。旧「ん を確率的に末尾付与するだけ」の簡易版を置き換え)。
   const moras = legalize(rawMoras, axes, lengthHint ?? moraCount, sustained, kiki,
-                         forceNilOnset || forceConsonantOnset);
+                         forceNilOnset, forceConsonantOnset);
   const finalRedup = moraPeriod(moras) < moras.length;
 
   const f0 = Math.max(80, Math.min(400, 200 * (1 + 0.2 * axes.bright - 0.2 * axes.size)));
@@ -1008,6 +1033,75 @@ function romajiOf(event) {
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ─── AxisExtractor (Swift Phase 1n の移植) ───
+function sharpestCornerInteriorAngleDegrees(input) {
+  if (input.length < 3) return null;
+  let raw = input.slice();
+  let pathLen = 0;
+  for (let i = 1; i < raw.length; i++)
+    pathLen += Math.hypot(raw[i].x - raw[i-1].x, raw[i].y - raw[i-1].y);
+  if (pathLen <= 1e-6) return null;
+  const meanStep = pathLen / (raw.length - 1);
+  const initialGap = Math.hypot(raw[0].x - raw[raw.length - 1].x,
+                                raw[0].y - raw[raw.length - 1].y);
+  let minX = raw[0].x, maxX = minX, minY = raw[0].y, maxY = minY;
+  for (const p of raw) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  const bboxDiag = Math.hypot(maxX - minX, maxY - minY);
+  const closed = initialGap <= pathLen * 0.12 && pathLen / Math.max(1e-6, bboxDiag) < 3.2;
+  if (closed && raw.length > 3 && initialGap < meanStep * 1.6) raw.pop();
+  const n = raw.length;
+  if (n < 3) return null;
+  const k = n < 30 ? 1 : Math.max(3, Math.min(Math.floor(n / 24), 8));
+  if (n <= 2 * k) return null;
+
+  const index = i => closed ? ((i % n) + n) % n : (i >= 0 && i < n ? i : null);
+  const turnAt = (i, span) => {
+    const im = index(i - span), ip = index(i + span);
+    if (im == null || ip == null) return null;
+    const v1x = raw[i].x - raw[im].x, v1y = raw[i].y - raw[im].y;
+    const v2x = raw[ip].x - raw[i].x, v2y = raw[ip].y - raw[i].y;
+    const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+    if (l1 <= 1e-6 || l2 <= 1e-6) return null;
+    return Math.acos(Math.max(-1, Math.min(1, (v1x*v2x + v1y*v2y) / (l1*l2))));
+  };
+  const unitTurn = Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const im = index(i - 1), ip = index(i + 1);
+    if (im == null || ip == null) continue;
+    const v1x = raw[i].x - raw[im].x, v1y = raw[i].y - raw[im].y;
+    const v2x = raw[ip].x - raw[i].x, v2y = raw[ip].y - raw[i].y;
+    unitTurn[i] = Math.atan2(v1x*v2y - v1y*v2x, v1x*v2x + v1y*v2y);
+  }
+
+  let sharpest = null;
+  const start = closed ? 0 : (n >= 30 && n > 4*k ? 2*k : k);
+  const end = closed ? n : (n >= 30 && n > 4*k ? n - 2*k : n - k);
+  for (let i = start; i < end; i++) {
+    const local = turnAt(i, k);
+    if (local == null || local < SHARPNESS_MIN_CORNER_TURN) continue;
+    if (n >= 30) {
+      const wide = turnAt(i, 2*k);
+      if (wide != null && wide / Math.max(local, 1e-9) > SHARPNESS_MAX_SPREAD) continue;
+    }
+    let center = i;
+    for (let j = i - k; j <= i + k; j++) {
+      const jj = index(j);
+      if (jj != null && Math.abs(unitTurn[jj]) > Math.abs(unitTurn[center])) center = jj;
+    }
+    let inner = 0, outer = 0;
+    for (let j = center - 2*k; j <= center + 2*k; j++) {
+      const jj = index(j);
+      if (jj == null) continue;
+      outer += Math.abs(unitTurn[jj]);
+      if (Math.abs(j - center) <= 2) inner += Math.abs(unitTurn[jj]);
+    }
+    if (outer > 1e-9 && inner / outer < SHARPNESS_MIN_CONCENTRATION) continue;
+    sharpest = Math.max(sharpest ?? 0, local);
+  }
+  return sharpest == null ? null : Math.max(0, Math.min(180, 180 - sharpest * 180 / Math.PI));
+}
 function extractAxes(points, w, h) {
   if (points.length < 2 || w <= 0 || h <= 0) return { size: 0, sharp: 0, tex: 0, bright: 0 };
   const clamp = v => Math.max(-1, Math.min(1, v));
@@ -1022,26 +1116,7 @@ function extractAxes(points, w, h) {
   const sizeNorm = (Math.log2(ratio) - Math.log2(0.05)) / (0 - Math.log2(0.05));
   const size = clamp(sizeNorm * 2 - 1);
 
-  const k = Math.max(1, Math.min(Math.floor(points.length / 30), 8));
-  const changes = [];
-  for (let i = k; i < points.length - k; i++) {
-    const v1x = points[i].x - points[i-k].x, v1y = points[i].y - points[i-k].y;
-    const v2x = points[i+k].x - points[i].x, v2y = points[i+k].y - points[i].y;
-    const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
-    if (l1 < 1e-6 || l2 < 1e-6) continue;
-    const cosT = Math.max(-1, Math.min(1, (v1x*v2x + v1y*v2y) / (l1*l2)));
-    changes.push(Math.acos(cosT));
-  }
-  let sharp = 0;
-  if (changes.length > 0) {
-    const sorted = [...changes].sort((a,b) => b-a);
-    const topN = Math.max(1, Math.floor(sorted.length / 10));
-    const topMean = sorted.slice(0, topN).reduce((a,b) => a+b, 0) / topN;
-    const topNorm = Math.min(1, topMean / (Math.PI * 0.5));
-    const thr = 2 * Math.PI / 3;
-    const ratio2 = changes.filter(c => c > thr).length / changes.length;
-    sharp = clamp((0.6 * topNorm + 0.4 * ratio2) * 2 - 1);
-  }
+  const sharp = sharpnessAxisValue(sharpnessStage(sharpestCornerInteriorAngleDegrees(points)));
 
   let pathLen = 0;
   for (let i = 1; i < points.length; i++)
@@ -1144,11 +1219,11 @@ function extractAxes(points, w, h) {
 function applyHandCorrection(ax, level, dampenTexture = true) {
   const amt = Math.max(0, Math.min(1, level));
   // spread で全軸を保持 (adjusted 相当)。全書きは後から足された軸 (口の2軸) を落とす事故のもと。
-  // v3 (粗い筆): texture 減衰は手ブレの偽折返し補正 — 粗い筆はジッタを入力段階で捨てるので、
-  // 減衰すると本物の反復シグナルを削る。粗い筆時は dampenTexture=false で sharp 補正のみ。
+  // sharpness は制定した7段階の内角分類そのものなので移動させない。
+  // texture 減衰は手ブレの偽折返し補正 — 粗い筆はジッタを入力段階で捨てるので、
+  // 減衰すると本物の反復シグナルを削る。粗い筆時は dampenTexture=false。
   return {
     ...ax,
-    sharp: Math.max(-1, Math.min(1, ax.sharp + amt * 0.6)),
     tex: dampenTexture ? ax.tex * (1 - amt * 0.3) : ax.tex,
   };
 }
@@ -2029,6 +2104,10 @@ const ARC_VOCAB = {
 // 完成の ん が最後という不可逆な時間構造)。旧 "aaan" 固定 (2026-07-16〜) を上書き。
 const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
 const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
+const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
+// PF-07〜09 (2026-08-14「おまかせ」仮決定): 四角は破裂音 b + 円の開口度系列。
+// 縦長/横長は向きで語を変えず、同じ大きさクラスを使う。
+const SQUARE_VOCAB = ["boon", "baoon", "baaaan"]; // [小, 中, 大]
 
 // ─── P13 三角形 = gyagyoon (2026-07-21 コウさん立法) ───
 // 正本 = Onomatoi/docs/FEEDBACK_2026-07-21_kou_triangle_vocab.md。fixture = mrus6t5v-1。
@@ -2043,6 +2122,19 @@ const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コ�
 function triangleVocabSignal(cx) {
   return cx.isClosed && cx.corners === 3
     && cx.cornerSharpness >= 0.30 && cx.cornerSharpness <= 0.65;
+}
+
+function invertedTriangleVocabSignal(cx) {
+  if (!triangleVocabSignal(cx) || !Array.isArray(cx.cornerPoints) || cx.cornerPoints.length !== 3)
+    return false;
+  const ys = cx.cornerPoints.map(p => p.y).sort((a, b) => a - b);
+  const height = ys[2] - ys[0];
+  return height > 1e-6 && (ys[1] - ys[0]) / height <= 0.35;
+}
+
+function quadrilateralVocabSignal(cx) {
+  return cx.isClosed && cx.corners === 4
+    && cx.cornerSharpness >= 0.15 && cx.cornerSharpness <= 0.50;
 }
 
 /// 弧の膨らみの向き: 弦 (始点→終点) から最も遠い点 (弧の頂) が、弦の中点から見て
@@ -2598,6 +2690,15 @@ function nvDiphReattackBreaks(idx, moras) {
   if (v1.isN || v1.isSilentRest || v1.nucleus === cur.nucleus) return false;
   // 第2法で V2 自体を言い直した境界なら、次の同母音は通常の長音になる。
   if (nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
+  // aiin / kuiin のように同母音 run の直後が撥音なら、V2 を切り直さず
+  // 「いーん」を一続きにする (2026-08-14 PF-01 確認)。
+  let end = idx;
+  while (end + 1 < moras.length) {
+    const n = moras[end + 1];
+    if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== cur.nucleus) break;
+    end++;
+  }
+  if (end + 1 < moras.length && moras[end + 1].isN) return false;
   return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus);
 }
 
@@ -4095,7 +4196,7 @@ canvas.addEventListener("pointerup", ev => {
     const raw = extractAxes(inkPts, rect.width, rect.height);
     const hc = Number(document.getElementById("kn-hc").value);
     let ax = applyHandCorrection(raw, hc, !coarse);
-    // 粗い筆: 軸の知覚バケット (0.25) — 似た描写→同一の軸→同一の語 (再現性の要)。
+    // 粗い筆: sharpnessは7段階、ほかは0.25刻み — 似た描写→同一の軸→同一の語。
     if (coarse) ax = bucketedAxes(ax, 0.25);
     setSliders(ax);
     // 最新 Core 適応 (2026-07-09): 複雑さ → 語長 / bouba・kiki 大域判定 / 一筆連続=長音 /
@@ -4115,7 +4216,7 @@ canvas.addEventListener("pointerup", ev => {
     // P12 記号語彙 (2026-07-16 コウさん立法): 開いた弧 (⊃⊂∩∪) = 向き×大きさの固定語彙。
     // 完全に閉じた大きく開いた円 = aaan (収束の ん が初めて立つ)。小さく閉じた丸 (う=すぼめ)
     // と楕円 (え, P9e で round が動く) は既存の口の法のまま。
-    // 開いた一角 (＜＞∧∨→子音+ん, P11) はコウさん未立法につき現状維持。
+    // 開いた一角 (＜＞∧∨) は子音開始・語末ん無し (2026-08-14 PF-02 確認)。
     const openArc = openArcSignal(cx), openChevron = openChevronSignal(cx);
     let vocabWord = null, vocabReason = null;
     if (openArc) {
@@ -4137,11 +4238,21 @@ canvas.addEventListener("pointerup", ev => {
         ? `完全な円 (${["小", "中", "大"][circleSize]}) → ${vocabWord}（${csJa}・ん で空間を完成）`
         : `completed circle (size ${circleSize}) → ${vocabWord} (o = gathering, a = opening; the final N completes the space)`;
     } else if (triangleVocabSignal(cx)) {
-      // P13 (2026-07-21 コウさん立法): 閉じた三角形 → gyagyoon。
-      vocabWord = TRIANGLE_VOCAB;
+      const inverted = invertedTriangleVocabSignal(cx);
+      vocabWord = inverted ? INVERTED_TRIANGLE_VOCAB : TRIANGLE_VOCAB;
       vocabReason = uiLang === "ja"
-        ? `三角形 → ${TRIANGLE_VOCAB}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`
-        : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`;
+        ? (inverted
+          ? `逆三角形 ▽ → ${INVERTED_TRIANGLE_VOCAB}（ぎょ・ぎゃー・ん）`
+          : `三角形 △ → ${TRIANGLE_VOCAB}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`)
+        : (inverted
+          ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
+          : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
+    } else if (quadrilateralVocabSignal(cx)) {
+      const squareSize = arcSizeClass(inkPts, rect.width, rect.height);
+      vocabWord = SQUARE_VOCAB[squareSize];
+      vocabReason = uiLang === "ja"
+        ? `四角 (${["小", "中", "大"][squareSize]}) → ${vocabWord}（破裂音 b・大きさに応じた開口・ん で閉じた空間を完成）`
+        : `quadrilateral (size ${squareSize}) → ${vocabWord} (plosive b, size-based opening, and final N for closure)`;
     }
     // Step1 確定▲: 判定に使った「形の角」(閉形は正準化後 = 描き始めの頂点も含む) を表示。
     // 実況▲(輪郭線) = 軌跡がその場で曲がった点 / 確定▲(塗り) = 完成形としての角 — 表示と判定を一致させる。

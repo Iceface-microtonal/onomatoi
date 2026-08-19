@@ -73,7 +73,8 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "extractAxes", "applyHandCorrection", "bucketedAxes",
-  "densified", "splineDensified", "circleVocabSignal", "openArcSignal"];
+  "densified", "splineDensified", "circleVocabSignal", "openArcSignal",
+  "sharpnessStage", "sharpnessAxisValue"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
   { filename: "engine(extracted)" });
@@ -180,6 +181,39 @@ console.log("── circle (aaan) ゲート: 一周の閉円のみ ──");
   const j = judge(small);
   check("小円 → circle ゲート true (2026-07-21 サイズ立法: 小=oon)", j.circle,
         JSON.stringify({ open: j.ax.open }));
+}
+
+console.log("── sharpness 7段階: 角なし / 135 / 115 / 90 / 65 / 40 / 20° ──");
+{
+  const anchors = [135, 115, 90, 65, 40, 20];
+  const chevron = angle => {
+    const half = angle * Math.PI / 360, apex = { x: 180, y: 230 }, length = 130;
+    const left = { x: -Math.sin(half), y: -Math.cos(half) };
+    const right = { x: Math.sin(half), y: -Math.cos(half) };
+    const points = [];
+    for (let i = 40; i >= 0; i--)
+      points.push({ x: apex.x + left.x * length * i / 40,
+                    y: apex.y + left.y * length * i / 40 });
+    for (let i = 1; i <= 40; i++)
+      points.push({ x: apex.x + right.x * length * i / 40,
+                    y: apex.y + right.y * length * i / 40 });
+    return points;
+  };
+  check("角なし stage 0 → -1", api.sharpnessStage(null) === 0
+    && api.sharpnessAxisValue(0) === -1);
+  anchors.forEach((angle, i) => {
+    const expected = api.sharpnessAxisValue(i + 1);
+    const ax = api.extractAxes(chevron(angle), W, H);
+    check(`内角${angle}° → stage ${i + 1}`,
+          Math.abs(ax.sharp - expected) < 1e-9, `sharp=${ax.sharp}`);
+    const corrected = api.applyHandCorrection(ax, 1, true);
+    check(`内角${angle}° は手書き補正で移動しない`, corrected.sharp === ax.sharp);
+    check(`内角${angle}° は粗い筆でも7段階を保持`,
+          Math.abs(api.bucketedAxes(ax, 0.25).sharp - expected) < 1e-9);
+  });
+  const smooth = judge(arc(180, 180, 120, 1.0));
+  check("滑らかな円は角なし stage", smooth.ax.sharp === -1,
+        `sharp=${smooth.ax.sharp}`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

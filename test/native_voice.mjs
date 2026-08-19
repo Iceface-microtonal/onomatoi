@@ -201,6 +201,15 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
     check(`${w}: 言い直し点はcvDiph継続に入らない`, api.nvCvDiphPrev(breakAt, ms, bank) === null);
   }
 
+  for (const w of ["aiin", "kuiin"]) {
+    const ms = q(w);
+    const extendedV2 = ms.length - 2;
+    check(`${w}: 撥音直前のV2延長は第1法で切らない`,
+          !api.nvDiphReattackBreaks(extendedV2, ms));
+    check(`${w}: 撥音までV2を一続きに延長`,
+          api.nvLongVowelExtension(extendedV2, ms) !== null);
+  }
+
   const i4 = q("iiii");
   check("iiii: 第3法は3モーラ目だけで発火",
         !api.nvSameVowelRunReattacks(1, i4) && api.nvSameVowelRunReattacks(2, i4)

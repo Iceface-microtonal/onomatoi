@@ -104,7 +104,8 @@ const EXPORTS = ["extractAxes", "applyHandCorrection", "bucketedAxes", "densifie
   "unitEligible", "generateFromUnits", "generate", "axesSeed", "mulberry32",
   "wordK", "romajiOf", "openArcSignal", "openChevronSignal",
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
-  "triangleVocabSignal", "TRIANGLE_VOCAB",
+  "triangleVocabSignal", "TRIANGLE_VOCAB", "invertedTriangleVocabSignal", "INVERTED_TRIANGLE_VOCAB",
+  "quadrilateralVocabSignal", "SQUARE_VOCAB",
   "segmentWord"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(
@@ -447,7 +448,13 @@ function p12VocabWord(pts) {
   }
   // P13 (2026-07-21 コウさん立法): 閉じた三角形 → gyagyoon。
   if (api.triangleVocabSignal(cx)) {
-    return api.romajiOf(api.vocabEvent(api.TRIANGLE_VOCAB, ax));
+    const word = api.invertedTriangleVocabSignal(cx)
+      ? api.INVERTED_TRIANGLE_VOCAB : api.TRIANGLE_VOCAB;
+    return api.romajiOf(api.vocabEvent(word, ax));
+  }
+  if (api.quadrilateralVocabSignal(cx)) {
+    const sc = api.arcSizeClass(inkPts, W, H);
+    return api.romajiOf(api.vocabEvent(api.SQUARE_VOCAB[sc], ax));
   }
   return null;
 }
@@ -537,6 +544,7 @@ function closedPolyPts(verts) {
   return pts;
 }
 const p13Triangle = closedPolyPts([[180, 60], [280, 280], [80, 280]]);
+const p13InvertedTriangle = closedPolyPts([[80, 80], [280, 80], [180, 300]]);
 const p13Square = closedPolyPts([[100, 100], [260, 100], [260, 260], [100, 260]]);
 const P11_CHECKS = [
   ...Object.entries(P12_EXPECT).map(([dir, words]) =>
@@ -569,8 +577,16 @@ const P11_CHECKS = [
     }],
   ["P13 合成正三角形 (閉): gyagyoon",
     () => p12VocabWord(p13Triangle) === "gyagyoon"],
-  ["P13 正方形 (閉): 語彙にならない (corners=4)",
-    () => p12VocabWord(p13Square) === null],
+  ["Q3変更 合成逆三角形 ▽ (閉): gyogyaan",
+    () => p12VocabWord(p13InvertedTriangle) === "gyogyaan"],
+  ["PF-07〜09 正方形 (閉): 大きさに応じた四角語彙",
+    () => p12VocabWord(p13Square) === "baoon"],
+  ["PF-07〜09 四角の語彙: 小=boon / 中=baoon / 大=baaaan",
+    () => {
+      const ax0 = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
+      return ["boon", "baoon", "baaaan"].every((w, i) =>
+        api.romajiOf(api.vocabEvent(api.SQUARE_VOCAB[i], ax0)) === w);
+    }],
   ["P13 vocabEvent 複数CV: gyagyoon = [gya, gyo, ー, ん]",
     () => {
       const ax0 = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
@@ -579,6 +595,16 @@ const P11_CHECKS = [
         && ms[0].onset === "gy" && ms[0].nucleus === "a"
         && ms[1].onset === "gy" && ms[1].nucleus === "o"
         && ms[2].onset === null && ms[2].nucleus === "o" && !ms[2].isN
+        && ms[3].isN === true;
+    }],
+  ["Q3 vocabEvent: gyogyaan = [gyo, gya, ー, ん]",
+    () => {
+      const ax0 = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
+      const ms = api.vocabEvent(api.INVERTED_TRIANGLE_VOCAB, ax0).moras;
+      return ms.length === 4
+        && ms[0].onset === "gy" && ms[0].nucleus === "o"
+        && ms[1].onset === "gy" && ms[1].nucleus === "a"
+        && ms[2].onset === null && ms[2].nucleus === "a" && !ms[2].isN
         && ms[3].isN === true;
     }],
   ["P13 vocabEvent 後方互換: aaan/myiii/moo のモーラ列が旧実装と同一",
@@ -603,8 +629,8 @@ const P11_CHECKS = [
     () => chevronVariants.every(r => r.openChevron)],
   ["開いた一角: 子音 onset が支配的 (100%)",
     () => chevronVariants.every(r => r.consOnsetFirst === P11_N)],
-  ["開いた一角: 語末んを保つ (100%)",
-    () => chevronVariants.every(r => r.endsWithN === P11_N)],
+  ["開いた一角: 語末んを付けない (100%, 2026-08-14 確認)",
+    () => chevronVariants.every(r => r.endsWithN === 0)],
   ["双こぶ #4 (ループ2) は openArc/openChevron どちらにもならない",
     () => { const cx = cxOfBeads(byId["mrgv9lk7-5"].stroke);
             return !api.openArcSignal(cx) && !api.openChevronSignal(cx); }],
@@ -655,7 +681,7 @@ const P11_CHECKS = [
     }],
 ];
 let p11Fail = 0;
-console.log("\nP11/P12/P13 記号語彙サニティ (⊃⊂∩∪=コウさん語彙・円=サイズ3段 oon/aoon/aaaan・三角=gyagyoon・＜＞∧∨=子音+ん・既存形は誤爆しない):");
+console.log("\nP11/P12/P13/PF-07〜09 記号語彙サニティ (弧・円・三角・四角・開いた一角=子音開始/ん無し・既存形は誤爆しない):");
 for (const [label, fn] of P11_CHECKS) {
   let ok = false;
   try { ok = fn(); } catch { ok = false; }
