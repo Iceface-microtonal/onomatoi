@@ -74,7 +74,8 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "splineDensified", "densified", "extractAxes",
-  "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32"];
+  "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32",
+  "heartVocabSignal", "starVocabSignal", "vocabEvent", "romajiOf", "HEART_VOCAB", "STAR_VOCAB"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
   { filename: "engine(extracted)" });
@@ -346,6 +347,82 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
         st.formK !== null && st.formK >= 0.5, `formK=${st.formK}`);
   check("#2 星 (jitter) → formK ≥ 0.5", stJ.formK !== null && stJ.formK >= 0.5,
         `formK=${stJ.formK}`);
+  check("一筆五芒星 → 星の仮固定語ゲート", api.starVocabSignal(st),
+        JSON.stringify({ order: st.trajectoryDescriptor.radialSymmetryOrder,
+                         strength: +st.trajectoryDescriptor.radialSymmetryStrength.toFixed(2),
+                         crossings: st.trajectoryDescriptor.selfIntersectionCount,
+                         selected: st.shapeRecognition.selected }));
+  check("星の仮固定語 = chigyaan (ちぎゃーん)",
+        api.romajiOf(api.vocabEvent(api.STAR_VOCAB,
+          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "chigyaan");
+
+  const outlineStar = (() => {
+    const p = [], vs = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 === 0 ? 125 : 56;
+      vs.push([180 + r * Math.cos(a), 180 + r * Math.sin(a)]);
+    }
+    vs.push(vs[0]);
+    for (let i = 0; i < vs.length - 1; i++)
+      for (const q of line(vs[i][0], vs[i][1], vs[i + 1][0], vs[i + 1][1], 12)) p.push(q);
+    return p;
+  })();
+  const os = cxB(outlineStar);
+  check("輪郭星 → 星の仮固定語ゲート", api.starVocabSignal(os),
+        JSON.stringify({ concavity: +os.shapeDescriptor.concavityDepth.toFixed(2),
+                         tips: os.shapeDescriptor.tipCount,
+                         solidity: +os.shapeDescriptor.solidity.toFixed(2),
+                         order: os.trajectoryDescriptor.radialSymmetryOrder,
+                         selected: os.shapeRecognition.selected }));
+
+  const heart = [];
+  for (let i = 0; i < 180; i++) {
+    const t = i / 180 * 2 * Math.PI;
+    const x = 16 * Math.sin(t) ** 3;
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    heart.push({ x: 180 + 7.2 * x, y: 180 - 7.2 * y });
+  }
+  heart.push(heart[0]);
+  const he = cxB(heart);
+  check("ハート → ハートの仮固定語ゲート", api.heartVocabSignal(he),
+        JSON.stringify({ confidence: +he.heartConfidence.toFixed(2),
+                         concavity: +he.shapeDescriptor.concavityDepth.toFixed(2),
+                         symmetry: +he.shapeDescriptor.bilateralSymmetry.toFixed(2),
+                         lobes: he.shapeDescriptor.lobeCount, tips: he.shapeDescriptor.tipCount }));
+  check("ハートの仮固定語 = myuun (みゅーん)",
+        api.romajiOf(api.vocabEvent(api.HEART_VOCAB,
+          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "myuun");
+  const closedVariant = (pts, rotation, reversed, shift) => {
+    let open = pts.slice(0, -1).map(p => {
+      const x = p.x - 180, y = p.y - 180;
+      return { x: 180 + x * Math.cos(rotation) - y * Math.sin(rotation),
+               y: 180 + x * Math.sin(rotation) + y * Math.cos(rotation) };
+    });
+    if (reversed) open.reverse();
+    const s = ((shift % open.length) + open.length) % open.length;
+    open = open.slice(s).concat(open.slice(0, s));
+    return open.concat([open[0]]);
+  };
+  for (const [label, pts] of [
+    ["ハート回転", closedVariant(heart, 0.73, false, 0)],
+    ["ハート逆回り", closedVariant(heart, -0.41, true, 0)],
+    ["ハート始点移動", closedVariant(heart, 0.18, false, 57)],
+  ]) check(`${label} → myuun ゲートを保持`, api.heartVocabSignal(cxB(pts)));
+  for (const [label, pts] of [
+    ["輪郭星回転", closedVariant(outlineStar, 0.51, false, 0)],
+    ["輪郭星逆回り+始点移動", closedVariant(outlineStar, -0.32, true, 37)],
+  ]) check(`${label} → chigyaan ゲートを保持`, api.starVocabSignal(cxB(pts)));
+
+  const flower = [];
+  for (let i = 0; i <= 240; i++) {
+    const t = i / 240 * 2 * Math.PI, r = 88 + 24 * Math.cos(5 * t);
+    flower.push({ x: 180 + r * Math.cos(t), y: 180 + r * Math.sin(t) });
+  }
+  const fl = cxB(flower);
+  check("滑らかな5弁花 → 星に吸収しない", !api.starVocabSignal(fl),
+        JSON.stringify({ solidity: +fl.shapeDescriptor.solidity.toFixed(2),
+                         order: fl.trajectoryDescriptor.radialSymmetryOrder,
+                         selected: fl.shapeRecognition.selected }));
   // #3 労力チャネル: 往復系 (P1 が角を設計どおり除外する形) でも語長が労力に応じる
   const hatch = (() => {
     const p = [];

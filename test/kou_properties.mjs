@@ -104,6 +104,7 @@ const EXPORTS = ["extractAxes", "applyHandCorrection", "bucketedAxes", "densifie
   "unitEligible", "generateFromUnits", "generate", "axesSeed", "mulberry32",
   "wordK", "romajiOf", "openArcSignal", "openChevronSignal",
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
+  "heartVocabSignal", "HEART_VOCAB", "starVocabSignal", "STAR_VOCAB",
   "triangleVocabSignal", "TRIANGLE_VOCAB", "invertedTriangleVocabSignal", "INVERTED_TRIANGLE_VOCAB",
   "quadrilateralVocabSignal", "quadrilateralFamily", "SQUARE_VOCAB", "RECTANGLE_VOCAB",
   "segmentWord"];
@@ -434,6 +435,8 @@ function p12VocabWord(pts) {
   ax = api.bucketedAxes(ax, 0.25);
   const geomPts = pts.length >= 3 ? api.splineDensified(pts, 6) : inkPts;
   const cx = api.strokeComplexity(geomPts, W, H, 16);
+  if (api.heartVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.HEART_VOCAB, ax));
+  if (api.starVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.STAR_VOCAB, ax));
   if (api.openArcSignal(cx)) {
     const dir = api.arcBulgeDirection(inkPts);
     const sc = api.arcSizeClass(inkPts, W, H);

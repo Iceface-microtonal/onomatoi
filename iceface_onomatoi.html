@@ -1321,13 +1321,363 @@ function collapseRetrace(points) {
   return collapsed;
 }
 
+// ─── 非音韻の完成形認識 (native ShapeDescriptor / TrajectoryDescriptor の移植) ───
+// 6軸へは混ぜず、ペンアップ後の固定語彙判定にだけ使う。入力は96点へ
+// 等弧長化するため、端末の pointer event 密度や描き始めの位置に依存しない。
+function shapeClamp01(v) { return Math.max(0, Math.min(1, v)); }
+function shapeRamp(v, lo, hi) { return shapeClamp01((v - lo) / Math.max(hi - lo, 1e-9)); }
+function shapeSmoothstep(e0, e1, v) {
+  const t = shapeClamp01((v - e0) / (e1 - e0 || 1e-9));
+  return t * t * (3 - 2 * t);
+}
+function emptyShapeDescriptor() {
+  return { concavityDepth: 0, bilateralSymmetry: 0, lobeCount: 0, tipCount: 0,
+           solidity: 0, compactness: 0, isAvailable: false };
+}
+function emptyTrajectoryDescriptor() {
+  return { closureConfidence: 0, selfIntersectionCount: 0, windingCount: 0,
+           radialTrend: 0, oscillationCount: 0, periodicity: 0,
+           radialSymmetryOrder: 0, radialSymmetryStrength: 0, isAvailable: false };
+}
+function polygonSignedArea(points) {
+  if (points.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return sum * 0.5;
+}
+function resampleClosedContour(contour, count = 96) {
+  if (!Array.isArray(contour) || contour.length < 3 || count < 3) return [];
+  const source = contour.slice();
+  if (source.length > 3 && Math.hypot(source[0].x - source[source.length - 1].x,
+                                      source[0].y - source[source.length - 1].y) < 1e-6) source.pop();
+  const cumulative = [0];
+  for (let i = 0; i < source.length; i++) {
+    const b = source[(i + 1) % source.length];
+    cumulative.push(cumulative[cumulative.length - 1] + Math.hypot(b.x - source[i].x, b.y - source[i].y));
+  }
+  const total = cumulative[cumulative.length - 1];
+  if (total <= 1e-6) return [];
+  const result = [];
+  let edge = 0;
+  for (let i = 0; i < count; i++) {
+    const target = total * i / count;
+    while (edge + 1 < cumulative.length - 1 && cumulative[edge + 1] < target) edge++;
+    const a = source[edge], b = source[(edge + 1) % source.length];
+    const t = (target - cumulative[edge]) / Math.max(cumulative[edge + 1] - cumulative[edge], 1e-9);
+    result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  }
+  return result;
+}
+function convexHull(points) {
+  const sorted = points.slice().sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x);
+  if (sorted.length < 3) return sorted;
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (const p of sorted.slice().reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+function pointSegmentDistance(p, a, b) {
+  const abx = b.x - a.x, aby = b.y - a.y, apx = p.x - a.x, apy = p.y - a.y;
+  const den = abx * abx + aby * aby;
+  const t = den > 1e-12 ? shapeClamp01((apx * abx + apy * aby) / den) : 0;
+  return Math.hypot(apx - t * abx, apy - t * aby);
+}
+function circularRunCount(mask) {
+  if (!mask.some(Boolean)) return 0;
+  if (mask.every(Boolean)) return 1;
+  let count = 0;
+  for (let i = 0; i < mask.length; i++)
+    if (mask[i] && !mask[(i - 1 + mask.length) % mask.length]) count++;
+  return count;
+}
+function measureShapeDescriptor(contour) {
+  const samples = resampleClosedContour(contour, 96);
+  if (samples.length !== 96) return emptyShapeDescriptor();
+  const xs = samples.map(p => p.x), ys = samples.map(p => p.y);
+  const diag = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  if (diag <= 1e-6) return emptyShapeDescriptor();
+  const signedArea = polygonSignedArea(samples), area = Math.abs(signedArea);
+  let perimeter = 0;
+  for (let i = 0; i < samples.length; i++)
+    perimeter += Math.hypot(samples[(i + 1) % samples.length].x - samples[i].x,
+                            samples[(i + 1) % samples.length].y - samples[i].y);
+  const hull = convexHull(samples), hullArea = Math.abs(polygonSignedArea(hull));
+  if (area <= 1e-6 || perimeter <= 1e-6 || hull.length < 3 || hullArea <= 1e-6)
+    return emptyShapeDescriptor();
+  const solidity = shapeClamp01(area / hullArea);
+  const compactness = shapeClamp01(4 * Math.PI * area / (perimeter * perimeter));
+  const hullDistances = samples.map(p => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < hull.length; i++)
+      best = Math.min(best, pointSegmentDistance(p, hull[i], hull[(i + 1) % hull.length]));
+    return best;
+  });
+  let deepestIndex = 0;
+  for (let i = 1; i < hullDistances.length; i++)
+    if (hullDistances[i] > hullDistances[deepestIndex]) deepestIndex = i;
+  const rawDepth = hullDistances[deepestIndex];
+  const concavityDepth = shapeClamp01(rawDepth / (diag * 0.20));
+  const cx = xs.reduce((a, b) => a + b, 0) / samples.length;
+  const cy = ys.reduce((a, b) => a + b, 0) / samples.length;
+  let cxx = 0, cyy = 0, cxy = 0;
+  for (const p of samples) {
+    const x = p.x - cx, y = p.y - cy;
+    cxx += x * x; cyy += y * y; cxy += x * y;
+  }
+  const angle = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
+  const symmetryScore = (axisX, axisY) => {
+    let sum = 0;
+    for (const p of samples) {
+      const x = p.x - cx, y = p.y - cy, projection = x * axisX + y * axisY;
+      const rx = 2 * projection * axisX - x + cx;
+      const ry = 2 * projection * axisY - y + cy;
+      let nearest = Number.POSITIVE_INFINITY;
+      for (const q of samples) nearest = Math.min(nearest, (q.x - rx) ** 2 + (q.y - ry) ** 2);
+      sum += nearest;
+    }
+    return shapeClamp01(1 - Math.sqrt(sum / samples.length) / (diag * 0.12));
+  };
+  const ax = Math.cos(angle), ay = Math.sin(angle);
+  const bilateralSymmetry = Math.max(symmetryScore(ax, ay), symmetryScore(-ay, ax));
+  const orientation = signedArea >= 0 ? 1 : -1, span = 4;
+  const tipMask = samples.map((p, i) => {
+    const prev = samples[(i - span + samples.length) % samples.length];
+    const next = samples[(i + span) % samples.length];
+    const v1x = p.x - prev.x, v1y = p.y - prev.y;
+    const v2x = next.x - p.x, v2y = next.y - p.y;
+    const cross = v1x * v2y - v1y * v2x, dot = v1x * v2x + v1y * v2y;
+    return cross * orientation > 0 && Math.atan2(Math.abs(cross), dot) >= 0.72;
+  });
+  const tipCount = circularRunCount(tipMask);
+  const radii = samples.map(p => Math.hypot(p.x - cx, p.y - cy));
+  const notchX = samples[deepestIndex].x - cx, notchY = samples[deepestIndex].y - cy;
+  const notchLength = Math.hypot(notchX, notchY);
+  const notchAxis = notchLength > 1e-6 ? [notchX / notchLength, notchY / notchLength] : [0, 0];
+  const lobeWindow = 7;
+  const lobeCandidates = samples.map((p, i) => {
+    const left = [], right = [];
+    for (let k = 1; k <= lobeWindow; k++) {
+      left.push(radii[(i - k + samples.length) % samples.length]);
+      right.push(radii[(i + k) % samples.length]);
+    }
+    const isPeak = radii[i] >= Math.max(...left, ...right);
+    const prominence = radii[i] - Math.max(Math.min(...left), Math.min(...right));
+    const qx = p.x - cx, qy = p.y - cy;
+    const onNotchSide = rawDepth <= diag * 0.01
+      || qx * notchAxis[0] + qy * notchAxis[1] >= -diag * 0.04;
+    let nearTip = false;
+    for (let k = -lobeWindow; k <= lobeWindow; k++)
+      if (tipMask[(i + k + samples.length) % samples.length]) { nearTip = true; break; }
+    return isPeak && prominence >= diag * 0.025 && onNotchSide && !nearTip;
+  });
+  return { concavityDepth, bilateralSymmetry, lobeCount: circularRunCount(lobeCandidates),
+           tipCount, solidity, compactness, isAvailable: true };
+}
+function resampleOpenTrajectory(points, count = 96) {
+  if (!Array.isArray(points) || points.length < 2 || count < 2) return [];
+  const source = [points[0]];
+  for (const p of points.slice(1))
+    if (Math.hypot(p.x - source[source.length - 1].x, p.y - source[source.length - 1].y) > 1e-6) source.push(p);
+  if (source.length < 2) return [];
+  const cumulative = [0];
+  for (let i = 1; i < source.length; i++)
+    cumulative.push(cumulative[cumulative.length - 1] + Math.hypot(source[i].x - source[i - 1].x,
+                                                                   source[i].y - source[i - 1].y));
+  const total = cumulative[cumulative.length - 1];
+  if (total <= 1e-6) return [];
+  const result = [];
+  let edge = 0;
+  for (let i = 0; i < count; i++) {
+    const target = total * i / (count - 1);
+    while (edge + 1 < cumulative.length - 1 && cumulative[edge + 1] < target) edge++;
+    const a = source[edge], b = source[edge + 1];
+    const t = (target - cumulative[edge]) / Math.max(cumulative[edge + 1] - cumulative[edge], 1e-9);
+    result.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  }
+  return result;
+}
+function measureTrajectoryDescriptor(points) {
+  const samples = resampleOpenTrajectory(points, 96);
+  if (samples.length !== 96) return emptyTrajectoryDescriptor();
+  const xs = samples.map(p => p.x), ys = samples.map(p => p.y);
+  const diag = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  if (diag <= 1e-6) return emptyTrajectoryDescriptor();
+  let pathLength = 0;
+  for (let i = 1; i < samples.length; i++)
+    pathLength += Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y);
+  if (pathLength <= 1e-6) return emptyTrajectoryDescriptor();
+  const endpointGap = Math.hypot(samples[samples.length - 1].x - samples[0].x,
+                                 samples[samples.length - 1].y - samples[0].y);
+  const closureConfidence = Math.min(shapeSmoothstep(0.30, 0.10, endpointGap / pathLength),
+                                     shapeSmoothstep(0.35, 0.08, endpointGap / diag));
+  const intersections = [];
+  const segmentCount = samples.length - 1;
+  for (let a = 0; a < segmentCount; a++) {
+    if (a + 2 >= segmentCount) continue;
+    for (let b = a + 2; b < segmentCount; b++) {
+      if (closureConfidence >= 0.5 && a === 0 && b === segmentCount - 1) continue;
+      const p = samples[a], p2 = samples[a + 1], q = samples[b], q2 = samples[b + 1];
+      const d1x = p2.x - p.x, d1y = p2.y - p.y, d2x = q2.x - q.x, d2y = q2.y - q.y;
+      const den = d1x * d2y - d1y * d2x;
+      if (Math.abs(den) < 1e-9) continue;
+      const tx = q.x - p.x, ty = q.y - p.y;
+      const t = (tx * d2y - ty * d2x) / den, u = (tx * d1y - ty * d1x) / den;
+      if (t <= 0.03 || t >= 0.97 || u <= 0.03 || u >= 0.97) continue;
+      const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
+      if (!intersections.some(v => Math.hypot(v.x - hit.x, v.y - hit.y) <= diag * 0.025))
+        intersections.push(hit);
+    }
+  }
+  const turnSpan = 2, turnPeaks = [];
+  let totalTurning = 0;
+  for (let i = turnSpan; i < samples.length - turnSpan; i++) {
+    const v1x = samples[i].x - samples[i - turnSpan].x;
+    const v1y = samples[i].y - samples[i - turnSpan].y;
+    const v2x = samples[i + turnSpan].x - samples[i].x;
+    const v2y = samples[i + turnSpan].y - samples[i].y;
+    const cross = v1x * v2y - v1y * v2x, dot = v1x * v2x + v1y * v2y;
+    if (Math.abs(cross) <= 1e-9 && Math.abs(dot) <= 1e-9) continue;
+    const turn = Math.atan2(cross, dot);
+    totalTurning += turn / turnSpan;
+    if (Math.abs(turn) < 0.18) continue;
+    const sign = turn > 0 ? 1 : -1, last = turnPeaks[turnPeaks.length - 1];
+    if (last && last.sign === sign && i - last.index <= turnSpan * 2) {
+      if (Math.abs(turn) > last.magnitude) turnPeaks[turnPeaks.length - 1] = { index: i, magnitude: Math.abs(turn), sign };
+    } else turnPeaks.push({ index: i, magnitude: Math.abs(turn), sign });
+  }
+  const cv = values => {
+    if (values.length < 2) return 1;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    if (mean <= 1e-9) return 1;
+    return Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length) / mean;
+  };
+  let periodicity = 0;
+  if (turnPeaks.length >= 4) {
+    const spacing = turnPeaks.slice(1).map((p, i) => p.index - turnPeaks[i].index);
+    const spacingScore = Math.max(0, 1 - cv(spacing) / 0.55);
+    const magnitudeScore = Math.max(0, 1 - cv(turnPeaks.map(p => p.magnitude)) / 0.85);
+    periodicity = Math.min(1, 0.72 * spacingScore + 0.28 * magnitudeScore);
+  }
+  const cx = xs.reduce((a, b) => a + b, 0) / samples.length;
+  const cy = ys.reduce((a, b) => a + b, 0) / samples.length;
+  const radii = samples.map(p => Math.hypot(p.x - cx, p.y - cy));
+  const meanRadius = radii.reduce((a, b) => a + b, 0) / radii.length;
+  let covariance = 0, varianceT = 0, varianceR = 0;
+  for (let i = 0; i < radii.length; i++) {
+    const dt = i / (radii.length - 1) - 0.5, dr = radii[i] - meanRadius;
+    covariance += dt * dr; varianceT += dt * dt; varianceR += dr * dr;
+  }
+  const radialTrend = varianceR > (diag * 0.015) ** 2 * radii.length
+    ? Math.max(-1, Math.min(1, covariance / Math.sqrt(Math.max(varianceT * varianceR, 1e-12)))) : 0;
+  const symmetryRadii = closureConfidence >= 0.5 ? radii.slice(0, -1) : radii;
+  const symmetryMean = symmetryRadii.reduce((a, b) => a + b, 0) / symmetryRadii.length;
+  const centered = symmetryRadii.map(v => v - symmetryMean);
+  const rms = Math.sqrt(centered.reduce((s, v) => s + v * v, 0) / centered.length);
+  const variationGate = shapeSmoothstep(0.035, 0.12, rms / Math.max(symmetryMean, 1e-9));
+  let radialSymmetryOrder = 0, radialSymmetryStrength = 0;
+  if (variationGate > 0) {
+    for (let order = 2; order <= 8; order++) {
+      let re = 0, im = 0;
+      for (let i = 0; i < centered.length; i++) {
+        const phase = 2 * Math.PI * order * i / centered.length;
+        re += centered[i] * Math.cos(phase); im -= centered[i] * Math.sin(phase);
+      }
+      const amplitude = 2 * Math.hypot(re, im) / centered.length;
+      const dominance = Math.min(1, amplitude / Math.max(Math.SQRT2 * rms, 1e-9));
+      const strength = dominance * variationGate;
+      if (strength > radialSymmetryStrength + 1e-9
+          || (Math.abs(strength - radialSymmetryStrength) <= 1e-9 && order > radialSymmetryOrder)) {
+        radialSymmetryOrder = order; radialSymmetryStrength = strength;
+      }
+    }
+  }
+  if (radialSymmetryStrength < 0.55) radialSymmetryOrder = 0;
+  return { closureConfidence, selfIntersectionCount: intersections.length,
+           windingCount: Math.abs(totalTurning) / (2 * Math.PI), radialTrend,
+           oscillationCount: turnPeaks.length >= 2 ? turnPeaks.length : 0, periodicity,
+           radialSymmetryOrder, radialSymmetryStrength, isAvailable: true };
+}
+function heartConfidenceFor(descriptor, cx) {
+  if (!cx.isClosed || !descriptor.isAvailable || cx.rotationFraction < 0.7 || cx.curveConsistency < 0.6)
+    return 0;
+  const depth = shapeRamp(descriptor.concavityDepth, 0.12, 0.48);
+  const symmetry = shapeRamp(descriptor.bilateralSymmetry, 0.45, 0.82);
+  const lobes = descriptor.lobeCount === 2 ? 1 : [1, 3].includes(descriptor.lobeCount) ? 0.72 : 0.15;
+  const tips = descriptor.tipCount === 1 ? 1 : descriptor.tipCount === 0 ? 0.72
+    : descriptor.tipCount === 2 ? 0.38 : 0;
+  const solidityBand = Math.min(shapeRamp(descriptor.solidity, 0.62, 0.78),
+                                1 - shapeRamp(descriptor.solidity, 0.97, 1.0));
+  return depth * (0.36 * symmetry + 0.24 * lobes + 0.22 * tips + 0.18 * solidityBand);
+}
+function recognizeShapeFamily(descriptor, trajectory, cx) {
+  if (!trajectory.isAvailable) return { candidates: [], selected: null, confidence: 0, margin: 0 };
+  const heart = heartConfidenceFor(descriptor, cx);
+  const radialOrder = trajectory.radialSymmetryOrder >= 3 ? 1 : 0;
+  const radialFeatures = Math.max(shapeRamp(descriptor.tipCount, 2, 5), shapeRamp(cx.corners, 3, 7));
+  const radialStructure = Math.max(shapeRamp(descriptor.concavityDepth, 0.06, 0.24),
+                                   shapeRamp(cx.corners, 4, 7),
+                                   shapeRamp(trajectory.selfIntersectionCount, 0, 3));
+  const radial = radialOrder * radialStructure
+    * (0.52 * trajectory.radialSymmetryStrength + 0.28 * radialFeatures
+       + 0.20 * trajectory.closureConfidence);
+  const spiral = 0.55 * shapeRamp(trajectory.windingCount, 1.25, 2.75)
+    + 0.45 * shapeRamp(Math.abs(trajectory.radialTrend), 0.38, 0.82);
+  const n = trajectory.selfIntersectionCount;
+  const crossing = n === 1 ? 1 : n === 2 ? 0.82 : n === 3 ? 0.55 : n > 3 ? 0.15 : 0;
+  const intersectingLoop = crossing
+    * (0.38 * trajectory.closureConfidence
+       + 0.34 * (1 - shapeRamp(cx.cornerSharpness, 0.20, 0.62))
+       + 0.28 * (1 - shapeRamp(cx.curveConsistency, 0.30, 0.78)));
+  const openGate = 1 - shapeRamp(trajectory.closureConfidence, 0.35, 0.75);
+  const regularOscillation = (n === 0 ? 1 : 0) * openGate
+    * (0.48 * shapeRamp(trajectory.oscillationCount, 3, 7) + 0.52 * trajectory.periodicity);
+  const candidates = [
+    { family: "heart", confidence: shapeClamp01(heart) },
+    { family: "radialRepetition", confidence: shapeClamp01(radial) },
+    { family: "spiral", confidence: shapeClamp01(spiral) },
+    { family: "intersectingLoop", confidence: shapeClamp01(intersectingLoop) },
+    { family: "regularOscillation", confidence: shapeClamp01(regularOscillation) },
+  ].sort((a, b) => Math.abs(a.confidence - b.confidence) > 1e-12
+    ? b.confidence - a.confidence : a.family.localeCompare(b.family));
+  const confidence = candidates[0]?.confidence ?? 0;
+  const margin = Math.max(0, confidence - (candidates[1]?.confidence ?? 0));
+  return { candidates, selected: confidence >= 0.65 && margin >= 0.12 ? candidates[0].family : null,
+           confidence, margin };
+}
+function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
+  const heartConfidence = heartConfidenceFor(descriptor, cx);
+  const isHeart = heartConfidence >= 0.55;
+  const outlineStar = descriptor.isAvailable && descriptor.concavityDepth >= 0.20
+    && descriptor.solidity <= 0.72 && descriptor.tipCount >= 4
+    && Math.abs(descriptor.tipCount - trajectory.radialSymmetryOrder) <= 1;
+  const pentagram = !descriptor.isAvailable && trajectory.radialSymmetryOrder === 5
+    && trajectory.selfIntersectionCount === 5 && cx.cornerSharpness >= 0.45
+    && (cx.formK ?? 0) >= 0.50;
+  const isStar = cx.isClosed && recognition.selected === "radialRepetition"
+    && trajectory.radialSymmetryOrder >= 4 && trajectory.radialSymmetryStrength >= 0.60
+    && (outlineStar || pentagram);
+  return { heartConfidence, isHeart, isStar };
+}
+
 // ─── strokeComplexity (AxisExtractor.swift v3 の移植: 角+ループ+大きさ → モーラ数) ───
-function strokeComplexity(points, w, h, maxMora = 16) {
+function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = true) {
   const rawInput = points;
   points = collapseRetrace(points);   // Step3: N 周なぞり → 1 周へ畳んでから測る
   const retraced = points !== rawInput;   // 参照が変わった = 畳んだ (UI 表示用)
   if (points.length < 2 || w <= 0 || h <= 0)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, isHeart: false, isStar: false };
   let minX = points[0].x, maxX = points[0].x, minY = points[0].y, maxY = points[0].y;
   for (const p of points) {
     minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -1340,7 +1690,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
     pathLen += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
   const sizeRatio = bboxDiag / Math.max(canvasDiag, 1);
   if (sizeRatio < 0.05 && pathLen < canvasDiag * 0.08)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, isHeart: false, isStar: false };
   // 角 v2 (2026-07-10): 検出は従来 (閾値 0.83rad・近接抑制) + **ピークホールド** (肩でなく
   // 抑制窓内の折返し最大を鋭さに)。
   const k = Math.max(1, Math.min(Math.floor(points.length / 24), 8));
@@ -1361,6 +1711,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
   //     ※回転正準化 (最直線位置へ回す) 案は不採用: 全周に十分長い直線が無い形 (小さめの
   //       四角等) で回転先が角の隣になり、端除外と衝突して角を落とす (合成四角で実測)。
   let mClosed = 0;   // 閉形の実周点数 (パッド前)。0 = 開いた線 (従来どおり)
+  let closedContour = null;   // ShapeDescriptor はパッド前の完成形を測る
   // 正準化の対象は「単純な一周の輪郭」のみ (紙面効率 pathLen/bboxDiag < 3.2 — aaan ゲートと
   // 同じ判定)。渦・多重ループ・二度なぞりは端点が偶然近くても輪郭ではない — 巻きパッドの
   // 接続跳びが偽の角 (formK +0.5 級) を作る (合成渦で実測)。それらは軌跡層 (単位語経路) の担当。
@@ -1373,6 +1724,7 @@ function strokeComplexity(points, w, h, maxMora = 16) {
     }
     const arr = points.slice(0, end);
     mClosed = arr.length;
+    closedContour = arr;
     points = arr.concat(arr.slice(0, Math.min(4 * k, arr.length)));
   }
   const n = points.length;
@@ -1678,12 +2030,21 @@ function strokeComplexity(points, w, h, maxMora = 16) {
     const dl = Math.hypot(dx, dy);
     return dl < 1e-6 ? null : { dx: dx / dl, dy: dy / dl };
   };
+  const shapeDescriptor = includeFinalRecognition && closedContour
+    ? measureShapeDescriptor(closedContour) : emptyShapeDescriptor();
+  const trajectoryDescriptor = includeFinalRecognition
+    ? measureTrajectoryDescriptor(rawInput) : emptyTrajectoryDescriptor();
+  const shapeRecognition = recognizeShapeFamily(shapeDescriptor, trajectoryDescriptor,
+    { corners, cornerSharpness, isClosed, rotationFraction, curveConsistency, formK });
+  const fixed = fixedShapeRecognition(shapeDescriptor, trajectoryDescriptor, shapeRecognition,
+    { corners, cornerSharpness, isClosed, rotationFraction, curveConsistency, formK });
   return { corners, loops, moraCount, cornerSharpness, isClosed, rotationFraction, curveConsistency,
            sizeRatio, pathRatio: pathLen / Math.max(canvasDiag, 1),
            cornerPoints: firedC.map(([fi]) =>
              ({ x: points[fi].x, y: points[fi].y, ...(cornerDir(fi) || {}) })),
            formK, turnConcentration, retraced, reversals: coarseReversals,
-           disorder: coarseDisorder };
+           disorder: coarseDisorder, shapeDescriptor, trajectoryDescriptor, shapeRecognition,
+           heartConfidence: fixed.heartConfidence, isHeart: fixed.isHeart, isStar: fixed.isStar };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2084,6 +2445,11 @@ function circleVocabSignal(cx, ax) {
     && Math.abs(ax.round) <= 0.25;
 }
 
+// ハート/星は6軸の値を上書きする軸ではなく、完成形に対する初期プリセットの仮固定語。
+// 認識が曖昧な形は false とし、従来の6軸生成へ戻す。
+function heartVocabSignal(cx) { return cx.isHeart === true; }
+function starVocabSignal(cx) { return cx.isStar === true; }
+
 // ─── P12 開いた弧の語彙 (2026-07-16 コウさん立法): 向き×大きさ → 固定語 ───
 // 正本 = Onomatoi/docs/FEEDBACK_2026-07-16_kou_open_arc_vocab.md。P11 の「向き不問・
 // 母音+ん」を上書きする。原理: 鼻音=柔らかさ / ん=収束 (円が完成したときだけ) /
@@ -2103,6 +2469,8 @@ const ARC_VOCAB = {
 // 内部空間を開く。**「o の次に a は来ない」** (a→o 可・o→a 不可 = 広がりが先、まとまりが後、
 // 完成の ん が最後という不可逆な時間構造)。旧 "aaan" 固定 (2026-07-16〜) を上書き。
 const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
+const HEART_VOCAB = "myuun";       // ハート型の仮固定語: みゅーん
+const STAR_VOCAB = "chigyaan";     // 輪郭星/一筆五芒星の仮固定語: ちぎゃーん
 const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
 const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
 // 2026-08-28 コウさん制定: 正方形と長方形を別語族にする。
@@ -2327,7 +2695,9 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         // 単位ごとの K/manner (2026-07-10): ループはそれ自体が閉じた図形 — そのループだけの
         // 角の鋭さ/動態から K と調音方法を持つ (丸→三角→丸 = 柔→硬→柔 の子音遷移)。
         // 大域 K は 25% だけ残す (語レベル整合ゲートは温存)。
-        const ucx = (kiki !== null || manner !== null) ? strokeComplexity(u.points, w, h) : null;
+        // 局所ループは K/manner だけを読む。96点の完成形認識は一筆全体の pen-up 時だけ行う。
+        const ucx = (kiki !== null || manner !== null)
+          ? strokeComplexity(u.points, w, h, 16, false) : null;
         const kUnit = (kiki !== null && ucx)
           ? 0.25 * kiki + 0.75 * drawK(ax.sharp, ucx.corners, ucx.cornerSharpness)
           : kiki;
@@ -4238,7 +4608,17 @@ canvas.addEventListener("pointerup", ev => {
     // 開いた一角 (＜＞∧∨) は子音開始・語末ん無し (2026-08-14 PF-02 確認)。
     const openArc = openArcSignal(cx), openChevron = openChevronSignal(cx);
     let vocabWord = null, vocabReason = null;
-    if (openArc) {
+    if (heartVocabSignal(cx)) {
+      vocabWord = HEART_VOCAB;
+      vocabReason = uiLang === "ja"
+        ? `ハートの完成形 → ${HEART_VOCAB}（仮固定語「みゅーん」）`
+        : `completed heart → ${HEART_VOCAB} (provisional fixed word: myuun)`;
+    } else if (starVocabSignal(cx)) {
+      vocabWord = STAR_VOCAB;
+      vocabReason = uiLang === "ja"
+        ? `星の完成形 → ${STAR_VOCAB}（輪郭星/一筆五芒星の仮固定語「ちぎゃーん」）`
+        : `completed star → ${STAR_VOCAB} (provisional fixed word: chigyaan)`;
+    } else if (openArc) {
       const dir = arcBulgeDirection(inkPts);
       const sizeClass = arcSizeClass(inkPts, rect.width, rect.height);
       vocabWord = ARC_VOCAB[dir][sizeClass];
