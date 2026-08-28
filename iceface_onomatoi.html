@@ -2105,9 +2105,13 @@ const ARC_VOCAB = {
 const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
 const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
 const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
-// PF-07〜09 (2026-08-14「おまかせ」仮決定): 四角は破裂音 b + 円の開口度系列。
-// 縦長/横長は向きで語を変えず、同じ大きさクラスを使う。
-const SQUARE_VOCAB = ["boon", "baoon", "baaaan"]; // [小, 中, 大]
+// 2026-08-28 コウさん制定: 正方形と長方形を別語族にする。
+// 正本 = Onomatoi/docs/FEEDBACK_2026-08-28_kou_quadrilateral_vocab.md。
+// 配列は [小, 中, 大]。縦長/横長は同じ長方形語族で、向きによって語を変えない。
+const SQUARE_VOCAB = ["teton", "tetoon", "tetooon"];
+const RECTANGLE_VOCAB = ["tsukon", "tsukoon", "tsukooon"];
+// 指描きの揺れを許容する実装上の境界。語彙立法ではないため、実機結果から再調整できる。
+const SQUARE_MAX_ASPECT_RATIO = 1.35;
 
 // ─── P13 三角形 = gyagyoon (2026-07-21 コウさん立法) ───
 // 正本 = Onomatoi/docs/FEEDBACK_2026-07-21_kou_triangle_vocab.md。fixture = mrus6t5v-1。
@@ -2135,6 +2139,21 @@ function invertedTriangleVocabSignal(cx) {
 function quadrilateralVocabSignal(cx) {
   return cx.isClosed && cx.corners === 4
     && cx.cornerSharpness >= 0.15 && cx.cornerSharpness <= 0.50;
+}
+
+/// 外接矩形の長辺÷短辺で正方形/長方形を分ける。縦横の向きは語に影響しない。
+function quadrilateralFamily(points) {
+  if (!Array.isArray(points) || points.length === 0) return "square";
+  let minX = points[0].x, maxX = points[0].x, minY = points[0].y, maxY = points[0].y;
+  for (const p of points) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  const width = maxX - minX, height = maxY - minY;
+  const shortSide = Math.min(width, height);
+  if (shortSide <= 1e-6) return "rectangle";
+  return Math.max(width, height) / shortSide <= SQUARE_MAX_ASPECT_RATIO
+    ? "square" : "rectangle";
 }
 
 /// 弧の膨らみの向き: 弦 (始点→終点) から最も遠い点 (弧の頂) が、弦の中点から見て
@@ -4248,11 +4267,12 @@ canvas.addEventListener("pointerup", ev => {
           ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
           : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
     } else if (quadrilateralVocabSignal(cx)) {
-      const squareSize = arcSizeClass(inkPts, rect.width, rect.height);
-      vocabWord = SQUARE_VOCAB[squareSize];
+      const quadrilateralSize = arcSizeClass(inkPts, rect.width, rect.height);
+      const family = quadrilateralFamily(inkPts);
+      vocabWord = (family === "square" ? SQUARE_VOCAB : RECTANGLE_VOCAB)[quadrilateralSize];
       vocabReason = uiLang === "ja"
-        ? `四角 (${["小", "中", "大"][squareSize]}) → ${vocabWord}（破裂音 b・大きさに応じた開口・ん で閉じた空間を完成）`
-        : `quadrilateral (size ${squareSize}) → ${vocabWord} (plosive b, size-based opening, and final N for closure)`;
+        ? `${family === "square" ? "正方形" : "長方形"} (${["小", "中", "大"][quadrilateralSize]}) → ${vocabWord}（大きさに応じて語中のおを伸ばし、ん で閉じた空間を完成）`
+        : `${family} (size ${quadrilateralSize}) → ${vocabWord} (the medial o length follows size; final N completes the closed space)`;
     }
     // Step1 確定▲: 判定に使った「形の角」(閉形は正準化後 = 描き始めの頂点も含む) を表示。
     // 実況▲(輪郭線) = 軌跡がその場で曲がった点 / 確定▲(塗り) = 完成形としての角 — 表示と判定を一致させる。

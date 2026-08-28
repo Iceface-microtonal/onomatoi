@@ -105,7 +105,7 @@ const EXPORTS = ["extractAxes", "applyHandCorrection", "bucketedAxes", "densifie
   "wordK", "romajiOf", "openArcSignal", "openChevronSignal",
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
   "triangleVocabSignal", "TRIANGLE_VOCAB", "invertedTriangleVocabSignal", "INVERTED_TRIANGLE_VOCAB",
-  "quadrilateralVocabSignal", "SQUARE_VOCAB",
+  "quadrilateralVocabSignal", "quadrilateralFamily", "SQUARE_VOCAB", "RECTANGLE_VOCAB",
   "segmentWord"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(
@@ -454,7 +454,9 @@ function p12VocabWord(pts) {
   }
   if (api.quadrilateralVocabSignal(cx)) {
     const sc = api.arcSizeClass(inkPts, W, H);
-    return api.romajiOf(api.vocabEvent(api.SQUARE_VOCAB[sc], ax));
+    const family = api.quadrilateralFamily(inkPts);
+    const words = family === "square" ? api.SQUARE_VOCAB : api.RECTANGLE_VOCAB;
+    return api.romajiOf(api.vocabEvent(words[sc], ax));
   }
   return null;
 }
@@ -546,6 +548,11 @@ function closedPolyPts(verts) {
 const p13Triangle = closedPolyPts([[180, 60], [280, 280], [80, 280]]);
 const p13InvertedTriangle = closedPolyPts([[80, 80], [280, 80], [180, 300]]);
 const p13Square = closedPolyPts([[100, 100], [260, 100], [260, 260], [100, 260]]);
+const p13SmallSquare = closedPolyPts([[150, 150], [210, 150], [210, 210], [150, 210]]);
+const p13LargeSquare = closedPolyPts([[65, 65], [295, 65], [295, 295], [65, 295]]);
+const p13SmallRectangle = closedPolyPts([[120, 150], [240, 150], [240, 210], [120, 210]]);
+const p13MediumRectangle = closedPolyPts([[90, 140], [270, 140], [270, 220], [90, 220]]);
+const p13LargeRectangle = closedPolyPts([[30, 115], [330, 115], [330, 245], [30, 245]]);
 const P11_CHECKS = [
   ...Object.entries(P12_EXPECT).map(([dir, words]) =>
     [`⊃⊂∩∪ ${dir}: 大きさ 3 段で ${words.join("/")} (コウさん語彙)`,
@@ -579,14 +586,30 @@ const P11_CHECKS = [
     () => p12VocabWord(p13Triangle) === "gyagyoon"],
   ["Q3変更 合成逆三角形 ▽ (閉): gyogyaan",
     () => p12VocabWord(p13InvertedTriangle) === "gyogyaan"],
-  ["PF-07〜09 正方形 (閉): 大きさに応じた四角語彙",
-    () => p12VocabWord(p13Square) === "baoon"],
-  ["PF-07〜09 四角の語彙: 小=boon / 中=baoon / 大=baaaan",
+  ["2026-08-28 正方形 (閉): 小/中/大 = teton/tetoon/tetooon",
+    () => p12VocabWord(p13SmallSquare) === "teton"
+       && p12VocabWord(p13Square) === "tetoon"
+       && p12VocabWord(p13LargeSquare) === "tetooon"],
+  ["2026-08-28 長方形 (閉): 小/中/大 = tsukon/tsukoon/tsukooon",
+    () => p12VocabWord(p13SmallRectangle) === "tsukon"
+       && p12VocabWord(p13MediumRectangle) === "tsukoon"
+       && p12VocabWord(p13LargeRectangle) === "tsukooon"],
+  ["四角語彙の分解: 3〜5モーラ・語末んを維持",
     () => {
       const ax0 = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
-      return ["boon", "baoon", "baaaan"].every((w, i) =>
-        api.romajiOf(api.vocabEvent(api.SQUARE_VOCAB[i], ax0)) === w);
+      return [["teton", "tetoon", "tetooon"], ["tsukon", "tsukoon", "tsukooon"]]
+        .every(words => words.every((w, i) => {
+          const event = api.vocabEvent(w, ax0);
+          return api.romajiOf(event) === w && event.moras.length === i + 3
+            && event.moras[event.moras.length - 1].isN === true;
+        }));
     }],
+  ["正方形/長方形の境界: 1.25 は正方形・1.45 は長方形",
+    () => api.quadrilateralFamily(closedPolyPts([[110, 130], [235, 130], [235, 230], [110, 230]])) === "square"
+       && api.quadrilateralFamily(closedPolyPts([[105, 130], [250, 130], [250, 230], [105, 230]])) === "rectangle"],
+  ["長方形は縦横で語族を変えない",
+    () => api.quadrilateralFamily(closedPolyPts([[90, 140], [270, 140], [270, 220], [90, 220]])) === "rectangle"
+       && api.quadrilateralFamily(closedPolyPts([[140, 90], [220, 90], [220, 270], [140, 270]])) === "rectangle"],
   ["P13 vocabEvent 複数CV: gyagyoon = [gya, gyo, ー, ん]",
     () => {
       const ax0 = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
