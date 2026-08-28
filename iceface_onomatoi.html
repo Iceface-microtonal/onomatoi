@@ -1612,14 +1612,22 @@ function measureTrajectoryDescriptor(points) {
 function heartConfidenceFor(descriptor, cx) {
   if (!cx.isClosed || !descriptor.isAvailable || cx.rotationFraction < 0.7 || cx.curveConsistency < 0.6)
     return 0;
-  const depth = shapeRamp(descriptor.concavityDepth, 0.12, 0.48);
-  const symmetry = shapeRamp(descriptor.bilateralSymmetry, 0.45, 0.82);
-  const lobes = descriptor.lobeCount === 2 ? 1 : [1, 3].includes(descriptor.lobeCount) ? 0.72 : 0.15;
-  const tips = descriptor.tipCount === 1 ? 1 : descriptor.tipCount === 0 ? 0.72
-    : descriptor.tipCount === 2 ? 0.38 : 0;
-  const solidityBand = Math.min(shapeRamp(descriptor.solidity, 0.62, 0.78),
-                                1 - shapeRamp(descriptor.solidity, 0.97, 1.0));
+  // 2026-08-28 三段階化: 指描きの浅いくぼみ・左右差を認識度1で救済する。
+  // 円・楕円は concavityDepth≈0 なので、depth の掛け算によりハートへ入らない。
+  const depth = shapeRamp(descriptor.concavityDepth, 0.09, 0.42);
+  const symmetry = shapeRamp(descriptor.bilateralSymmetry, 0.35, 0.75);
+  const lobes = descriptor.lobeCount === 2 ? 1 : [1, 3].includes(descriptor.lobeCount) ? 0.76 : 0.15;
+  const tips = descriptor.tipCount === 1 ? 1 : descriptor.tipCount === 0 ? 0.78
+    : descriptor.tipCount === 2 ? 0.45 : 0;
+  const solidityBand = Math.min(shapeRamp(descriptor.solidity, 0.58, 0.76),
+                                1 - shapeRamp(descriptor.solidity, 0.98, 1.0));
   return depth * (0.36 * symmetry + 0.24 * lobes + 0.22 * tips + 0.18 * solidityBand);
+}
+function heartRecognitionLevelFor(confidence) {
+  if (confidence >= 0.82) return 3;  // 整ったハート → kuun
+  if (confidence >= 0.62) return 2;  // 通常ハート → myuun
+  if (confidence >= 0.40) return 1;  // 崩れハート → myuun
+  return 0;
 }
 function recognizeShapeFamily(descriptor, trajectory, cx) {
   if (!trajectory.isAvailable) return { candidates: [], selected: null, confidence: 0, margin: 0 };
@@ -1658,7 +1666,8 @@ function recognizeShapeFamily(descriptor, trajectory, cx) {
 }
 function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
   const heartConfidence = heartConfidenceFor(descriptor, cx);
-  const isHeart = heartConfidence >= 0.55;
+  const heartRecognitionLevel = heartRecognitionLevelFor(heartConfidence);
+  const isHeart = heartRecognitionLevel > 0;
   const outlineStar = descriptor.isAvailable && descriptor.concavityDepth >= 0.20
     && descriptor.solidity <= 0.72 && descriptor.tipCount >= 4
     && Math.abs(descriptor.tipCount - trajectory.radialSymmetryOrder) <= 1;
@@ -1668,7 +1677,8 @@ function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
   const isStar = cx.isClosed && recognition.selected === "radialRepetition"
     && trajectory.radialSymmetryOrder >= 4 && trajectory.radialSymmetryStrength >= 0.60
     && (outlineStar || pentagram);
-  return { heartConfidence, isHeart, isStar };
+  return { heartConfidence, heartRecognitionLevel, isHeart,
+           isCleanHeart: heartRecognitionLevel === 3, isStar };
 }
 
 // ─── strokeComplexity (AxisExtractor.swift v3 の移植: 角+ループ+大きさ → モーラ数) ───
@@ -1677,7 +1687,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
   points = collapseRetrace(points);   // Step3: N 周なぞり → 1 周へ畳んでから測る
   const retraced = points !== rawInput;   // 参照が変わった = 畳んだ (UI 表示用)
   if (points.length < 2 || w <= 0 || h <= 0)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, isHeart: false, isStar: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false, isStar: false };
   let minX = points[0].x, maxX = points[0].x, minY = points[0].y, maxY = points[0].y;
   for (const p of points) {
     minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -1690,7 +1700,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
     pathLen += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
   const sizeRatio = bboxDiag / Math.max(canvasDiag, 1);
   if (sizeRatio < 0.05 && pathLen < canvasDiag * 0.08)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, isHeart: false, isStar: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false, isStar: false };
   // 角 v2 (2026-07-10): 検出は従来 (閾値 0.83rad・近接抑制) + **ピークホールド** (肩でなく
   // 抑制窓内の折返し最大を鋭さに)。
   const k = Math.max(1, Math.min(Math.floor(points.length / 24), 8));
@@ -2044,7 +2054,9 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
              ({ x: points[fi].x, y: points[fi].y, ...(cornerDir(fi) || {}) })),
            formK, turnConcentration, retraced, reversals: coarseReversals,
            disorder: coarseDisorder, shapeDescriptor, trajectoryDescriptor, shapeRecognition,
-           heartConfidence: fixed.heartConfidence, isHeart: fixed.isHeart, isStar: fixed.isStar };
+           heartConfidence: fixed.heartConfidence,
+           heartRecognitionLevel: fixed.heartRecognitionLevel,
+           isHeart: fixed.isHeart, isCleanHeart: fixed.isCleanHeart, isStar: fixed.isStar };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2448,6 +2460,9 @@ function circleVocabSignal(cx, ax) {
 // ハート/星は6軸の値を上書きする軸ではなく、完成形に対する初期プリセットの仮固定語。
 // 認識が曖昧な形は false とし、従来の6軸生成へ戻す。
 function heartVocabSignal(cx) { return cx.isHeart === true; }
+function heartVocabWord(cx) {
+  return cx.heartRecognitionLevel === 3 ? HEART_CLEAN_VOCAB : HEART_VOCAB;
+}
 function starVocabSignal(cx) { return cx.isStar === true; }
 
 // ─── P12 開いた弧の語彙 (2026-07-16 コウさん立法): 向き×大きさ → 固定語 ───
@@ -2469,7 +2484,8 @@ const ARC_VOCAB = {
 // 内部空間を開く。**「o の次に a は来ない」** (a→o 可・o→a 不可 = 広がりが先、まとまりが後、
 // 完成の ん が最後という不可逆な時間構造)。旧 "aaan" 固定 (2026-07-16〜) を上書き。
 const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
-const HEART_VOCAB = "myuun";       // ハート型の仮固定語: みゅーん
+const HEART_VOCAB = "myuun";       // ハート認識度1/2: みゅーん
+const HEART_CLEAN_VOCAB = "kuun";  // ハート認識度3: くぅん
 const STAR_VOCAB = "chigyaan";     // 輪郭星/一筆五芒星の仮固定語: ちぎゃーん
 const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
 const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
@@ -4609,10 +4625,13 @@ canvas.addEventListener("pointerup", ev => {
     const openArc = openArcSignal(cx), openChevron = openChevronSignal(cx);
     let vocabWord = null, vocabReason = null;
     if (heartVocabSignal(cx)) {
-      vocabWord = HEART_VOCAB;
+      vocabWord = heartVocabWord(cx);
+      const heartLevel = cx.heartRecognitionLevel;
+      const heartDisplay = heartLevel === 3 ? "くぅん" : "みゅーん";
+      const heartScore = cx.heartConfidence.toFixed(2);
       vocabReason = uiLang === "ja"
-        ? `ハートの完成形 → ${HEART_VOCAB}（仮固定語「みゅーん」）`
-        : `completed heart → ${HEART_VOCAB} (provisional fixed word: myuun)`;
+        ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
+        : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
     } else if (starVocabSignal(cx)) {
       vocabWord = STAR_VOCAB;
       vocabReason = uiLang === "ja"

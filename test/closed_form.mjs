@@ -75,7 +75,8 @@ function extractEngine(html) {
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "splineDensified", "densified", "extractAxes",
   "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32",
-  "heartVocabSignal", "starVocabSignal", "vocabEvent", "romajiOf", "HEART_VOCAB", "STAR_VOCAB"];
+  "heartRecognitionLevelFor", "heartVocabSignal", "heartVocabWord", "starVocabSignal",
+  "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
   { filename: "engine(extracted)" });
@@ -389,9 +390,43 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
                          concavity: +he.shapeDescriptor.concavityDepth.toFixed(2),
                          symmetry: +he.shapeDescriptor.bilateralSymmetry.toFixed(2),
                          lobes: he.shapeDescriptor.lobeCount, tips: he.shapeDescriptor.tipCount }));
-  check("ハートの仮固定語 = myuun (みゅーん)",
-        api.romajiOf(api.vocabEvent(api.HEART_VOCAB,
-          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "myuun");
+  check("整ったハート = 認識度3", he.heartRecognitionLevel === 3,
+        `level=${he.heartRecognitionLevel} confidence=${he.heartConfidence}`);
+  check("認識度3の固定語 = kuun (くぅん)",
+        api.romajiOf(api.vocabEvent(api.heartVocabWord(he),
+          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "kuun");
+  check("ハート認識度の閾値 = 1/2/3",
+        api.heartRecognitionLevelFor(0.40) === 1
+          && api.heartRecognitionLevelFor(0.62) === 2
+          && api.heartRecognitionLevelFor(0.82) === 3
+          && api.heartRecognitionLevelFor(0.399) === 0);
+
+  const cubic = (p0, p1, p2, p3, steps = 45) => {
+    const out = [];
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps, u = 1 - t;
+      const b0 = u ** 3, b1 = 3 * u * u * t, b2 = 3 * u * t * t, b3 = t ** 3;
+      out.push({ x: b0*p0.x + b1*p1.x + b2*p2.x + b3*p3.x,
+                 y: b0*p0.y + b1*p1.y + b2*p2.y + b3*p3.y });
+    }
+    return out;
+  };
+  const notch = {x:180,y:120}, right = {x:295,y:135};
+  const bottom = {x:180,y:265}, left = {x:65,y:135};
+  const roundedHeart = [
+    ...cubic(notch,{x:218,y:82},{x:285,y:72},right),
+    ...cubic(right,{x:305,y:195},{x:250,y:255},bottom),
+    ...cubic(bottom,{x:110,y:260},{x:55,y:200},left),
+    ...cubic(left,{x:70,y:80},{x:145,y:86},notch), notch,
+  ];
+  const rounded = api.strokeComplexity(roundedHeart, W, H, 16);
+  check("下端が丸い崩れハートも認識度1/2で救済",
+        [1, 2].includes(rounded.heartRecognitionLevel) && api.heartVocabSignal(rounded),
+        JSON.stringify({ level: rounded.heartRecognitionLevel,
+                         confidence: +rounded.heartConfidence.toFixed(2),
+                         descriptor: rounded.shapeDescriptor }));
+  check("認識度1/2の固定語 = myuun (みゅーん)",
+        api.heartVocabWord(rounded) === api.HEART_VOCAB);
   const closedVariant = (pts, rotation, reversed, shift) => {
     let open = pts.slice(0, -1).map(p => {
       const x = p.x - 180, y = p.y - 180;
@@ -407,7 +442,12 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
     ["ハート回転", closedVariant(heart, 0.73, false, 0)],
     ["ハート逆回り", closedVariant(heart, -0.41, true, 0)],
     ["ハート始点移動", closedVariant(heart, 0.18, false, 57)],
-  ]) check(`${label} → myuun ゲートを保持`, api.heartVocabSignal(cxB(pts)));
+  ]) {
+    const variant = cxB(pts);
+    check(`${label} → 認識度3 kuun を保持`,
+          variant.heartRecognitionLevel === 3
+            && api.heartVocabWord(variant) === api.HEART_CLEAN_VOCAB);
+  }
   for (const [label, pts] of [
     ["輪郭星回転", closedVariant(outlineStar, 0.51, false, 0)],
     ["輪郭星逆回り+始点移動", closedVariant(outlineStar, -0.32, true, 37)],
