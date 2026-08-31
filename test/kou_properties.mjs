@@ -105,7 +105,8 @@ const EXPORTS = ["extractAxes", "applyHandCorrection", "bucketedAxes", "densifie
   "wordK", "romajiOf", "openArcSignal", "openChevronSignal",
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
   "heartVocabSignal", "heartVocabWord", "HEART_VOCAB", "HEART_CLEAN_VOCAB",
-  "starVocabSignal", "STAR_VOCAB",
+  "starVocabSignal", "oneStrokePentagramVocabSignal", "outlineStarVocabSignal",
+  "prototypeVocabWord", "STAR_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB",
   "triangleVocabSignal", "TRIANGLE_VOCAB", "invertedTriangleVocabSignal", "INVERTED_TRIANGLE_VOCAB",
   "quadrilateralVocabSignal", "quadrilateralFamily", "SQUARE_VOCAB", "RECTANGLE_VOCAB",
   "segmentWord"];
@@ -437,7 +438,17 @@ function p12VocabWord(pts) {
   const geomPts = pts.length >= 3 ? api.splineDensified(pts, 6) : inkPts;
   const cx = api.strokeComplexity(geomPts, W, H, 16);
   if (api.heartVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.heartVocabWord(cx), ax));
-  if (api.starVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.STAR_VOCAB, ax));
+  if (api.oneStrokePentagramVocabSignal(cx))
+    return api.romajiOf(api.vocabEvent(api.ONE_STROKE_PENTAGRAM_VOCAB, ax));
+  if (api.outlineStarVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.STAR_VOCAB, ax));
+  for (const [family, flag, level] of [
+    ["leaf", "isLeaf", "leafRecognitionLevel"],
+    ["crescent", "isCrescent", "crescentRecognitionLevel"],
+    ["cloud", "isCloud", "cloudRecognitionLevel"],
+    ["flower", "isFlower", "flowerRecognitionLevel"],
+    ["droplet", "isDroplet", "dropletRecognitionLevel"],
+    ["lightning", "isLightning", "lightningRecognitionLevel"],
+  ]) if (cx[flag]) return api.romajiOf(api.vocabEvent(api.prototypeVocabWord(family, cx[level]), ax));
   if (api.openArcSignal(cx)) {
     const dir = api.arcBulgeDirection(inkPts);
     const sc = api.arcSizeClass(inkPts, W, H);
@@ -463,6 +474,14 @@ function p12VocabWord(pts) {
     return api.romajiOf(api.vocabEvent(words[sc], ax));
   }
   return null;
+}
+
+function fixedShapeDiagnostics(pts) {
+  const geomPts = pts.length >= 3 ? api.splineDensified(pts, 6) : api.densified(pts, 6);
+  const cx = api.strokeComplexity(geomPts, W, H, 16);
+  return { descriptor: cx.shapeDescriptor, recognition: cx.shapeRecognition,
+           flags: { leaf: cx.isLeaf, crescent: cx.isCrescent, cloud: cx.isCloud,
+                    flower: cx.isFlower, droplet: cx.isDroplet, lightning: cx.isLightning } };
 }
 /// 一角用: 従来どおり forceConsonantOnset 経路の統計。
 function chevronTally(pts, N) {
@@ -651,7 +670,11 @@ const P11_CHECKS = [
   // 2026-07-21 立法更新: 小円も円として完成していれば oon (旧: 語彙にならず「う」の口の法)。
   // 「う」は円判定に満たない形 (潰れ/開き/極小) に残る — 境界はコウさん次ラウンドで確認。
   ["斜め楕円: 語彙にならない (え=P9e の既存法を保つ)",
-    () => p12VocabWord(tiltedEllipsePts(-30)) === null],
+    () => {
+      const word = p12VocabWord(tiltedEllipsePts(-30));
+      if (word !== null) console.log(`      診断: 斜め楕円を固定語 ${word} と誤認 ${JSON.stringify(fixedShapeDiagnostics(tiltedEllipsePts(-30)))}`);
+      return word === null;
+    }],
   ["開いた一角 (2種) は全て openChevron 判定になる",
     () => chevronVariants.every(r => r.openChevron)],
   ["開いた一角: 子音 onset が支配的 (100%)",

@@ -76,7 +76,9 @@ const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "splineDensified", "densified", "extractAxes",
   "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32",
   "heartRecognitionLevelFor", "heartVocabSignal", "heartVocabWord", "starVocabSignal",
-  "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB"];
+  "oneStrokePentagramVocabSignal", "outlineStarVocabSignal",
+  "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB",
+  "ONE_STROKE_PENTAGRAM_VOCAB"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
   { filename: "engine(extracted)" });
@@ -348,14 +350,14 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
         st.formK !== null && st.formK >= 0.5, `formK=${st.formK}`);
   check("#2 星 (jitter) → formK ≥ 0.5", stJ.formK !== null && stJ.formK >= 0.5,
         `formK=${stJ.formK}`);
-  check("一筆五芒星 → 星の仮固定語ゲート", api.starVocabSignal(st),
+  check("一筆五芒星 → 専用固定語ゲート", api.oneStrokePentagramVocabSignal(st),
         JSON.stringify({ order: st.trajectoryDescriptor.radialSymmetryOrder,
                          strength: +st.trajectoryDescriptor.radialSymmetryStrength.toFixed(2),
                          crossings: st.trajectoryDescriptor.selfIntersectionCount,
                          selected: st.shapeRecognition.selected }));
-  check("星の仮固定語 = chigyaan (ちぎゃーん)",
-        api.romajiOf(api.vocabEvent(api.STAR_VOCAB,
-          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "chigyaan");
+  check("一筆五芒星の固定語 = ayanoparu (あやのぱる)",
+        api.romajiOf(api.vocabEvent(api.ONE_STROKE_PENTAGRAM_VOCAB,
+          { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "ayanoparu");
 
   const outlineStar = (() => {
     const p = [], vs = [];
@@ -369,7 +371,7 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
     return p;
   })();
   const os = cxB(outlineStar);
-  check("輪郭星 → 星の仮固定語ゲート", api.starVocabSignal(os),
+  check("輪郭星 → chigyaan固定語ゲート", api.outlineStarVocabSignal(os),
         JSON.stringify({ concavity: +os.shapeDescriptor.concavityDepth.toFixed(2),
                          tips: os.shapeDescriptor.tipCount,
                          solidity: +os.shapeDescriptor.solidity.toFixed(2),
@@ -451,7 +453,7 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
   for (const [label, pts] of [
     ["輪郭星回転", closedVariant(outlineStar, 0.51, false, 0)],
     ["輪郭星逆回り+始点移動", closedVariant(outlineStar, -0.32, true, 37)],
-  ]) check(`${label} → chigyaan ゲートを保持`, api.starVocabSignal(cxB(pts)));
+  ]) check(`${label} → chigyaan ゲートを保持`, api.outlineStarVocabSignal(cxB(pts)));
 
   const flower = [];
   for (let i = 0; i <= 240; i++) {

@@ -1629,17 +1629,124 @@ function heartRecognitionLevelFor(confidence) {
   if (confidence >= 0.40) return 1;  // 崩れハート → myuun
   return 0;
 }
+function prototypeFamilyFor(recognition) {
+  const first = recognition.candidates?.[0];
+  if (!first || recognition.margin < 0.12) return null;
+  const minimum = {
+    leaf: 0.65, crescent: 0.58, cloud: 0.62,
+    flower: 0.60, droplet: 0.62, lightning: 0.58,
+  }[first.family];
+  return minimum != null && first.confidence >= minimum ? first.family : null;
+}
+function prototypeRecognitionLevelFor(recognition, family) {
+  if (prototypeFamilyFor(recognition) !== family) return 0;
+  const thresholds = {
+    leaf: [0.80, 0.92], crescent: [0.82, 0.90], cloud: [0.76, 0.88],
+    flower: [0.78, 0.90], droplet: [0.80, 0.92], lightning: [0.76, 0.84],
+  }[family];
+  if (!thresholds) return 0;
+  if (recognition.confidence >= thresholds[1]) return 3;
+  if (recognition.confidence >= thresholds[0]) return 2;
+  return 1;
+}
 function recognizeShapeFamily(descriptor, trajectory, cx) {
   if (!trajectory.isAvailable) return { candidates: [], selected: null, confidence: 0, margin: 0 };
   const heart = heartConfidenceFor(descriptor, cx);
+
+  const closedContour = cx.isClosed && descriptor.isAvailable ? 1 : 0;
+  const noCrossingContour = trajectory.selfIntersectionCount === 0 ? 1 : 0;
+
+  const leafTips = descriptor.tipCount === 2 ? 1 : 0;
+  // 楕円の長軸端も曲率だけでは2尖りに見える。局所角を必須にしてP9eの楕円を守る。
+  const leafTipSharpness = shapeRamp(cx.cornerSharpness, 0.02, 0.10);
+  const leafConvexity = 1 - shapeRamp(descriptor.concavityDepth, 0.02, 0.12);
+  const leafSolidity = shapeRamp(descriptor.solidity, 0.90, 0.98);
+  const leafSymmetry = shapeRamp(descriptor.bilateralSymmetry, 0.50, 0.82);
+  const leafCompactness = Math.min(shapeRamp(descriptor.compactness, 0.52, 0.72),
+                                   1 - shapeRamp(descriptor.compactness, 0.98, 1.0));
+  const leaf = closedContour * noCrossingContour * leafTips * leafTipSharpness
+    * (0.30 * leafConvexity + 0.25 * leafSolidity
+       + 0.25 * leafSymmetry + 0.20 * leafCompactness);
+
+  const crescentTips = descriptor.tipCount === 2 ? 1 : 0;
+  const crescentDepth = shapeRamp(descriptor.concavityDepth, 0.30, 0.68);
+  const crescentLowSolidity = 1 - shapeRamp(descriptor.solidity, 0.70, 0.88);
+  const crescentLowCompactness = 1 - shapeRamp(descriptor.compactness, 0.45, 0.70);
+  const crescentSymmetry = shapeRamp(descriptor.bilateralSymmetry, 0.42, 0.72);
+  const crescent = closedContour * noCrossingContour * crescentTips
+    * (0.35 * crescentDepth + 0.25 * crescentLowSolidity
+       + 0.20 * crescentLowCompactness + 0.20 * crescentSymmetry);
+
+  const cloudDepthBand = Math.min(shapeRamp(descriptor.concavityDepth, 0.08, 0.22),
+                                  1 - shapeRamp(descriptor.concavityDepth, 0.42, 0.62));
+  const cloudSolidity = shapeRamp(descriptor.solidity, 0.82, 0.91);
+  const cloudCompactness = Math.min(shapeRamp(descriptor.compactness, 0.52, 0.66),
+                                    1 - shapeRamp(descriptor.compactness, 0.94, 0.99));
+  const cloudOscillations = shapeRamp(trajectory.oscillationCount, 4.5, 8.5);
+  const cloudSmoothness = 1 - shapeRamp(cx.cornerSharpness, 0.08, 0.35);
+  const cloudSymmetry = shapeRamp(descriptor.bilateralSymmetry, 0.35, 0.68);
+  const cloudRadialGate = 1 - shapeRamp(trajectory.radialSymmetryOrder, 3, 5);
+  const cloudTips = descriptor.tipCount <= 2 ? 1 : descriptor.tipCount === 3 ? 0.82
+    : descriptor.tipCount === 4 ? 0.65 : descriptor.tipCount === 5 ? 0.35 : 0;
+  const cloud = closedContour * noCrossingContour * cloudDepthBand * cloudSolidity
+    * cloudRadialGate * cloudTips
+    * (0.32 * cloudOscillations + 0.24 * cloudSmoothness
+       + 0.22 * cloudCompactness + 0.22 * cloudSymmetry);
+
+  const flowerOrder = trajectory.radialSymmetryOrder >= 4 ? 1 : 0;
+  const flowerStrength = shapeRamp(trajectory.radialSymmetryStrength, 0.56, 0.86);
+  const flowerDepthBand = Math.min(shapeRamp(descriptor.concavityDepth, 0.07, 0.20),
+                                   1 - shapeRamp(descriptor.concavityDepth, 0.60, 0.80));
+  const flowerSolidityBand = Math.min(shapeRamp(descriptor.solidity, 0.66, 0.82),
+                                      1 - shapeRamp(descriptor.solidity, 0.96, 0.99));
+  const flowerSmoothness = 1 - shapeRamp(cx.cornerSharpness, 0.10, 0.48);
+  const flowerTipAlignment = Math.abs(descriptor.tipCount - trajectory.radialSymmetryOrder) <= 1 ? 1 : 0.25;
+  const flower = closedContour * noCrossingContour * flowerOrder * flowerDepthBand
+    * flowerSmoothness
+    * (0.32 * flowerStrength + 0.26 * flowerSolidityBand
+       + 0.24 * flowerTipAlignment + 0.18 * descriptor.bilateralSymmetry);
+
+  const dropletTip = descriptor.tipCount === 1 ? 1 : 0;
+  const dropletConvexity = 1 - shapeRamp(descriptor.concavityDepth, 0.02, 0.11);
+  const dropletSolidity = shapeRamp(descriptor.solidity, 0.90, 0.98);
+  const dropletSymmetry = shapeRamp(descriptor.bilateralSymmetry, 0.48, 0.82);
+  const dropletCompactness = Math.min(shapeRamp(descriptor.compactness, 0.48, 0.66),
+                                      1 - shapeRamp(descriptor.compactness, 0.94, 0.99));
+  const dropletRadialGate = 1 - shapeRamp(trajectory.radialSymmetryOrder, 2, 4);
+  const droplet = closedContour * noCrossingContour * dropletTip * dropletConvexity
+    * dropletRadialGate
+    * (0.34 * dropletSolidity + 0.33 * dropletSymmetry + 0.33 * dropletCompactness);
+
+  const lightningSharpness = shapeRamp(cx.cornerSharpness, 0.28, 0.72);
+  const lightningOpenCorners = Math.min(shapeRamp(cx.corners, 1, 3),
+                                        1 - shapeRamp(cx.corners, 4, 7));
+  const lightningOpenOscillations = Math.min(shapeRamp(trajectory.oscillationCount, 1, 3),
+                                             1 - shapeRamp(trajectory.oscillationCount, 5, 8));
+  const lightningAperiodic = 1 - shapeRamp(trajectory.periodicity, 0.42, 0.78);
+  const openLightning = noCrossingContour
+    * (1 - shapeRamp(trajectory.closureConfidence, 0.30, 0.68)) * lightningOpenCorners
+    * (0.36 * lightningSharpness + 0.28 * lightningOpenOscillations
+       + 0.22 * lightningAperiodic + 0.14 * cx.curveConsistency);
+  const lightningClosedCorners = Math.min(shapeRamp(cx.corners, 4, 6),
+                                          1 - shapeRamp(cx.corners, 8, 11));
+  const lightningConcavity = shapeRamp(descriptor.concavityDepth, 0.10, 0.36);
+  const lightningLowCompactness = 1 - shapeRamp(descriptor.compactness, 0.42, 0.68);
+  const lightningLowRadial = 1 - shapeRamp(trajectory.radialSymmetryOrder, 2, 4);
+  const closedLightning = closedContour * noCrossingContour * lightningClosedCorners
+    * lightningLowRadial
+    * (0.32 * lightningSharpness + 0.27 * lightningConcavity
+       + 0.25 * lightningLowCompactness + 0.16 * trajectory.closureConfidence);
+  const lightning = Math.max(openLightning, closedLightning);
+
   const radialOrder = trajectory.radialSymmetryOrder >= 3 ? 1 : 0;
   const radialFeatures = Math.max(shapeRamp(descriptor.tipCount, 2, 5), shapeRamp(cx.corners, 3, 7));
   const radialStructure = Math.max(shapeRamp(descriptor.concavityDepth, 0.06, 0.24),
                                    shapeRamp(cx.corners, 4, 7),
                                    shapeRamp(trajectory.selfIntersectionCount, 0, 3));
-  const radial = radialOrder * radialStructure
+  const radialBase = radialOrder * radialStructure
     * (0.52 * trajectory.radialSymmetryStrength + 0.28 * radialFeatures
        + 0.20 * trajectory.closureConfidence);
+  const radial = radialBase * (1 - 0.85 * flower);
   const spiral = 0.55 * shapeRamp(trajectory.windingCount, 1.25, 2.75)
     + 0.45 * shapeRamp(Math.abs(trajectory.radialTrend), 0.38, 0.82);
   const n = trajectory.selfIntersectionCount;
@@ -1653,6 +1760,12 @@ function recognizeShapeFamily(descriptor, trajectory, cx) {
     * (0.48 * shapeRamp(trajectory.oscillationCount, 3, 7) + 0.52 * trajectory.periodicity);
   const candidates = [
     { family: "heart", confidence: shapeClamp01(heart) },
+    { family: "leaf", confidence: shapeClamp01(leaf) },
+    { family: "crescent", confidence: shapeClamp01(crescent) },
+    { family: "cloud", confidence: shapeClamp01(cloud) },
+    { family: "flower", confidence: shapeClamp01(flower) },
+    { family: "droplet", confidence: shapeClamp01(droplet) },
+    { family: "lightning", confidence: shapeClamp01(lightning) },
     { family: "radialRepetition", confidence: shapeClamp01(radial) },
     { family: "spiral", confidence: shapeClamp01(spiral) },
     { family: "intersectingLoop", confidence: shapeClamp01(intersectingLoop) },
@@ -1661,24 +1774,50 @@ function recognizeShapeFamily(descriptor, trajectory, cx) {
     ? b.confidence - a.confidence : a.family.localeCompare(b.family));
   const confidence = candidates[0]?.confidence ?? 0;
   const margin = Math.max(0, confidence - (candidates[1]?.confidence ?? 0));
-  return { candidates, selected: confidence >= 0.65 && margin >= 0.12 ? candidates[0].family : null,
-           confidence, margin };
+  const result = { candidates,
+    selected: confidence >= 0.65 && margin >= 0.12 ? candidates[0].family : null,
+    confidence, margin };
+  result.prototypeFamily = prototypeFamilyFor(result);
+  return result;
 }
 function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
   const heartConfidence = heartConfidenceFor(descriptor, cx);
   const heartRecognitionLevel = heartRecognitionLevelFor(heartConfidence);
-  const isHeart = heartRecognitionLevel > 0;
+  const prototypeFamily = prototypeFamilyFor(recognition);
+  const isHeart = heartRecognitionLevel > 0 && prototypeFamily == null
+    && (recognition.selected == null || recognition.selected === "heart");
   const outlineStar = descriptor.isAvailable && descriptor.concavityDepth >= 0.20
     && descriptor.solidity <= 0.72 && descriptor.tipCount >= 4
     && Math.abs(descriptor.tipCount - trajectory.radialSymmetryOrder) <= 1;
   const pentagram = !descriptor.isAvailable && trajectory.radialSymmetryOrder === 5
     && trajectory.selfIntersectionCount === 5 && cx.cornerSharpness >= 0.45
     && (cx.formK ?? 0) >= 0.50;
-  const isStar = cx.isClosed && recognition.selected === "radialRepetition"
+  const starGate = cx.isClosed && recognition.selected === "radialRepetition"
     && trajectory.radialSymmetryOrder >= 4 && trajectory.radialSymmetryStrength >= 0.60
-    && (outlineStar || pentagram);
+  const isOutlineStar = starGate && outlineStar;
+  const isOneStrokePentagram = starGate && pentagram;
+  const levels = Object.fromEntries(["leaf", "crescent", "cloud", "flower", "droplet", "lightning"]
+    .map(family => [family, prototypeRecognitionLevelFor(recognition, family)]));
   return { heartConfidence, heartRecognitionLevel, isHeart,
-           isCleanHeart: heartRecognitionLevel === 3, isStar };
+           isCleanHeart: isHeart && heartRecognitionLevel === 3,
+           isOutlineStar, isOneStrokePentagram,
+           isStar: isOutlineStar || isOneStrokePentagram,
+           leafRecognitionLevel: levels.leaf, isLeaf: levels.leaf > 0,
+           crescentRecognitionLevel: levels.crescent, isCrescent: levels.crescent > 0,
+           cloudRecognitionLevel: levels.cloud, isCloud: levels.cloud > 0,
+           flowerRecognitionLevel: levels.flower, isFlower: levels.flower > 0,
+           dropletRecognitionLevel: levels.droplet, isDroplet: levels.droplet > 0,
+           lightningRecognitionLevel: levels.lightning, isLightning: levels.lightning > 0 };
+}
+function emptyFixedShapeRecognition() {
+  return { heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false,
+    isOutlineStar: false, isOneStrokePentagram: false, isStar: false,
+    leafRecognitionLevel: 0, isLeaf: false,
+    crescentRecognitionLevel: 0, isCrescent: false,
+    cloudRecognitionLevel: 0, isCloud: false,
+    flowerRecognitionLevel: 0, isFlower: false,
+    dropletRecognitionLevel: 0, isDroplet: false,
+    lightningRecognitionLevel: 0, isLightning: false };
 }
 
 // ─── strokeComplexity (AxisExtractor.swift v3 の移植: 角+ループ+大きさ → モーラ数) ───
@@ -1687,7 +1826,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
   points = collapseRetrace(points);   // Step3: N 周なぞり → 1 周へ畳んでから測る
   const retraced = points !== rawInput;   // 参照が変わった = 畳んだ (UI 表示用)
   if (points.length < 2 || w <= 0 || h <= 0)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false, isStar: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0, prototypeFamily: null }, ...emptyFixedShapeRecognition() };
   let minX = points[0].x, maxX = points[0].x, minY = points[0].y, maxY = points[0].y;
   for (const p of points) {
     minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -1700,7 +1839,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
     pathLen += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
   const sizeRatio = bboxDiag / Math.max(canvasDiag, 1);
   if (sizeRatio < 0.05 && pathLen < canvasDiag * 0.08)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0 }, heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false, isStar: false };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0, prototypeFamily: null }, ...emptyFixedShapeRecognition() };
   // 角 v2 (2026-07-10): 検出は従来 (閾値 0.83rad・近接抑制) + **ピークホールド** (肩でなく
   // 抑制窓内の折返し最大を鋭さに)。
   const k = Math.max(1, Math.min(Math.floor(points.length / 24), 8));
@@ -2054,9 +2193,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
              ({ x: points[fi].x, y: points[fi].y, ...(cornerDir(fi) || {}) })),
            formK, turnConcentration, retraced, reversals: coarseReversals,
            disorder: coarseDisorder, shapeDescriptor, trajectoryDescriptor, shapeRecognition,
-           heartConfidence: fixed.heartConfidence,
-           heartRecognitionLevel: fixed.heartRecognitionLevel,
-           isHeart: fixed.isHeart, isCleanHeart: fixed.isCleanHeart, isStar: fixed.isStar };
+           ...fixed };
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2457,13 +2594,20 @@ function circleVocabSignal(cx, ax) {
     && Math.abs(ax.round) <= 0.25;
 }
 
-// ハート/星は6軸の値を上書きする軸ではなく、完成形に対する初期プリセットの仮固定語。
-// 認識が曖昧な形は false とし、従来の6軸生成へ戻す。
+// 固定形語彙は6軸の値を上書きする軸ではなく、完成形に対する初期プリセット。
+// 認識が曖昧な形は false とし、従来の6軸生成へ戻す。Coreと同じ優先順位で選ぶ。
 function heartVocabSignal(cx) { return cx.isHeart === true; }
 function heartVocabWord(cx) {
   return cx.heartRecognitionLevel === 3 ? HEART_CLEAN_VOCAB : HEART_VOCAB;
 }
+function oneStrokePentagramVocabSignal(cx) { return cx.isOneStrokePentagram === true; }
+function outlineStarVocabSignal(cx) { return cx.isOutlineStar === true; }
+// 旧テスト/外部スニペット向けの広い互換ゲート。固定語選択は上の2関数で必ず分ける。
 function starVocabSignal(cx) { return cx.isStar === true; }
+function prototypeVocabWord(family, level) {
+  const words = SHAPE_PROTOTYPE_VOCAB[family];
+  return words ? words[Math.max(1, Math.min(3, level)) - 1] : null;
+}
 
 // ─── P12 開いた弧の語彙 (2026-07-16 コウさん立法): 向き×大きさ → 固定語 ───
 // 正本 = Onomatoi/docs/FEEDBACK_2026-07-16_kou_open_arc_vocab.md。P11 の「向き不問・
@@ -2486,7 +2630,17 @@ const ARC_VOCAB = {
 const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
 const HEART_VOCAB = "myuun";       // ハート認識度1/2: みゅーん
 const HEART_CLEAN_VOCAB = "kuun";  // ハート認識度3: くぅん
-const STAR_VOCAB = "chigyaan";     // 輪郭星/一筆五芒星の仮固定語: ちぎゃーん
+const STAR_VOCAB = "chigyaan";     // 輪郭星: ちぎゃーん
+const ONE_STROKE_PENTAGRAM_VOCAB = "ayanoparu"; // 一筆五芒星: あやのぱる
+// 各配列は [外縁形, 近傍形, 中心形]。描画の優劣でなく、典型形からの距離を示す。
+const SHAPE_PROTOTYPE_VOCAB = {
+  leaf: ["been", "feen", "keen"],
+  crescent: ["jeen", "peen", "heen"],
+  cloud: ["bohoon", "popoon", "hohoon"],
+  flower: ["waraan", "furaan", "haraan"],
+  droplet: ["ruoon", "nuoon", "kuoon"],
+  lightning: ["zochiQ", "zechiQ", "suchiQ"],
+};
 const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
 const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
 // 2026-08-28 コウさん制定: 正方形と長方形を別語族にする。
@@ -2581,6 +2735,7 @@ function vocabEvent(word, axes) {
   let rest = word, prevV = null;
   while (rest.length > 0) {
     if (rest === "n") { moras.push(moraicNMora()); break; }
+    if (rest === "Q") { moras.push(finalSokuonMora(prevV || "a")); break; }
     const m = rest.match(/^([^aiueo]*)([aiueo])/);
     if (!m) break;   // 語彙定数は自前なので到達しない (保険)
     const onset = m[1] || null;
@@ -4632,11 +4787,46 @@ canvas.addEventListener("pointerup", ev => {
       vocabReason = uiLang === "ja"
         ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
         : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
-    } else if (starVocabSignal(cx)) {
+    } else if (oneStrokePentagramVocabSignal(cx)) {
+      vocabWord = ONE_STROKE_PENTAGRAM_VOCAB;
+      vocabReason = uiLang === "ja"
+        ? `一筆五芒星の完成形 → ${ONE_STROKE_PENTAGRAM_VOCAB}（制定語「あやのぱる」）`
+        : `one-stroke pentagram → ${ONE_STROKE_PENTAGRAM_VOCAB} (legislated word: ayanoparu)`;
+    } else if (outlineStarVocabSignal(cx)) {
       vocabWord = STAR_VOCAB;
       vocabReason = uiLang === "ja"
-        ? `星の完成形 → ${STAR_VOCAB}（輪郭星/一筆五芒星の仮固定語「ちぎゃーん」）`
-        : `completed star → ${STAR_VOCAB} (provisional fixed word: chigyaan)`;
+        ? `輪郭星の完成形 → ${STAR_VOCAB}（固定語「ちぎゃーん」）`
+        : `outline star → ${STAR_VOCAB} (fixed word: chigyaan)`;
+    } else if (cx.isLeaf) {
+      vocabWord = prototypeVocabWord("leaf", cx.leafRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `葉・認識度${cx.leafRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `leaf level ${cx.leafRecognitionLevel} → ${vocabWord}`;
+    } else if (cx.isCrescent) {
+      vocabWord = prototypeVocabWord("crescent", cx.crescentRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `三日月・認識度${cx.crescentRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `crescent level ${cx.crescentRecognitionLevel} → ${vocabWord}`;
+    } else if (cx.isCloud) {
+      vocabWord = prototypeVocabWord("cloud", cx.cloudRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `雲・認識度${cx.cloudRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `cloud level ${cx.cloudRecognitionLevel} → ${vocabWord}`;
+    } else if (cx.isFlower) {
+      vocabWord = prototypeVocabWord("flower", cx.flowerRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
+    } else if (cx.isDroplet) {
+      vocabWord = prototypeVocabWord("droplet", cx.dropletRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `droplet level ${cx.dropletRecognitionLevel} → ${vocabWord}`;
+    } else if (cx.isLightning) {
+      vocabWord = prototypeVocabWord("lightning", cx.lightningRecognitionLevel);
+      vocabReason = uiLang === "ja"
+        ? `稲妻・認識度${cx.lightningRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+        : `lightning level ${cx.lightningRecognitionLevel} → ${vocabWord}`;
     } else if (openArc) {
       const dir = arcBulgeDirection(inkPts);
       const sizeClass = arcSizeClass(inkPts, rect.width, rect.height);
