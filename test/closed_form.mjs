@@ -77,7 +77,7 @@ const EXPORTS = ["strokeComplexity", "splineDensified", "densified", "extractAxe
   "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32",
   "heartRecognitionLevelFor", "heartVocabSignal", "heartVocabWord", "starVocabSignal",
   "oneStrokePentagramVocabSignal", "outlineStarVocabSignal",
-  "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB",
+  "oneStrokePentagramVocabWord", "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB",
   "ONE_STROKE_PENTAGRAM_VOCAB"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
@@ -356,7 +356,8 @@ console.log("── アーキタイプ監査 #1〜#3 (2026-07-17): 想定ユー�
                          crossings: st.trajectoryDescriptor.selfIntersectionCount,
                          selected: st.shapeRecognition.selected }));
   check("一筆五芒星の固定語 = ayanoparu (あやのぱる)",
-        api.romajiOf(api.vocabEvent(api.ONE_STROKE_PENTAGRAM_VOCAB,
+        st.oneStrokePentagramRecognitionLevel === 3
+        && api.romajiOf(api.vocabEvent(api.oneStrokePentagramVocabWord(st),
           { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 })) === "ayanoparu");
 
   const outlineStar = (() => {

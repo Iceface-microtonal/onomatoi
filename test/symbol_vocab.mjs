@@ -74,8 +74,9 @@ function extractEngine(html) {
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "extractAxes", "applyHandCorrection", "bucketedAxes",
   "densified", "splineDensified", "circleVocabSignal", "openArcSignal",
-  "sharpnessStage", "sharpnessAxisValue", "prototypeRecognitionLevelFor",
-  "prototypeVocabWord", "vocabEvent", "STAR_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB"];
+  "sharpnessStage", "sharpnessAxisValue", "prototypeRecognitionLevelFor", "fixedShapeRecognition",
+  "prototypeVocabWord", "oneStrokePentagramVocabWord", "vocabEvent", "STAR_VOCAB",
+  "ONE_STROKE_PENTAGRAM_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB_LEVELS"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx,
   { filename: "engine(extracted)" });
@@ -368,7 +369,7 @@ console.log("── 星語彙分離: 輪郭星 / 一筆五芒星 ──");
   for (const [start, clockwise, rotation] of [[0, true, 0], [2, true, 0], [0, false, 0], [1, false, 0.41]]) {
     const cx = judge(pentagramPoints(start, clockwise, rotation)).cx;
     check(`一筆五芒星 start=${start} cw=${clockwise} rot=${rotation} → ayanoparu`,
-          cx.isOneStrokePentagram && !cx.isOutlineStar
+          cx.isOneStrokePentagram && cx.oneStrokePentagramRecognitionLevel === 3 && !cx.isOutlineStar
             && api.ONE_STROKE_PENTAGRAM_VOCAB === "ayanoparu",
           JSON.stringify({ selected: cx.shapeRecognition.selected,
                            order: cx.trajectoryDescriptor.radialSymmetryOrder,
@@ -377,9 +378,48 @@ console.log("── 星語彙分離: 輪郭星 / 一筆五芒星 ──");
   }
 
   const axes = { size: 0, sharp: 0, tex: 0, bright: 0, round: 0, open: 0 };
+  function pentagramRecognition(intersections, radialConfidence, radialStrength,
+                                cornerSharpness, formK, closure = 1) {
+    const descriptor = { isAvailable: false, concavityDepth: 0, bilateralSymmetry: 0,
+      lobeCount: 0, tipCount: 0, solidity: 0, compactness: 0 };
+    const trajectory = { closureConfidence: closure, selfIntersectionCount: intersections,
+      windingCount: 1.6, radialTrend: 0, oscillationCount: 5, periodicity: 0.8,
+      radialSymmetryOrder: 5, radialSymmetryStrength: radialStrength };
+    const recognition = { candidates: [
+      { family: "radialRepetition", confidence: radialConfidence },
+      { family: "intersectingLoop", confidence: 0.10 },
+    ], selected: radialConfidence >= 0.65 ? "radialRepetition" : null,
+      confidence: radialConfidence, margin: radialConfidence - 0.10 };
+    return api.fixedShapeRecognition(descriptor, trajectory, recognition,
+      { isClosed: true, cornerSharpness, formK, rotationFraction: 1.6, curveConsistency: 0.2 });
+  }
+  const recognitionFixtures = [
+    [pentagramRecognition(5, 0.74, 0.67, 0.67, 1), 3],
+    [pentagramRecognition(4, 0.70, 0.68, 0.60, 0.80), 2],
+    [pentagramRecognition(3, 0.55, 0.52, 0.40, 0.40, 0.80), 1],
+    [pentagramRecognition(2, 0.80, 0.80, 0.70, 1), 0],
+  ];
+  for (const [recognition, expectedLevel] of recognitionFixtures) {
+    check(`一筆五芒星スコア → 認識度${expectedLevel}`,
+          recognition.oneStrokePentagramRecognitionLevel === expectedLevel
+            && recognition.isOneStrokePentagram === (expectedLevel > 0),
+          JSON.stringify(recognition));
+  }
+
   const pentagramEvent = api.vocabEvent("ayanoparu", axes);
   check("ayanoparu は5モーラ・語末ん無し", pentagramEvent.moras.length === 5
     && !pentagramEvent.moras.some(m => m.isN));
+  for (const [level, word, crossingOnset] of [
+    [1, "ayanoharu", "h"], [2, "ayanofaru", "f"], [3, "ayanoparu", "p"],
+  ]) {
+    check(`一筆五芒星 認識度${level} → ${word}`,
+          api.oneStrokePentagramVocabWord({ oneStrokePentagramRecognitionLevel: level }) === word
+            && api.ONE_STROKE_PENTAGRAM_VOCAB_LEVELS[level - 1] === word);
+    const event = api.vocabEvent(word, axes);
+    check(`${word} は交差部 ${crossingOnset}a・5モーラ・語末ん無し`,
+          event.moras.length === 5 && event.moras[3].onset === crossingOnset
+            && event.moras[3].nucleus === "a" && !event.moras.some(m => m.isN));
+  }
   const lightningEvent = api.vocabEvent("suchiQ", axes);
   check("suchiQ は語末促音を保持", lightningEvent.moras.length === 3
     && lightningEvent.moras.at(-1).isQ === true);

@@ -1789,18 +1789,42 @@ function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
   const outlineStar = descriptor.isAvailable && descriptor.concavityDepth >= 0.20
     && descriptor.solidity <= 0.72 && descriptor.tipCount >= 4
     && Math.abs(descriptor.tipCount - trajectory.radialSymmetryOrder) <= 1;
-  const pentagram = !descriptor.isAvailable && trajectory.radialSymmetryOrder === 5
+  const canonicalPentagram = !descriptor.isAvailable && trajectory.radialSymmetryOrder === 5
     && trajectory.selfIntersectionCount === 5 && cx.cornerSharpness >= 0.45
     && (cx.formK ?? 0) >= 0.50;
   const starGate = cx.isClosed && recognition.selected === "radialRepetition"
     && trajectory.radialSymmetryOrder >= 4 && trajectory.radialSymmetryStrength >= 0.60
   const isOutlineStar = starGate && outlineStar;
-  const isOneStrokePentagram = starGate && pentagram;
+  const canonicalPentagramGate = starGate && canonicalPentagram;
+  const radial = recognition.candidates.find(candidate => candidate.family === "radialRepetition");
+  const crossingFit = Math.max(0, 1 - 0.25 * Math.abs(trajectory.selfIntersectionCount - 5));
+  const pentagramEligible = cx.isClosed && !descriptor.isAvailable
+    && (canonicalPentagramGate || trajectory.closureConfidence >= 0.65)
+    && trajectory.radialSymmetryOrder === 5
+    && trajectory.radialSymmetryStrength >= 0.48
+    && trajectory.selfIntersectionCount >= 3 && trajectory.selfIntersectionCount <= 7
+    && cx.cornerSharpness >= 0.32 && (cx.formK ?? 0) >= 0.35
+    && recognition.candidates[0]?.family === "radialRepetition"
+    && (radial?.confidence ?? 0) >= 0.50;
+  const oneStrokePentagramConfidence = pentagramEligible
+    ? Math.max(0, Math.min(1,
+      0.30 * radial.confidence
+      + 0.25 * trajectory.radialSymmetryStrength
+      + 0.20 * crossingFit
+      + 0.10 * cx.cornerSharpness
+      + 0.10 * Math.max(0, Math.min(1, cx.formK ?? 0))
+      + 0.05 * trajectory.closureConfidence))
+    : 0;
+  const oneStrokePentagramRecognitionLevel = canonicalPentagramGate ? 3
+    : oneStrokePentagramConfidence >= 0.66 ? 2
+    : oneStrokePentagramConfidence >= 0.50 ? 1 : 0;
+  const isOneStrokePentagram = oneStrokePentagramRecognitionLevel > 0;
   const levels = Object.fromEntries(["leaf", "crescent", "cloud", "flower", "droplet", "lightning"]
     .map(family => [family, prototypeRecognitionLevelFor(recognition, family)]));
   return { heartConfidence, heartRecognitionLevel, isHeart,
            isCleanHeart: isHeart && heartRecognitionLevel === 3,
-           isOutlineStar, isOneStrokePentagram,
+           isOutlineStar, oneStrokePentagramConfidence,
+           oneStrokePentagramRecognitionLevel, isOneStrokePentagram,
            isStar: isOutlineStar || isOneStrokePentagram,
            leafRecognitionLevel: levels.leaf, isLeaf: levels.leaf > 0,
            crescentRecognitionLevel: levels.crescent, isCrescent: levels.crescent > 0,
@@ -1811,7 +1835,8 @@ function fixedShapeRecognition(descriptor, trajectory, recognition, cx) {
 }
 function emptyFixedShapeRecognition() {
   return { heartConfidence: 0, heartRecognitionLevel: 0, isHeart: false, isCleanHeart: false,
-    isOutlineStar: false, isOneStrokePentagram: false, isStar: false,
+    isOutlineStar: false, oneStrokePentagramConfidence: 0,
+    oneStrokePentagramRecognitionLevel: 0, isOneStrokePentagram: false, isStar: false,
     leafRecognitionLevel: 0, isLeaf: false,
     crescentRecognitionLevel: 0, isCrescent: false,
     cloudRecognitionLevel: 0, isCloud: false,
@@ -2601,6 +2626,10 @@ function heartVocabWord(cx) {
   return cx.heartRecognitionLevel === 3 ? HEART_CLEAN_VOCAB : HEART_VOCAB;
 }
 function oneStrokePentagramVocabSignal(cx) { return cx.isOneStrokePentagram === true; }
+function oneStrokePentagramVocabWord(cx) {
+  const level = Math.max(1, Math.min(3, cx.oneStrokePentagramRecognitionLevel ?? 3));
+  return ONE_STROKE_PENTAGRAM_VOCAB_LEVELS[level - 1];
+}
 function outlineStarVocabSignal(cx) { return cx.isOutlineStar === true; }
 // 旧テスト/外部スニペット向けの広い互換ゲート。固定語選択は上の2関数で必ず分ける。
 function starVocabSignal(cx) { return cx.isStar === true; }
@@ -2632,6 +2661,8 @@ const HEART_VOCAB = "myuun";       // ハート認識度1/2: みゅーん
 const HEART_CLEAN_VOCAB = "kuun";  // ハート認識度3: くぅん
 const STAR_VOCAB = "chigyaan";     // 輪郭星: ちぎゃーん
 const ONE_STROKE_PENTAGRAM_VOCAB = "ayanoparu"; // 一筆五芒星: あやのぱる
+// [外縁形, 近傍形, 中心形]。交差部の h=息 / f=擦過 / p=明確な破裂・放散。
+const ONE_STROKE_PENTAGRAM_VOCAB_LEVELS = ["ayanoharu", "ayanofaru", "ayanoparu"];
 // 各配列は [外縁形, 近傍形, 中心形]。描画の優劣でなく、典型形からの距離を示す。
 const SHAPE_PROTOTYPE_VOCAB = {
   leaf: ["been", "feen", "keen"],
@@ -4788,10 +4819,13 @@ canvas.addEventListener("pointerup", ev => {
         ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
         : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
     } else if (oneStrokePentagramVocabSignal(cx)) {
-      vocabWord = ONE_STROKE_PENTAGRAM_VOCAB;
+      vocabWord = oneStrokePentagramVocabWord(cx);
+      const pentagramLevel = cx.oneStrokePentagramRecognitionLevel;
+      const pentagramDisplay = ["", "あやのはる", "あやのふぁる", "あやのぱる"][pentagramLevel];
+      const pentagramScore = cx.oneStrokePentagramConfidence.toFixed(2);
       vocabReason = uiLang === "ja"
-        ? `一筆五芒星の完成形 → ${ONE_STROKE_PENTAGRAM_VOCAB}（制定語「あやのぱる」）`
-        : `one-stroke pentagram → ${ONE_STROKE_PENTAGRAM_VOCAB} (legislated word: ayanoparu)`;
+        ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
+        : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
     } else if (outlineStarVocabSignal(cx)) {
       vocabWord = STAR_VOCAB;
       vocabReason = uiLang === "ja"

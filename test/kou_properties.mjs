@@ -106,7 +106,7 @@ const EXPORTS = ["extractAxes", "applyHandCorrection", "bucketedAxes", "densifie
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
   "heartVocabSignal", "heartVocabWord", "HEART_VOCAB", "HEART_CLEAN_VOCAB",
   "starVocabSignal", "oneStrokePentagramVocabSignal", "outlineStarVocabSignal",
-  "prototypeVocabWord", "STAR_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB",
+  "oneStrokePentagramVocabWord", "prototypeVocabWord", "STAR_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB",
   "triangleVocabSignal", "TRIANGLE_VOCAB", "invertedTriangleVocabSignal", "INVERTED_TRIANGLE_VOCAB",
   "quadrilateralVocabSignal", "quadrilateralFamily", "SQUARE_VOCAB", "RECTANGLE_VOCAB",
   "segmentWord"];
@@ -439,7 +439,7 @@ function p12VocabWord(pts) {
   const cx = api.strokeComplexity(geomPts, W, H, 16);
   if (api.heartVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.heartVocabWord(cx), ax));
   if (api.oneStrokePentagramVocabSignal(cx))
-    return api.romajiOf(api.vocabEvent(api.ONE_STROKE_PENTAGRAM_VOCAB, ax));
+    return api.romajiOf(api.vocabEvent(api.oneStrokePentagramVocabWord(cx), ax));
   if (api.outlineStarVocabSignal(cx)) return api.romajiOf(api.vocabEvent(api.STAR_VOCAB, ax));
   for (const [family, flag, level] of [
     ["leaf", "isLeaf", "leafRecognitionLevel"],
