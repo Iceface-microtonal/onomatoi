@@ -3426,9 +3426,26 @@ function nvCvDiphArr(bank, pair) {
   return bank.cvDiph.get(pair) || null;
 }
 
+// Web は平坦音程の単一声部とし、強弱も「語頭=0dB、2モーラ目=-3dB、3モーラ目以降=-5dB」に固定する。
+// 生成時の減衰値は表示/構造に残し、再生直前の複製だけを正規化する。
+// 促音の 0.18 は強弱ではなく断ちの音価なので、その比率は保つ。
+const NV_WEB_WEAK_MORA_GAIN = Math.pow(10, -3 / 20);
+const NV_WEB_TAIL_MORA_GAIN = Math.pow(10, -5 / 20);
+function nvApplySimpleDynamics(moras) {
+  let audibleIndex = 0;
+  return moras.map(m => {
+    if (m.isSilentRest || m.amplitude <= 0) return { ...m, amplitude: 0 };
+    const dynamicGain = audibleIndex === 0 ? 1
+      : audibleIndex === 1 ? NV_WEB_WEAK_MORA_GAIN : NV_WEB_TAIL_MORA_GAIN;
+    audibleIndex++;
+    const articulationGain = m.isQ ? Math.min(1, Math.max(0, m.amplitude)) : 1;
+    return { ...m, amplitude: articulationGain * dynamicGain };
+  });
+}
+
 // bpmQuantized (PhonosymbolicEvent): 促音は原寸 (断ちの音価)・gap は 1 拍・他は 1 拍
 function nvQuantizeMoras(moras, targetMoraMs) {
-  return moras.map(m => {
+  return nvApplySimpleDynamics(moras).map(m => {
     if (m.isQ) return m;
     return { ...m, durationMs: targetMoraMs, gapMs: m.gapMs > 0 ? targetMoraMs : 0 };
   });
@@ -4268,7 +4285,7 @@ function scheduleEventLegacy(ctx, event) {
   stopAll();
   const bpm = 120;   // 2026-07-11: BPM ノブ廃止・120 固定 (発話テンポの個体差をデータから排除)
   const moraSec = 30.0 / bpm;             // 30000/BPM ms
-  const moras = event.moras;
+  const moras = nvApplySimpleDynamics(event.moras);
   const plan = analyzeMoras(moras);
   const contNPreRollSec = Math.min(0.1, moraSec * 0.5);
   const cvDiphPreRollSec = Math.min(0.04, moraSec * 0.2);

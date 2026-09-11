@@ -83,6 +83,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "RECORDED_EXTENDED_CVS", "expressiveVariantCandidate", "expressiveOnset",
   "enforceVowelAspectOrder",
   "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
+  "nvApplySimpleDynamics", "NV_WEB_WEAK_MORA_GAIN", "NV_WEB_TAIL_MORA_GAIN",
   "nvQuantizeMoras", "nvVowelRunRootHasOnset",
   "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
@@ -322,6 +323,41 @@ console.log("── 4. 促音の音価 (量子化) ──");
   const gapped = qk.find(m => m.gapMs > 0);
   check("語中促音の gap は 1 拍へ量子化", !!gapped && gapped.gapMs === MORA_MS,
         JSON.stringify(qk.map(m => m.gapMs)));
+}
+
+console.log("── 4b. Web専用の単純強弱 (先頭0dB・2モーラ目-3dB・3モーラ目以降-5dB) ──");
+{
+  const weak = Math.pow(10, -3 / 20);
+  const tail = Math.pow(10, -5 / 20);
+  const source = [
+    { onset:"k", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.74, isN:false, isQ:false },
+    { onset:null, nucleus:"a", durationMs:180, gapMs:0, amplitude:0, isN:false, isQ:false, isSilentRest:true },
+    { onset:"r", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.92, isN:false, isQ:false },
+    { onset:null, nucleus:"a", durationMs:60, gapMs:0, amplitude:0.18, isN:false, isQ:true },
+    { onset:"m", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.66, isN:false, isQ:false },
+  ];
+  const actual = api.nvApplySimpleDynamics(source);
+  check("弱モーラ係数は正確に-3dB",
+        Math.abs(api.NV_WEB_WEAK_MORA_GAIN - weak) < 1e-12);
+  check("3モーラ目以降の係数は正確に-5dB",
+        Math.abs(api.NV_WEB_TAIL_MORA_GAIN - tail) < 1e-12);
+  check("最初の実音は生成時の減衰値に依らず1.0",
+        actual[0].amplitude === 1);
+  check("無音は数えず0のまま",
+        actual[1].amplitude === 0);
+  check("2モーラ目の通常音は-3dB",
+        Math.abs(actual[2].amplitude - weak) < 1e-12);
+  check("3モーラ目の促音は断ちの比率0.18を保って-5dB",
+        Math.abs(actual[3].amplitude - 0.18 * tail) < 1e-12);
+  check("4モーラ目以降も-5dBを保つ",
+        Math.abs(actual[4].amplitude - tail) < 1e-12);
+  check("表示/記録用の元モーラ列は非破壊",
+        source[0].amplitude === 0.74 && source[2].amplitude === 0.92);
+  const quantized = api.nvQuantizeMoras(source, MORA_MS);
+  check("native再生の量子化経路にも単純強弱が入る",
+        quantized[0].amplitude === 1 && Math.abs(quantized[2].amplitude - weak) < 1e-12);
+  check("legacyフォールバックも同じ強弱を使う",
+        fs.readFileSync(HTML_PATH, "utf8").includes("const moras = nvApplySimpleDynamics(event.moras);"));
 }
 
 console.log("── 5. 語末 diph 専用テイク ──");
