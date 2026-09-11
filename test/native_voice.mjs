@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,7 +80,7 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
-  "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates",
+  "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
   "nvQuantizeMoras", "nvVowelRunRootHasOnset",
   "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
@@ -280,7 +281,7 @@ console.log("── 2. nvPrepareCvDiph (整形) ──");
   const late = w.filter(x => x.tMs > (prepared.length / SR * 1000) * 0.55 &&
                              x.tMs < (prepared.length / SR * 1000) * 0.85);
   const lateMean = late.reduce((a, b) => a + b.db, 0) / late.length;
-  check("第2母音が復元されている (-24dB 以上)", lateMean > -24, `late=${lateMean.toFixed(1)}dB`);
+  check("自然な第2母音を時変ゲインで持ち上げない", lateMean < -24, `late=${lateMean.toFixed(1)}dB`);
   let peak = 0;
   for (const v of prepared) peak = Math.max(peak, Math.abs(v));
   check("クリップしない", peak <= 1.0, `peak=${peak.toFixed(2)}`);
@@ -334,7 +335,7 @@ console.log("── 5. 語末 diph 専用テイク ──");
     const n = Math.min(normal.data.length, final.data.length);
     let diff = 0;
     for (let i = 0; i < n; i++) diff += Math.abs(normal.data[i] - final.data[i]);
-    check("sei: 語末専用テイクが実際に選択される", diff / n > 0.01,
+    check("sei: 旧語末専用テイクが短尺を上書きしない", diff === 0,
           `meanAbsDiff=${(diff / n).toFixed(4)}`);
   }
 }
@@ -393,6 +394,62 @@ console.log("── 7. Base追加音源と連続接続 ──");
       missing.push(`${key} (${candidates.join(" | ")})`);
   }
   check("プリロード対象の音声が全て実在", missing.length === 0, missing.join(", "));
+}
+
+console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必要) ──");
+{
+  // 合成素材では見えない移行点の誤検出を、配布ファイルと本番バンク構築で検査。
+  new Function([...fs.readFileSync(HTML_PATH, "utf8").matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1]);
+  const dir = path.resolve(__dirname, "../ConsonantsOnomatoi");
+  for (const key of api.sampleKeys()) {
+    const name = api.sampleUrlCandidates(key).find(n => fs.existsSync(path.join(dir, n)));
+    const bytes = execFileSync("ffmpeg", ["-v", "error", "-i", path.join(dir, name),
+      "-f", "f32le", "-ar", String(SR), "-ac", "1", "pipe:1"]);
+    const data = new Float32Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    api.sampleBank.set(key, { getChannelData: () => data });
+  }
+  const bank = api.buildNativeVoiceBank(SR);
+  for (const p of api.DIPH_PAIRS) {
+    check(`${p}: 接続素材が120ms超`, bank.cvDiph.get(p)?.length > SR * 0.12,
+      `${bank.cvDiph.get(p)?.length / SR * 1000}ms`);
+  }
+  check("nyeが実際にバンクへ載る", bank.cv.has("ny|e"));
+  let patrolled = 0;
+  const silentMoras = [], invalid = [];
+  for (const key of bank.cv.keys()) {
+    const [onset, v1] = key.split("|");
+    for (const pair of api.DIPH_PAIRS.filter(p => p[0] === v1)) {
+      for (const suffix of [pair[1], pair[1] + pair[1] + "n"]) {
+        const word = onset + v1 + suffix;
+        const moras = api.segmentWord(word);
+        const result = api.nvRenderEvent(moras, bank, SR, 250);
+        patrolled++;
+        if (!result || !result.data.every(Number.isFinite)) { invalid.push(word); continue; }
+        for (let m = 1; m < moras.length; m++) {
+          if (moras[m].isN) continue;
+          const from = Math.floor((m * 0.25 + 0.06) * SR);
+          const to = Math.floor((m * 0.25 + 0.18) * SR);
+          let sum = 0;
+          for (let i = from; i < to; i++) sum += result.data[i] ** 2;
+          if (db(Math.sqrt(sum / (to - from))) < -60) silentMoras.push(`${word}:${m}`);
+        }
+      }
+    }
+  }
+  check(`実CV×11二重母音 ${patrolled}語: NaN/レンダ失敗なし`, invalid.length === 0, invalid.join(", "));
+  check("中央120msが無音級になる母音なし", silentMoras.length === 0, silentMoras.join(", "));
+  for (const ms of [125, 250, 454.545]) {
+    for (const word of ["nuoon", "kuoon", "ruoon", "keaan", "keoon", "koaan", "kuaan"]) {
+      const result = api.nvRenderEvent(api.segmentWord(word), bank, SR, ms);
+      const start = Math.floor((ms + ms * 0.2) / 1000 * SR);
+      const end = Math.floor((2 * ms - ms * 0.2) / 1000 * SR);
+      let energy = 0;
+      for (let i = start; i < end; i++) energy += result.data[i] ** 2;
+      const level = db(Math.sqrt(energy / (end - start)));
+      check(`${word}/${ms.toFixed(0)}ms: 後半母音が脱落しない`, level > -45, `${level.toFixed(1)}dB`);
+      check(`${word}: 全サンプル有限`, result.data.every(Number.isFinite));
+    }
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

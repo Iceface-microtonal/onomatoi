@@ -3036,15 +3036,7 @@ const CONTN_VOWELS = VOWELS;
 const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同じキーで使う
 const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui", "uo",
                     "ea", "eo", "oa", "ua"];
-// CV→V (こう/かい/せい…) 専用の拡張録音 (2026-07-14: native ConsonantSampleBank の
-// cvDiph 移植)。native は 2026-07-06 に「生 diph の末尾から逆算」方式を明示的に廃止
-// している (実音は前半 ~400ms のみ・末尾は減衰+無音のため、ほぼ無音を再生していた —
-// FormantSynth.diphContext のコメント参照)。web の旧 diphPartner はこの**廃止された
-// 方式**を独自に再実装してしまっていた (higyau で「あう」の a が浮いて千切れる、
-// 等の症状はこれが根)。native と同じく、CV→V は「v1 を保持したまま v2 へ移る」
-// 専用の拡張録音 (diph_aaii 等) を先行オーバーラップで読む。(a,u) ペアは native 側にも
-// 拡張録音が無いため、この機構は使わず**素の母音として発声**する (native の現状の
-// 挙動と同じ・虚偽の継続をしない方が正直)。
+// 旧長尺資産は配布互換用。現行Base接続は全11ペアで短尺録音を優先する。
 const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
 const CV_DIPH_FIN_PAIRS = ["au", "ei", "ou"];   // 語末専用: aauu/eeii/oouu_fin
 
@@ -3069,7 +3061,7 @@ function sampleKeys() {
   // 全て実録音あり (未録音なら sampleUrlCandidates が cv_m<v> へフォールバック)。
   keys.push("cv_myi", "cv_myo", "cv_myu", "cv_mya");
   // 直接入力・制定語専用のBase新録。生成確率には加えない。
-  keys.push("cv_iye");
+  keys.push("cv_iye", "cv_nye");
   for (const [c, vowels] of Object.entries(RECORDED_EXTENDED_CVS))
     for (const v of vowels) keys.push("cv_" + c + v);
   return keys;
@@ -3299,6 +3291,38 @@ function nvContNPreRollMs(prevDurationMs) { return Math.min(100.0, prevDurationM
 // CV→V は鼻音より短い接着区間だけを先行させ、V2 が最大1.5モーラに膨らむのを防ぐ。
 function nvCvDiphPreRollMs(prevDurationMs) { return Math.min(40.0, prevDurationMs * 0.2); }
 
+// BaseのCubase配置。前後モーラが同じ素材・同じ時計・同じゲインを共有する。
+function nvCvDiphTiming(pair, durationMs) {
+  const table = {
+    ea: [140, 210, 100, 45, 115], eo: [140, 210, 100, 45, 115],
+    oa: [140, 210, 100, 45, 115], ua: [140, 210, 100, 45, 115],
+    ei: [190, 190, 100, 40, 150], oi: [172, 172, 67, 0, 47],
+    au: [160, 160, 170, 5, 85], ai: [40, 40, 25, 10, 28],
+    uo: [170, 170, 110, 80, 140], ui: [180, 180, 120, 90, 150],
+  };
+  const t = table[pair];
+  if (!t) {
+    const pre = nvCvDiphPreRollMs(durationMs);
+    return { pre, offset: 0, fade: pre, start: 0, end: pre, linear: false };
+  }
+  const pre = Math.min(t[0], Math.max(0, durationMs)), scale = pre / t[0];
+  return { pre, offset: t[1] - pre, fade: t[2] * scale,
+           start: t[3] * scale, end: t[4] * scale, linear: true };
+}
+function nvCvDiphGains(timing, elapsedMs) {
+  const clamp = x => Math.max(0, Math.min(1, x));
+  if (!timing.linear) {
+    const u = clamp(elapsedMs / Math.max(1, timing.pre));
+    return { cv: Math.cos(u * Math.PI / 2), diph: Math.sin(u * Math.PI / 2) };
+  }
+  return { cv: 1 - clamp((elapsedMs - timing.start) / Math.max(1, timing.end - timing.start)),
+           diph: clamp(elapsedMs / Math.max(1, timing.fade)) };
+}
+function nvCvDiphArr(bank, pair) {
+  // 現行Coreの短尺11ペアは旧長尺・finで上書きしない。
+  return bank.cvDiph.get(pair) || null;
+}
+
 // bpmQuantized (PhonosymbolicEvent): 促音は原寸 (断ちの音価)・gap は 1 拍・他は 1 拍
 function nvQuantizeMoras(moras, targetMoraMs) {
   return moras.map(m => {
@@ -3437,7 +3461,8 @@ function nvCvDiphPrev(idx, moras, bank) {
   let offset = 0;
   for (let i = first; i < idx; i++) offset += moras[i].durationMs;
   return { v1: prev.nucleus, v2: m.nucleus, prevDurationMs: prev.durationMs,
-           timeOffsetMs: offset, diphMoraDurationMs: moras[first].durationMs };
+           timeOffsetMs: offset, diphMoraDurationMs: moras[first].durationMs,
+           sourceOnset: prev.onset };
 }
 
 // 現モーラの diph run が語末で終わるか + 延長モーラを含むか — cvDiphRunShape
@@ -3661,41 +3686,27 @@ function nvDetectTransitionStart(arr, sr, dropDb, leadSec) {
   return Math.max(0, k * 0.010 - leadSec);
 }
 
-// CV→V diph の整形 — prepareContN の diph パラメータ版 (headDb -12 / tailDb -15 /
-// 頭定常検出 / リード -40ms / liftCap 無制限 [+30dB のみ])。contN 用の RMS/スペクトル
-// 検出パスは web ではベイク済み mp3 (bake_contn.py) が担うため移植しない。
-function nvPrepareCvDiph(raw, sr) {
-  const headDb = -12.0, tailDb = -15.0;
+// CV→V diphは一定ゲインで自然包絡を保持 (Core prepareNaturalCvDiph)。
+function nvPrepareCvDiph(raw, sr, pair = "") {
   let trimmed = nvTrimTrailingSilence(raw, 0.004, Math.round(sr * 0.01));
-  if (trimmed.length <= Math.floor(sr * 0.05)) return new Float32Array(trimmed);
-  const startSec = nvDetectTransitionStart(trimmed, sr, 3.0, -0.04);
-  const startIdx = Math.min(trimmed.length - 1, Math.floor(startSec * sr));
+  // 現行Core prepareShortCvDiph: ai/ouのみ移行点の手前、他は素材頭から。
+  // 語尾減衰を移行点と誤認してuoを47msに切り詰めていた旧処理を廃止。
+  let startSec = 0;
+  if (pair === "ai") startSec = Math.max(0, nvDetectTransitionStart(raw, sr, 3, -0.04) - 0.04);
+  if (pair === "ou") startSec = nvDetectTransitionStart(raw, sr, 3, 0.04);
+  const startIdx = Math.floor(startSec * sr);
+  if (startIdx >= trimmed.length) return new Float32Array(0);
   const arr = new Float32Array(trimmed.subarray(startIdx));
-  const win = Math.max(1, Math.round(sr * 0.010));
-  if (arr.length < win * 3) return arr;
-  const env = [];
-  for (let i = 0; i < arr.length; i += win) {
-    const hi = Math.min(arr.length, i + win);
-    let s = 0;
-    for (let j = i; j < hi; j++) { const v = arr[j]; s += v * v; }
-    env.push(Math.max(1e-6, Math.sqrt(s / (hi - i))));
+  const count = Math.min(arr.length, Math.max(1, Math.floor(sr * 0.12)));
+  let sum = 0, peak = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (i < count) sum += arr[i] * arr[i];
+    peak = Math.max(peak, Math.abs(arr[i]));
   }
-  const smooth = env.slice();
-  for (let k = 1; k < env.length - 1; k++) smooth[k] = (env[k - 1] + env[k] + env[k + 1]) / 3;
-  const liftCap = Math.pow(10, 30 / 20);   // liftCapDb=nil → 絶対上限 +30dB のみ
-  const n = arr.length;
-  for (let idx = 0; idx < n; idx++) {
-    const t = idx / (n - 1);
-    const targetDb = headDb + (tailDb - headDb) * t;
-    const target = Math.pow(10, targetDb / 20);
-    const fpos = idx / win;
-    const k0 = Math.min(smooth.length - 1, Math.floor(fpos));
-    const k1 = Math.min(smooth.length - 1, k0 + 1);
-    const frac = fpos - k0;
-    const e = smooth[k0] * (1 - frac) + smooth[k1] * frac;
-    const gain = Math.min(liftCap, target / e);
-    arr[idx] *= gain;
-  }
+  const rms = Math.sqrt(sum / count);
+  if (!(rms > 1e-6) || !(peak > 1e-6)) return new Float32Array(0);
+  const gain = Math.min(Math.pow(10, -12 / 20) / rms, Math.pow(10, 6 / 20), 0.95 / peak);
+  for (let i = 0; i < arr.length; i++) arr[i] *= gain;
   return arr;
 }
 
@@ -3747,8 +3758,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     const cvd = nvCvDiphPrev(i, moras, bank);
     if (cvd) {
       const runShape = nvCvDiphRunShape(i, moras);
-      const finArr = runShape.isWordFinal ? bank.cvDiphFin.get(cvd.v1 + cvd.v2) : null;
-      const arr = finArr || bank.cvDiph.get(cvd.v1 + cvd.v2);
+      const finArr = null;
+      const arr = nvCvDiphArr(bank, cvd.v1 + cvd.v2);
       if (arr) {
         const next = i + 1 < moras.length ? moras[i + 1] : null;
         const continuesRun = !!(next && next.onset === null && !next.isN &&
@@ -3843,14 +3854,16 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = (value === null ? 0 : value) * amp * env * eventFade;
     } else if (plan.kind === "cvDiph") {
       const cvd = plan.cvd;
-      const preRoll = nvCvDiphPreRollMs(cvd.prevDurationMs);
+      const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
+      const preRoll = timing.pre;
       let value = nvInterp(plan.arr, sr,
-        nvSustainWrap((preRoll + cvd.timeOffsetMs + phoneT) / 1000, plan.dur));
+        nvSustainWrap((timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000, plan.dur));
       if (value === null) value = 0;
       const envTotal = plan.continuesRun
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
       let env = nvSampleEnvelope(phoneT + NV_SAMPLE_FADE_IN_MS,
                                  envTotal + NV_SAMPLE_FADE_IN_MS);
+      env *= nvCvDiphGains(timing, preRoll + cvd.timeOffsetMs + phoneT).diph;
       if (plan.runShape.isWordFinal) {
         if (plan.runShape.hasExtension) {
           // v7.14: run リリース開始 106% (saii 370ms から減衰)
@@ -3860,7 +3873,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
             const c = Math.cos(r * Math.PI / 2);
             env *= c * c;
           }
-        } else {
+        } else if (!["ei", "au", "ea", "eo", "oa", "ua"].includes(cvd.v1 + cvd.v2)) {
           // 語末専用finは素材の閉じを活かすため、通常diphより少し早くリリースする。
           const u = phoneT / m.durationMs;
           const relStart = plan.usesFin ? 0.16 : 0.22;
@@ -3872,7 +3885,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
           }
         }
       }
-      val = value * NV_DIPH_JOIN_GAIN * amp * env * eventFade;
+      const balance = cvd.v1 === "e" && cvd.v2 === "a" && ["p", "t", "k"].includes(cvd.sourceOnset)
+        ? Math.pow(10, 1.5 / 20) : 1;
+      val = value * NV_DIPH_JOIN_GAIN * balance * amp * env * eventFade;
     } else if (plan.kind === "diph") {
       const t = plan.diph.baseMs + tin;
       const value = nvInterp(plan.arr, sr, t / 1000);
@@ -3931,14 +3946,19 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // ─── CV→V diph の先行オーバーラップ ───
     if (post.cvDiphArr) {
       const boundary = m.gapMs + m.durationMs;
-      const preRoll = nvCvDiphPreRollMs(m.durationMs);
+      const next = moras[mi + 1];
+      const timing = nvCvDiphTiming(m.nucleus + next.nucleus, m.durationMs);
+      const preRoll = timing.pre;
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
-        const dv = nvInterp(post.cvDiphArr, sr, tailT / 1000);
+        const dv = nvInterp(post.cvDiphArr, sr,
+          nvSustainWrap((timing.offset + tailT) / 1000, nvDur(post.cvDiphArr, sr)));
         if (dv !== null) {
-          const u = tailT / preRoll;
-          val = val * Math.cos(u * Math.PI / 2)
-              + dv * Math.sin(u * Math.PI / 2) * amp * eventFade;
+          const gains = nvCvDiphGains(timing, tailT);
+          const balance = m.nucleus === "e" && next.nucleus === "a" && ["p", "t", "k"].includes(m.onset)
+            ? Math.pow(10, 1.5 / 20) : 1;
+          val = val * gains.cv
+              + dv * gains.diph * NV_DIPH_JOIN_GAIN * balance * next.amplitude * eventFade;
         }
       }
     }
@@ -4000,18 +4020,9 @@ function buildNativeVoiceBank(sr) {
   for (const p of DIPH_PAIRS) {
     const raw = nvChan("diph_" + p);
     if (raw) bank.diph.set(p, raw);
-    const extRaw = nvChan("diph_" + p[0] + p[0] + p[1] + p[1]);
-    if (extRaw) {
-      const prepared = nvPrepareCvDiph(extRaw, sr);
-      if (prepared.length) { bank.cvDiph.set(p, prepared); bank.longDiph.add(p); }
-    } else if (raw) {
-      const prepared = nvPrepareCvDiph(raw, sr);   // 長尺が無いペアは生 diph から (native と同じ)
+    if (raw) {
+      const prepared = nvPrepareCvDiph(raw, sr, p);
       if (prepared.length) bank.cvDiph.set(p, prepared);
-    }
-    const finRaw = nvChan("diph_" + p[0] + p[0] + p[1] + p[1] + "_fin");
-    if (finRaw) {
-      const preparedFin = nvPrepareCvDiph(finRaw, sr);
-      if (preparedFin.length) bank.cvDiphFin.set(p, preparedFin);
     }
   }
   return bank;
@@ -4224,7 +4235,7 @@ function axesEqual(a, b) {
 // (Google Apps Script 等で公開ユーザーから収集したい場合用。空なら何もしない)。
 const FEEDBACK_ENDPOINT = "";
 const FB_VERSION = 4;          // v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加 (v3: reason)
-const ENGINE_VERSION = "v22";  // v22: Base拡張CV/11 diph・CV定常終端handoff・長母音連続ゲイン
+const ENGINE_VERSION = "v23";  // 短尺diphの自然包絡・素材別接続・nuoon脱落修正
 let feedbackLog = [];
 try { feedbackLog = JSON.parse(localStorage.getItem("onomatoi.feedback") || "[]"); } catch (e) {}
 let utteranceSeq = 0;
