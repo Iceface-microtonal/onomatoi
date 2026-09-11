@@ -360,14 +360,16 @@ function applyLangTexts() {
 const CONSONANTS = ["k","g","t","d","p","b","m","n","s","sh","ts","r","w",
                     "ky","gy","ny","h","f","y","z","j","ch"];
 const VOWELS = ["a","i","u","e","o"];
-// Baseに実録音がある直接入力専用onset。確率生成のCONSONANTSとは分離する。
+// Baseに実録音がある表情CV。一次抽選のCONSONANTSとは分離し、既存子音を
+// 選んだ後の二次分岐または直接入力として使う。
 const RECORDED_EXTENDED_CVS = {
+  my: new Set(["a","i","u","o"]), iy: new Set(["e"]),
   kw: new Set(["a","i","e","o"]), gw: new Set(["i","e"]),
   sw: new Set(["i"]), zw: new Set(["i"]),
-  hy: new Set(["a","u","e","o"]), py: new Set(["u","o"]),
+  hy: new Set(["a","u","e","o"]), py: new Set(["a","u","o"]),
   ry: new Set(["a","u","o"]),
 };
-const VOICED = new Set(["g","d","b","m","n","r","w","gy","ny","y","z","j"]);
+const VOICED = new Set(["g","d","b","m","n","r","w","gy","ny","my","iy","gw","zw","ry","y","z","j"]);
 const PALATALIZED = new Set(["ky","gy","ny"]);   // a/u/o のみ
 const SEMIVOWEL = new Set(["y"]);                // a/u/o のみ
 
@@ -453,9 +455,12 @@ function scoreVowel(target, bias) {
 }
 
 // ─── BoubaKiki (第二柱: 大域音象徴判定, Articulation.swift の移植) ───
-const K_CONS = { ts:0.90, k:0.85, ch:0.85, t:0.80, ky:0.80, p:0.60, s:0.60, sh:0.35,
-                 d:0.30, g:0.25, gy:0.20, z:0.15, j:0.10, b:0.05, h:-0.15, f:-0.25,
-                 r:-0.35, ny:-0.50, n:-0.60, y:-0.60, m:-0.75, w:-0.80 };
+const K_CONS = { ts:0.90, k:0.85, ch:0.85, t:0.80, ky:0.80, kw:0.75,
+                 p:0.60, py:0.60, s:0.60, sw:0.40, sh:0.35,
+                 d:0.30, g:0.25, gy:0.20, gw:0.15, z:0.15, j:0.10,
+                 b:0.05, zw:0.05, hy:0.05, h:-0.15, f:-0.25,
+                 r:-0.35, ry:-0.35, ny:-0.50, n:-0.60, y:-0.60, iy:-0.60,
+                 m:-0.75, my:-0.75, w:-0.80 };
 const K_VOWEL = { i:0.55, e:0.15, a:-0.05, o:-0.35, u:-0.45 };
 function consonantK(c) { return c === null ? -0.50 : (K_CONS[c] ?? 0); }
 function drawK(sharp, corners, cornerSharpness = null) {
@@ -472,10 +477,10 @@ function drawK(sharp, corners, cornerSharpness = null) {
 }
 // ─── MannerClass (調音方法の層, 2026-07-10): 運動の時間構造 ↔ 調音の時間構造 ───
 //   破裂=閉鎖→瞬間開放=単発の衝撃 / 破擦=閉鎖+摩擦=角の連打 / 摩擦=連続乱流=波 / 共鳴=閉じた丸
-const MANNER_CLASS = { k:"p", g:"p", t:"p", d:"p", p:"p", b:"p", ky:"p", gy:"p",
+const MANNER_CLASS = { k:"p", g:"p", t:"p", d:"p", p:"p", b:"p", ky:"p", gy:"p", kw:"p", gw:"p", py:"p",
                        ts:"a", ch:"a", j:"a",
-                       s:"f", sh:"f", z:"f", h:"f", f:"f",
-                       m:"s", n:"s", r:"s", w:"s",
+                       s:"f", sh:"f", z:"f", h:"f", f:"f", sw:"f", zw:"f", hy:"f", iy:"f",
+                       m:"s", n:"s", r:"s", w:"s", my:"s", ry:"s",
                        // P6 (2026-07-15, コウさん立法 #いいい/うーの直線): 拗音/半母音 y/ny は
                        // 「うねり」(実際の曲がり運動) の証拠が要る。旧classは"s"=鈍さ(-sharp)
                        // だけで m/n/r/w と同格に加点され、直線 (tex負, うねり無) でも y/ny が
@@ -488,10 +493,10 @@ const MANNER_WEIGHT = 0.8;
 // 不適・軟口蓋 plain (k/g) や唇音は適。**阻害音のみ**に掛ける (共鳴音 n/ny/m/w/r の
 // 柔らかさは K・manner が既に担う — 波→にょ 👍 を壊さない)。ky/gy は硬口蓋化 = acute 側
 // (plain velar との区別こそが #4 の立法)。kiki 経路のみ = スライダー経路は厳密互換。
-const PLACE_CLASS = { p:"lab", b:"lab", m:"lab", f:"lab", w:"lab",
-                      t:"alv", d:"alv", s:"alv", z:"alv", n:"alv", r:"alv", ts:"alv",
-                      sh:"pal", j:"pal", ch:"pal", y:"pal", ny:"pal",
-                      k:"vel", g:"vel", ky:"palvel", gy:"palvel", h:"glo" };
+const PLACE_CLASS = { p:"lab", b:"lab", m:"lab", f:"lab", w:"lab", my:"lab", py:"lab",
+                      t:"alv", d:"alv", s:"alv", z:"alv", n:"alv", r:"alv", ts:"alv", sw:"alv", zw:"alv",
+                      sh:"pal", j:"pal", ch:"pal", y:"pal", iy:"pal", ny:"pal", hy:"pal", ry:"pal",
+                      k:"vel", g:"vel", kw:"vel", gw:"vel", ky:"palvel", gy:"palvel", h:"glo" };
 const PLACE_ACUTE = { lab:-0.8, glo:-0.5, vel:-0.5, palvel:0.8, alv:0.6, pal:1.0 };
 const PLACE_WEIGHT = 0.5;
 // ─── P10 言いやすさ (2026-07-15, OCP 必異原理): 隣接 CV の 同母音×同調音位置 禁止 ───
@@ -515,7 +520,8 @@ function applyOCP(moras) {
   const out = moras.slice();
   for (let i = 1; i < out.length; i++) {
     if (ocpViolates(out[i - 1], out[i])) {
-      out[i] = { ...out[i], nucleus: ablautVowel(out[i].nucleus) };
+      const ablaut = ablautVowel(out[i].nucleus);
+      out[i] = { ...out[i], nucleus: out[i - 1].nucleus === "o" && ablaut === "a" ? "u" : ablaut };
     }
   }
   return out;
@@ -738,7 +744,7 @@ function ablautVowel(v) {
 // 任意のモーラ列を「実在しそうな日本語の擬音語」の形態テンプレートへ整形する純関数。
 // mora shape: { onset: string|null, nucleus: "a"|"i"|"u"|"e"|"o", durationMs, gapMs,
 //               amplitude, isN: bool, isQ: bool (語末促音「っ」, 旧 isFinalSokuon) }
-const OBSTRUENT_EXEMPT = new Set(["m", "n", "r", "w", "y", "ny"]);
+const OBSTRUENT_EXEMPT = new Set(["m", "n", "r", "w", "y", "iy", "ny", "my", "ry"]);
 function isObstruent(c) { return c !== null && !OBSTRUENT_EXEMPT.has(c); }
 const VOICED_FORM = { k: "g", t: "d", p: "b", s: "z", sh: "j", ts: "z", ch: "j", h: "b", f: "b", ky: "gy" };
 const VOICELESS_FORM = { g: "k", d: "t", b: "p", z: "s", j: "sh", gy: "ky" };
@@ -788,6 +794,90 @@ function nativize(m) {
   else if (c === "j") { if (v === "e") nc = "z"; }
   if (nc === c) return m;
   return { ...m, onset: nc };
+}
+
+// 一次子音の確率を増やさず、描線の二次的な表情として実録音CVへ分岐する。
+function expressiveVariantCandidate(parent, nucleus, axes) {
+  let onset = null, evidence = 0;
+  if (parent === null && nucleus === "e") {
+    onset = "iy"; evidence = 0.45 * -axes.sharp + 0.35 * axes.tex + 0.20 * axes.bright;
+  } else if (parent === "n" && nucleus === "e") {
+    onset = "ny"; evidence = 0.50 * -axes.sharp + 0.35 * axes.tex + 0.15 * axes.bright;
+  } else if (parent === "k" && RECORDED_EXTENDED_CVS.kw.has(nucleus)) {
+    onset = "kw"; evidence = 0.65 * (axes.round || 0) + 0.35 * (axes.open || 0);
+  } else if (parent === "g" && RECORDED_EXTENDED_CVS.gw.has(nucleus)) {
+    onset = "gw"; evidence = 0.65 * (axes.round || 0) + 0.35 * (axes.open || 0);
+  } else if (parent === "s" && nucleus === "i") {
+    onset = "sw"; evidence = 0.50 * axes.tex + 0.30 * axes.sharp + 0.20 * (axes.round || 0);
+  } else if (parent === "z" && nucleus === "i") {
+    onset = "zw"; evidence = 0.50 * axes.tex + 0.30 * axes.sharp + 0.20 * (axes.round || 0);
+  } else if (parent === "h" && RECORDED_EXTENDED_CVS.hy.has(nucleus)) {
+    onset = "hy"; evidence = 0.45 * -axes.sharp + 0.30 * axes.tex + 0.25 * axes.bright;
+  } else if (parent === "m" && RECORDED_EXTENDED_CVS.my.has(nucleus)) {
+    onset = "my"; evidence = 0.50 * -axes.sharp + 0.30 * axes.tex + 0.20 * (axes.round || 0);
+  } else if (parent === "p" && RECORDED_EXTENDED_CVS.py.has(nucleus)) {
+    onset = "py"; evidence = 0.45 * -axes.size + 0.35 * axes.tex + 0.20 * axes.sharp;
+  } else if (parent === "r" && RECORDED_EXTENDED_CVS.ry.has(nucleus)) {
+    onset = "ry"; evidence = 0.55 * axes.tex + 0.30 * -axes.sharp + 0.15 * axes.bright;
+  }
+  if (onset === null) return null;
+  const strength = Math.max(0, Math.min(1, (evidence - 0.10) / 0.90));
+  return strength > 0 ? { onset, strength } : null;
+}
+function expressiveOnset(parent, nucleus, axes, temperature, slot = 0) {
+  const variant = expressiveVariantCandidate(parent, nucleus, axes);
+  if (!variant) return parent;
+  if (temperature <= 0) return variant.strength >= 0.70 ? variant.onset : parent;
+  const stableCode = text => Array.from(text).reduce((n, c) => (Math.imul(n, 131) + c.codePointAt(0)) >>> 0, 0);
+  const salt = (0x45585052 ^ Math.imul(Math.max(0, slot), 0x9E3779B9)
+    ^ Math.imul(stableCode(parent ?? "_"), 0x85EBCA6B) ^ stableCode(nucleus)) >>> 0;
+  const q = value => Math.round(value || 0);
+  const expressionAxes = { ...axes, size:q(axes.size), sharp:q(axes.sharp), tex:q(axes.tex),
+                           bright:q(axes.bright), round:q(axes.round), open:q(axes.open) };
+  const roll = mulberry32(axesSeed(expressionAxes, salt))();
+  return roll < 0.10 + 0.25 * variant.strength ? variant.onset : parent;
+}
+
+// o→a は母音を捨てず a→o（開放→収束）へ並べ替える。
+// 反復周期・撥音・促音・休符は運動の再開境界なので跨がせない。
+function enforceVowelAspectOrder(moras) {
+  if (moras.length < 2) return moras.slice();
+  const out = moras.map(m => ({ ...m }));
+  const skeleton = m => `${m.onset ?? "_"}:${m.nucleus}:${m.isN ? 1 : 0}:${m.isQ ? 1 : 0}:${m.amplitude <= 0 ? 1 : 0}`;
+  let period = out.length;
+  for (let p = 1; p <= Math.floor(out.length / 2); p++) {
+    let matches = true;
+    for (let i = p; i < out.length; i++) {
+      if (skeleton(out[i]) !== skeleton(out[i % p])) { matches = false; break; }
+    }
+    if (matches) { period = p; break; }
+  }
+  let segmentStart = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (i > 0 && i % period === 0) segmentStart = i;
+    if (out[i].isN || out[i].isQ || out[i].amplitude <= 0) { segmentStart = i + 1; continue; }
+    if (out[i].nucleus !== "a") continue;
+    let j = i;
+    while (j > segmentStart && out[j - 1].nucleus === "o"
+           && !out[j - 1].isN && !out[j - 1].isQ && out[j - 1].amplitude > 0) {
+      out[j - 1] = { ...out[j - 1], nucleus:"a" };
+      out[j] = { ...out[j], nucleus:"o" };
+      j--;
+    }
+  }
+  return out;
+}
+function applyOCPAndVowelOrder(moras) {
+  let out = moras;
+  for (let i = 0; i < 3; i++) {
+    const next = enforceVowelAspectOrder(applyOCP(out));
+    const same = next.length === out.length && next.every((m, j) =>
+      m.onset === out[j].onset && m.nucleus === out[j].nucleus
+      && !!m.isN === !!out[j].isN && !!m.isQ === !!out[j].isQ);
+    if (same) return out;
+    out = next;
+  }
+  return out;
 }
 // #3: 母音交替畳語 (がたごと/かさこそ) 判定。子音骨格が period 2 で繰り返すが母音が異なる。
 function detectAblaut(loops) {
@@ -939,7 +1029,9 @@ function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null
   if (out.length > targetLen) out = out.slice(0, targetLen);
   if (forbidMoraicN) out = out.filter(m => !m.isN);
   // P10 最終ガード: テンプレ再形成/タイルで生まれた隣接違反も左→右で解消 (kiki 経路のみ)
-  if (kiki !== null) out = applyOCP(out);
+  if (kiki !== null) {
+    out = applyOCPAndVowelOrder(out);
+  }
   return out.map(nativize);
 }
 
@@ -970,26 +1062,32 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
   let prevOnset = undefined, firstVowel = null, prevNucleus = null;
   for (let i = 0; i < uniqueCount; i++) {
     // P11/PF-02: 開いた弧は onset を消す。開いた一角は子音開始・語末ん無し。
-    const onset = forceNilOnset ? null
+    const primaryOnset = forceNilOnset ? null
       : pickConsonant(axes, prevOnset === undefined ? "" : prevOnset, temperature, rand,
                       kiki, manner, forceConsonantOnset, disorder);
     let restrict = null;
-    if (onset && (PALATALIZED.has(onset) || SEMIVOWEL.has(onset))) restrict = new Set(["a","u","o"]);
+    if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
+    if (prevNucleus === "o") {
+      const withoutA = new Set(["i","u","e","o"]);
+      restrict = restrict ? new Set([...restrict].filter(v => withoutA.has(v))) : withoutA;
+    }
     // ch は cha/chi/chu/cho/che 全て収録済 (2026-06 に che 追加) → 全母音可。
     // P10: 直前と同調音位置の別子音なら同母音を避ける (ソフト) + 決定的ガード。
     // ablaut の出力は a/o のみ = 拗音 restrict {a,u,o} に必ず適合。
-    const samePlace = kiki !== null && onset && prevOnset && onset !== prevOnset
-      && isObstruent(onset) && isObstruent(prevOnset)
-      && PLACE_CLASS[onset] === PLACE_CLASS[prevOnset]
-      && mannerClassOf(onset) !== mannerClassOf(prevOnset);
+    const samePlace = kiki !== null && primaryOnset && prevOnset && primaryOnset !== prevOnset
+      && isObstruent(primaryOnset) && isObstruent(prevOnset)
+      && PLACE_CLASS[primaryOnset] === PLACE_CLASS[prevOnset]
+      && mannerClassOf(primaryOnset) !== mannerClassOf(prevOnset);
     let nucleus = pickVowel(axes, isRedup ? firstVowel : null, temperature, restrict,
                             rand, samePlace ? prevNucleus : null);
     if (samePlace && nucleus === prevNucleus) nucleus = ablautVowel(nucleus);
+    const onset = forceNilOnset ? null
+      : expressiveOnset(primaryOnset, nucleus, axes, temperature, i);
     prevNucleus = nucleus;
     if (firstVowel === null) firstVowel = nucleus;
     unique.push({ onset, nucleus, durationMs: 170 + axes.size * 20,
                   gapMs: 0, amplitude: 1.0, isN: false, isQ: false });
-    prevOnset = onset;
+    prevOnset = primaryOnset;
   }
 
   const rawMoras = [];
@@ -1007,7 +1105,7 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
 
   // v7: 実在オノマトペ型への整形 (legalize が語末ん/連続母音(かい/こう)/促音っ/長音ー/畳語末尾
   // を音象徴 (axes) から一括で選ぶ。旧「ん を確率的に末尾付与するだけ」の簡易版を置き換え)。
-  const moras = legalize(rawMoras, axes, lengthHint ?? moraCount, sustained, kiki,
+  const moras = legalize(enforceVowelAspectOrder(rawMoras), axes, lengthHint ?? moraCount, sustained, kiki,
                          forceNilOnset, forceConsonantOnset);
   const finalRedup = moraPeriod(moras) < moras.length;
 
@@ -2891,7 +2989,9 @@ function polishUnits(moras, axes, kiki = null) {
   let out = moras.map(m => biasVoicing(m, axes.size));
   const fi = out.findIndex(m => m.onset !== null && !m.isN);
   if (fi >= 0) out[fi] = biasInitialP(out[fi], axes, kiki);
-  if (kiki !== null) out = applyOCP(out);   // P10 (単位語経路は legalize を通らない)
+  if (kiki !== null) {
+    out = applyOCPAndVowelOrder(out);   // P10 + P11 (単位語経路は legalize を通らない)
+  }
   out = out.map(nativize);
   if (out.length > 16) out = out.slice(0, 16);
   return out;
@@ -2923,10 +3023,15 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
           ? mannerProfile(ax.sharp, ucx.corners, ucx.cornerSharpness, ax.tex, 1)
           : null;
         const rand = mulberry32(axesSeed(ax, salt));
-        const onset = pickConsonant(ax, "", temperature, rand, kUnit, mUnit, false, disorder);
+        const primaryOnset = pickConsonant(ax, "", temperature, rand, kUnit, mUnit, false, disorder);
         let restrict = null;
-        if (onset && (PALATALIZED.has(onset) || SEMIVOWEL.has(onset))) restrict = new Set(["a","u","o"]);
+        if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
+        if (prevVowel === "o") {
+          const withoutA = new Set(["i","u","e","o"]);
+          restrict = restrict ? new Set([...restrict].filter(v => withoutA.has(v))) : withoutA;
+        }
         const vowel = pickVowel(ax, null, temperature, restrict, rand);
+        const onset = expressiveOnset(primaryOnset, vowel, ax, temperature, idx);
         out.push({ onset, nucleus: vowel, durationMs: 170 + ax.size * 20,
                    gapMs: pendingGap ? geminateGapMs(onset) : 0,
                    amplitude: 1.0, isN: false, isQ: false });
@@ -3057,11 +3162,9 @@ function sampleKeys() {
   for (const p of DIPH_PAIRS) keys.push("diph_" + p);
   for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
   for (const p of CV_DIPH_FIN_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1] + "_fin");
-  // P12 開いた弧の語彙で使う my行 (2026-07-16 コウさん録音 myi/myo/myu/mya を収録)。
-  // 全て実録音あり (未録音なら sampleUrlCandidates が cv_m<v> へフォールバック)。
-  keys.push("cv_myi", "cv_myo", "cv_myu", "cv_mya");
-  // 直接入力・制定語専用のBase新録。生成確率には加えない。
-  keys.push("cv_iye", "cv_nye");
+  // 一次子音確率を増やさず、表情CVまたは直接入力として使うBase新録。
+  // nye は既存 ny onset の追加母音なので別に登録する。
+  keys.push("cv_nye");
   for (const [c, vowels] of Object.entries(RECORDED_EXTENDED_CVS))
     for (const v of vowels) keys.push("cv_" + c + v);
   return keys;
@@ -5199,7 +5302,8 @@ function parseMora(token, withQ) {
     if (token.startsWith(c2) && VOWELS.includes(token.slice(c2.length))) {
       const nucleus = token.slice(c2.length);
       if (c2 === "iy" && nucleus !== "e") return null;
-      if (RECORDED_EXTENDED_CVS[c2] && !RECORDED_EXTENDED_CVS[c2].has(nucleus)) return null;
+      if (RECORDED_EXTENDED_CVS[c2] && !RECORDED_EXTENDED_CVS[c2].has(nucleus)
+          && !(c2 === "my" && nucleus === "e")) return null;
       // ky/gy は i/e で平音化。ny は実録音 nye を保持し、未録音 nyi だけ ni へ正規化する。
       // myi は実録音済みなので保持し、未録音の mye だけ me へ正規化する。
       let onset = c2;

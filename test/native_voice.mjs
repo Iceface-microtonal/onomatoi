@@ -80,6 +80,8 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
+  "RECORDED_EXTENDED_CVS", "expressiveVariantCandidate", "expressiveOnset",
+  "enforceVowelAspectOrder",
   "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
   "nvQuantizeMoras", "nvVowelRunRootHasOnset",
   "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
@@ -346,10 +348,41 @@ console.log("── 6. 現行Core入力正規化・NG語 ──");
   const cases = { kyi: "ki", kye: "ke", gyi: "gi", gye: "ge", nyi: "ni", nye: "nye",
                   myi: "myi", mye: "me", iye: "iye", kwakwi: "kwakwi",
                   gwe: "gwe", swi: "swi", zwi: "zwi", hyahyuhyehyo: "hyahyuhyehyo",
-                  pyupyo: "pyupyo", ryaryuryo: "ryaryuryo" };
+                  pyapyupyo: "pyapyupyo", ryaryuryo: "ryaryuryo" };
   for (const [input, expected] of Object.entries(cases))
     check(`${input} → ${expected}`, wordOf(input) === expected, `got ${wordOf(input)}`);
   check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
+}
+
+console.log("── 6.5. 表情CVと母音順序 ──");
+{
+  const soft = { size:-1, sharp:-1, tex:1, bright:1, round:1, open:1 };
+  const rounded = { size:0, sharp:0, tex:0, bright:0, round:1, open:1 };
+  const rubbed = { size:0, sharp:1, tex:1, bright:0, round:1, open:0 };
+  const bounce = { size:-1, sharp:1, tex:1, bright:0, round:0, open:0 };
+  const cases = [
+    [null,"e",soft,"iy"], ["n","e",soft,"ny"],
+    ["k","a",rounded,"kw"], ["g","e",rounded,"gw"],
+    ["s","i",rubbed,"sw"], ["z","i",rubbed,"zw"],
+    ["h","a",soft,"hy"], ["m","i",soft,"my"],
+    ["p","u",bounce,"py"], ["r","o",soft,"ry"],
+  ];
+  for (const [parent, vowel, axes, expected] of cases) {
+    const candidate = api.expressiveVariantCandidate(parent, vowel, axes);
+    check(`${parent ?? "∅"}${vowel} → ${expected}候補`,
+          candidate?.onset === expected && candidate.strength >= 0.70,
+          JSON.stringify(candidate));
+    check(`${expected}は強い証拠で決定的に選択`,
+          api.expressiveOnset(parent, vowel, axes, 0) === expected);
+  }
+  const ordered = api.enforceVowelAspectOrder([
+    { onset:"k", nucleus:"o", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+    { onset:"r", nucleus:"a", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+  ]);
+  check("通常生成のo→aは母音を保ってa→oへ整列",
+        ordered[0].nucleus === "a" && ordered[1].nucleus === "o");
+  check("直接入力のgyogyaanは制定綴りを保持",
+        api.romajiOf({ moras: api.segmentWord("gyogyaan") }) === "gyogyaan");
 }
 
 console.log("── 7. Base追加音源と連続接続 ──");
@@ -387,6 +420,18 @@ console.log("── 7. Base追加音源と連続接続 ──");
   check("撥音EOF後は無音", api.nvReadMoraicNSample(nTake, SR, 101) === 0);
 
   const assetDir = path.resolve(__dirname, "../ConsonantsOnomatoi");
+  // 素材到達性パトロール: canonicalなCV/diphを置いたのに preload keyへ追加し忘れる事故を止める。
+  // 促音専用テイク3本は現Web renderer未採用だが、黙殺でなく明示的な既知allowlistにする。
+  const rendererOnly = new Set(["cv_sQs", "cv_shQsh", "cv_tsQts"]);
+  const preloadKeys = new Set(api.sampleKeys());
+  const canonicalAssets = fs.readdirSync(assetDir)
+    .map(name => name.replace(/\.(?:wav|mp3)$/, ""))
+    .filter(key => /^cv_[A-Za-z]+$/.test(key) || /^diph_[aeiou]{2}$/.test(key));
+  const ignoredAssets = [...new Set(canonicalAssets)]
+    .filter(key => !preloadKeys.has(key) && !rendererOnly.has(key));
+  check("追加音声に未到達のcanonical assetがない", ignoredAssets.length === 0,
+        ignoredAssets.join(", "));
+
   const missing = [];
   for (const key of api.sampleKeys()) {
     const candidates = api.sampleUrlCandidates(key);
