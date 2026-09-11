@@ -79,12 +79,15 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
+  "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates",
   "nvQuantizeMoras", "nvVowelRunRootHasOnset",
   "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
-  "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp"];
+  "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
+  "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample",
+  "nvContinuousMoraGain", "nvReadMoraicNSample"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`,
   ctx, { filename: "engine(extracted)" });
@@ -132,7 +135,7 @@ function synthLongDiphRaw() {
 }
 
 function makeBank() {
-  const bank = { sr: SR, cv: new Map(), v: new Map(), nN: null, contN: new Map(),
+  const bank = { sr: SR, cv: new Map(), cvHandoff: new Map(), v: new Map(), nN: null, contN: new Map(),
                  diph: new Map(), cvDiph: new Map(), cvDiphFin: new Map(), longDiph: new Set() };
   bank.v.set("a", sine(1.0, 200, 0.15));
   bank.v.set("e", sine(1.0, 270, 0.15));
@@ -140,9 +143,12 @@ function makeBank() {
   bank.v.set("i", sine(1.0, 320, 0.15));
   bank.cv.set("s|a", sine(0.5, 210, 0.15));
   bank.cv.set("s|e", sine(0.5, 270, 0.15));
+  for (const [key, take] of bank.cv) {
+    bank.cvHandoff.set(key, api.nvComputeCvSustainHandoffEnd(take, SR));
+  }
   bank.nN = sine(0.6, 150, 0.10);
   bank.contN.set("a", sine(0.6, 160, 0.10, 1));   // ベイク済み相当 (頭から鼻音定常)
-  for (const p of ["ai", "au", "ei", "oi", "ou", "ui"]) {
+  for (const p of api.DIPH_PAIRS) {
     bank.diph.set(p, sine(0.6, 250, 0.12));
     const prepared = api.nvPrepareCvDiph(synthLongDiphRaw(), SR);
     bank.cvDiph.set(p, prepared);
@@ -336,11 +342,57 @@ console.log("── 5. 語末 diph 専用テイク ──");
 console.log("── 6. 現行Core入力正規化・NG語 ──");
 {
   const wordOf = word => api.romajiOf({ moras: api.segmentWord(word) });
-  const cases = { kyi: "ki", kye: "ke", gyi: "gi", gye: "ge", nyi: "ni", nye: "ne",
-                  myi: "myi", mye: "me" };
+  const cases = { kyi: "ki", kye: "ke", gyi: "gi", gye: "ge", nyi: "ni", nye: "nye",
+                  myi: "myi", mye: "me", iye: "iye", kwakwi: "kwakwi",
+                  gwe: "gwe", swi: "swi", zwi: "zwi", hyahyuhyehyo: "hyahyuhyehyo",
+                  pyupyo: "pyupyo", ryaryuryo: "ryaryuryo" };
   for (const [input, expected] of Object.entries(cases))
     check(`${input} → ${expected}`, wordOf(input) === expected, `got ${wordOf(input)}`);
   check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
+}
+
+console.log("── 7. Base追加音源と連続接続 ──");
+{
+  check("二重母音11種を登録",
+        JSON.stringify(Array.from(api.DIPH_PAIRS)) === JSON.stringify([
+          "ai", "au", "ei", "oi", "ou", "ui", "uo", "ea", "eo", "oa", "ua"
+        ]), JSON.stringify(Array.from(api.DIPH_PAIRS)));
+
+  const constant = (durSec, value) => {
+    const out = new Float32Array(Math.round(durSec * SR));
+    out.fill(value);
+    return out;
+  };
+  const cv = new Float32Array(Math.round(0.60 * SR));
+  cv.fill(0.5, 0, Math.round(0.25 * SR));
+  cv.fill(0.025, Math.round(0.25 * SR));
+  const handoff = api.nvComputeCvSustainHandoffEnd(cv, SR);
+  check("CV定常終端を約250msで検出", Math.abs(handoff * 1000 - 250) <= 15,
+        `got ${(handoff * 1000).toFixed(1)}ms`);
+
+  const bank = { sr: SR, cv: new Map([["k|a", cv]]),
+                 cvHandoff: new Map([["k|a", handoff]]),
+                 v: new Map([["a", constant(1.0, -0.5)]]) };
+  const before = api.nvReadRootCVSample(bank, "k", "a", 200, 500);
+  const after = api.nvReadRootCVSample(bank, "k", "a", 300, 500);
+  check("CV定常部までは録音を保持", before > 0.45, `got ${before.toFixed(3)}`);
+  check("終端後は持続母音へhandoff", after < -0.20, `got ${after.toFixed(3)}`);
+
+  check("連続モーラの先頭ゲインは前値", api.nvContinuousMoraGain(1, 0.5, 0, 250) === 1);
+  check("連続モーラの30ms後は現値", Math.abs(api.nvContinuousMoraGain(1, 0.5, 30, 250) - 0.5) < 1e-9);
+
+  const nTake = constant(0.10, 0.5);
+  check("撥音末尾は15msフェード", api.nvReadMoraicNSample(nTake, SR, 99) < 0.05);
+  check("撥音EOF後は無音", api.nvReadMoraicNSample(nTake, SR, 101) === 0);
+
+  const assetDir = path.resolve(__dirname, "../ConsonantsOnomatoi");
+  const missing = [];
+  for (const key of api.sampleKeys()) {
+    const candidates = api.sampleUrlCandidates(key);
+    if (!candidates.some(name => fs.existsSync(path.join(assetDir, name))))
+      missing.push(`${key} (${candidates.join(" | ")})`);
+  }
+  check("プリロード対象の音声が全て実在", missing.length === 0, missing.join(", "));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
