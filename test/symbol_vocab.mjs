@@ -12,6 +12,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -72,8 +74,9 @@ function extractEngine(html) {
 }
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
-const EXPORTS = ["strokeComplexity", "extractAxes", "applyHandCorrection", "bucketedAxes",
-  "densified", "splineDensified", "circleVocabSignal", "openArcSignal",
+const EXPORTS = ["interpretStroke", "selectStrokeVocabulary", "SHARPNESS_VOCAB", "romajiOf", "namingKanaOf", "segmentWord",
+  "strokeComplexity", "extractAxes", "applyHandCorrection", "bucketedAxes",
+  "densified", "distanceFiltered", "splineDensified", "circleVocabSignal", "openArcSignal",
   "sharpnessStage", "sharpnessAxisValue", "prototypeRecognitionLevelFor", "fixedShapeRecognition",
   "prototypeVocabWord", "oneStrokePentagramVocabWord", "vocabEvent", "STAR_VOCAB",
   "ONE_STROKE_PENTAGRAM_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB_LEVELS"];
@@ -423,6 +426,132 @@ console.log("── 星語彙分離: 輪郭星 / 一筆五芒星 ──");
   const lightningEvent = api.vocabEvent("suchiQ", axes);
   check("suchiQ は語末促音を保持", lightningEvent.moras.length === 3
     && lightningEvent.moras.at(-1).isQ === true);
+}
+
+// Golden data comes from the actual Swift StrokeWordInterpreter, not this port.
+// Explicit refresh only: node test/symbol_vocab.mjs --native-oracle /tmp/onomatoi-stroke-web-oracle
+// Normal runs never require Swift and never rewrite the reference.
+{
+  const fixtures = [];
+  function add(id, points, w = W, h = H) {
+    for (const [suffix, raw] of [["clean", points], ["hand", jittered(points, 0.6)]]) {
+      // Same bead spacing and densification as the default pointer input.
+      const beads = api.distanceFiltered(raw, Math.hypot(w, h) * 0.022);
+      const ink = api.densified(beads, 6);
+      fixtures.push({id: id + "/" + suffix, w, h, points: ink.map(p => [p.x,p.y])});
+    }
+  }
+  for (const [size, length] of [["small",100],["medium",280],["large",440]]) {
+    for (const angle of [0,45,90,180]) {
+      const t = angle * Math.PI/180, dx = length/2*Math.cos(t), dy = length/2*Math.sin(t);
+      add(`line/${size}/${angle}`, polyline([{x:250-dx,y:250-dy},{x:250+dx,y:250+dy}]),500,500);
+    }
+    for (const angle of [135,115,90,65,40,20]) {
+      const t = angle*Math.PI/360, half = length/Math.sqrt(1+3*Math.sin(t)**2);
+      const vertices = [{x:250-half*Math.cos(t)/2,y:250-half*Math.sin(t)},
+        {x:250+half*Math.cos(t)/2,y:250},
+        {x:250-half*Math.cos(t)/2,y:250+half*Math.sin(t)}];
+      add(`angle/${angle}/${size}`,polyline(vertices),500,500);
+      add(`angle/${angle}/${size}/reverse`,polyline(vertices).reverse(),500,500);
+    }
+  }
+  for (const [size,r] of [["small",35],["medium",85],["large",140]]) {
+    add(`circle/${size}`,arc(180,180,r,1));
+    for (let rotation=0;rotation<4;rotation++) {
+      const pts=arc(0,0,r,0.5).map(p=>{const t=rotation*Math.PI/2;
+        return {x:180+p.x*Math.cos(t)-p.y*Math.sin(t),y:180+p.x*Math.sin(t)+p.y*Math.cos(t)};});
+      add(`arc/${rotation}/${size}`,pts);
+    }
+    add(`square/${size}`,polyline([{x:180-r,y:180-r},{x:180+r,y:180-r},
+      {x:180+r,y:180+r},{x:180-r,y:180+r},{x:180-r,y:180-r}]));
+    add(`rectangle/${size}`,polyline([{x:180-r,y:180-r/2},{x:180+r,y:180-r/2},
+      {x:180+r,y:180+r/2},{x:180-r,y:180+r/2},{x:180-r,y:180-r/2}]));
+    add(`triangle/${size}`,polyline([{x:180,y:180-r},{x:180+r,y:180+r},
+      {x:180-r,y:180+r},{x:180,y:180-r}]));
+    add(`inverted-triangle/${size}`,polyline([{x:180,y:180+r},{x:180+r,y:180-r},
+      {x:180-r,y:180-r},{x:180,y:180+r}]));
+  }
+  const heart = Array.from({length:121},(_,i)=>{const t=i/120*2*Math.PI;
+    return {x:180+8*16*Math.sin(t)**3,
+      y:175-8*(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))};});
+  for (const [name,pts] of [["heart",heart],["leaf",leafPoints()],["crescent",crescentPoints()],
+    ["cloud",cloudPoints()],["flower",flowerPoints()],["droplet",dropletPoints()],
+    ["lightning",lightningPoints()],["star",outlineStarPoints()],["pentagram",pentagramPoints()],
+    ["spiral",arc(180,180,100,2.2)],["wave",Array.from({length:121},(_,i)=>({x:30+i*2.5,y:180+35*Math.sin(i/12)}))]]) {
+    add(name,pts);
+    add(name+"/reverse",[...pts].reverse());
+  }
+  // Extremes, non-square screens, ellipse orientation, retraces and open/closed ambiguity.
+  for(const length of [3,12,18,24]) add(`tiny/${length}`,[{x:150,y:180},{x:150+length,y:180}]);
+  const smallSquare=polyline([{x:150,y:150},{x:210,y:150},{x:210,y:210},{x:150,y:210},{x:150,y:150}],20);
+  smallSquare[smallSquare.length-1]={x:151,y:152};
+  add("known-native/small-square-60px",smallSquare);
+  for(const angle of [0,30,45,90,135]) {
+    const t=angle*Math.PI/180;
+    add(`ellipse/${angle}`,arc(0,0,120,1).map(p=>({
+      x:180+p.x*Math.cos(t)-p.y*.35*Math.sin(t),
+      y:180+p.x*Math.sin(t)+p.y*.35*Math.cos(t)})));
+  }
+  for(const turns of [.80,.92,1,2,3]) add(`winding/${turns}`,arc(180,180,110,turns));
+  for(const [w,h] of [[880,260],[350,230],[768,700]]) {
+    add(`screen/${w}x${h}/line`,polyline([{x:w*.15,y:h*.5},{x:w*.8,y:h*.5}]),w,h);
+    add(`screen/${w}x${h}/ellipse`,arc(0,0,1,1).map(p=>({x:w*(.5+.3*p.x),y:h*(.5+.3*p.y)})),w,h);
+  }
+  for(const scale of [.6,.8,1.2]) {
+    add(`heart/distorted/${scale}`,heart.map(p=>({x:180+(p.x-180)*scale,y:p.y})));
+    add(`cloud/distorted/${scale}`,cloudPoints().map(p=>({x:p.x,y:180+(p.y-180)*scale})));
+  }
+  const goldenPath = path.join(__dirname,"fixtures/stroke_core_parity.json");
+  const oracleIndex = process.argv.indexOf("--native-oracle");
+  if (oracleIndex >= 0) {
+    const binary = process.argv[oracleIndex+1];
+    if (!binary) throw new Error("An explicitly built current Core oracle is required");
+    const results = JSON.parse(execFileSync(binary,{input:JSON.stringify(fixtures),maxBuffer:16*1024*1024}));
+    const core = "/Volumes/Expansion/MacAPP/OnomatoiCore";
+    const commit = execFileSync("git",["rev-parse","HEAD"],{cwd:core,encoding:"utf8"}).trim();
+    const dirty = !!execFileSync("git",["status","--porcelain"],{cwd:core,encoding:"utf8"}).trim();
+    fs.mkdirSync(path.dirname(goldenPath),{recursive:true});
+    const sourceHashes = {};
+    for(const name of ["StrokeWordInterpreter","AxisExtractor","PhonosymbolicEvent","CVGenerator"]){
+      const file=`Sources/OnomatoiCore/Core/${name}.swift`;
+      sourceHashes[file]=createHash("sha256").update(fs.readFileSync(path.join(core,file))).digest("hex");
+    }
+    fs.writeFileSync(goldenPath,JSON.stringify({source:"Current native StrokeWordInterpreter",commit,dirty,sourceHashes,results})+"\n");
+  }
+  const reference = JSON.parse(fs.readFileSync(goldenPath,"utf8"));
+  check("Core golden fixtures match current input set",JSON.stringify(reference.results.map(r=>({id:r.id,w:r.w,h:r.h,points:r.points})))===JSON.stringify(fixtures));
+  const fixedWords = new Set(["oon","aoon","aaaan","gyagyoon","gyogyaan","chigyaan",
+    "myi","myii","myiii","myo","myoo","myooo","nyu","nyuu","nyuuu","moo","mooo","moooo"]);
+  for (const ref of reference.results) {
+    const result = api.interpretStroke(ref.points.map(([x,y])=>({x,y})),ref.w,ref.h);
+    const ax=result.ax,cx=result.cx;
+    const axes=[ax.size,ax.sharp,ax.tex,ax.bright,ax.round,ax.open];
+    const mismatches=[];
+    if (axes.some((v,i)=>Math.abs(v-ref.axes[i])>1e-10)) mismatches.push(`axes ${axes} != ${ref.axes}`);
+    for (const k of ["corners","loops","moraCount"]) if(cx[k]!==ref[k]) mismatches.push(`${k}: ${cx[k]} != ${ref[k]}`);
+    for (const k of ["cornerSharpness","rotationFraction","curveConsistency","sizeRatio","pathRatio","formK"]) {
+      if ((cx[k] == null) !== (ref[k] == null) || (cx[k] != null && Math.abs(cx[k]-ref[k])>1e-8))
+        mismatches.push(`${k}: ${cx[k]} != ${ref[k]}`);
+    }
+    if(cx.isClosed!==ref.closed) mismatches.push(`closed ${cx.isClosed} != ${ref.closed}`);
+    for (const k of ["heart","leaf","crescent","cloud","flower","droplet","lightning","pentagram"]) {
+      const key=(k==="pentagram"?"oneStrokePentagram":k)+"RecognitionLevel";
+      if(cx[key]!==ref[k]) mismatches.push(`${k}: ${cx[key]} != ${ref[k]}`);
+    }
+    if (ref.override || fixedWords.has(ref.word)) {
+      if(result.route!=="vocabulary" || api.romajiOf(result.event)!==ref.word)
+        mismatches.push(`word ${api.romajiOf(result.event)} (${result.route}) != ${ref.word}`);
+      const display=result.event.displayWordOverride ?? api.namingKanaOf(result.event.moras);
+      if(display!==ref.display) mismatches.push(`display ${display} != ${ref.display}`);
+    } else if(result.route==="vocabulary") mismatches.push(`unexpected vocabulary ${api.romajiOf(result.event)}`);
+    check(`Core parity ${ref.id}`,mismatches.length===0,mismatches.join("; "));
+  }
+  const ax={size:0,sharp:0,tex:0,bright:0,round:0,open:0};
+  for (const word of ["gyaQ","koQ","kokoQ","kaQ","kaaQ","chiQ","chiiQ","suchiQ"])
+    check(`final Q does not invent a vowel: ${word}`,api.romajiOf(api.vocabEvent(word,ax))===word);
+  for (const [word,kana] of [["ti","てぃ"],["tu","とぅ"],["chi","ち"],["tsu","つ"],
+    ["di","でぃ"],["du","どぅ"],["myi","むぃ"],["iye","いぇ"],["ryu","りゅ"]])
+    check(`current CV spelling ${word} → ${kana}`,api.namingKanaOf(api.segmentWord(word))===kana);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

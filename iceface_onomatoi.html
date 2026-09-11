@@ -250,7 +250,8 @@
  *  - 音程変化なし: Resources/Consonants の base wav のみ (pitch variants 不使用)
  *  - warabe (旋律) モードなし / COMPOSE モードなし
  *  - 促音は無音 gap のみ (V-Q / 摩擦延長サンプル不使用)
- * 生成ロジック (bias 表 v0.4 / nil-onset / ch 制限 / 決定的 seed) は本体と同一。
+ * 制定語・形状判定はCore参照fixtureで検証。通常生成の乱数は32bit版のため、
+ * 同じ軸でも抽選語までSwiftと完全一致する保証はない (各版内では決定的)。
  * v10 追加移植 (2026-07-10, 粗い筆 + 理由付きフィードバック):
  *  - 粗い筆 (既定ON・TUNEで切替): ペンを固定ステップ (canvas対角×0.022) の頂点列に量子化。
  *    珠+角スパーク表示・未確定の糸・手ブレはインクにならない。抽出は同じ折れ線の密化版 (6px)。
@@ -1128,10 +1129,11 @@ function moraPeriod(moras) {
 function romajiOf(event) {
   let s = "";
   for (const m of event.moras) {
+    if (m.isSilentRest) continue;
+    if (m.isQ) { s += "Q"; continue; }
     if (m.gapMs > 0) s += "Q";
     if (m.isN) s += "n";
     else s += (m.onset ?? "") + m.nucleus;
-    if (m.isQ) s += "Q";
   }
   return s;
 }
@@ -1158,15 +1160,16 @@ function sharpestCornerInteriorAngleDegrees(input) {
   if (closed && raw.length > 3 && initialGap < meanStep * 1.6) raw.pop();
   const n = raw.length;
   if (n < 3) return null;
+  const reference = coreSmoothed(raw);
   const k = n < 30 ? 1 : Math.max(3, Math.min(Math.floor(n / 24), 8));
   if (n <= 2 * k) return null;
 
   const index = i => closed ? ((i % n) + n) % n : (i >= 0 && i < n ? i : null);
-  const turnAt = (i, span) => {
+  const turnAt = (i, span, source = reference) => {
     const im = index(i - span), ip = index(i + span);
     if (im == null || ip == null) return null;
-    const v1x = raw[i].x - raw[im].x, v1y = raw[i].y - raw[im].y;
-    const v2x = raw[ip].x - raw[i].x, v2y = raw[ip].y - raw[i].y;
+    const v1x = source[i].x - source[im].x, v1y = source[i].y - source[im].y;
+    const v2x = source[ip].x - source[i].x, v2y = source[ip].y - source[i].y;
     const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
     if (l1 <= 1e-6 || l2 <= 1e-6) return null;
     return Math.acos(Math.max(-1, Math.min(1, (v1x*v2x + v1y*v2y) / (l1*l2))));
@@ -1175,9 +1178,10 @@ function sharpestCornerInteriorAngleDegrees(input) {
   for (let i = 0; i < n; i++) {
     const im = index(i - 1), ip = index(i + 1);
     if (im == null || ip == null) continue;
-    const v1x = raw[i].x - raw[im].x, v1y = raw[i].y - raw[im].y;
-    const v2x = raw[ip].x - raw[i].x, v2y = raw[ip].y - raw[i].y;
-    unitTurn[i] = Math.atan2(v1x*v2y - v1y*v2x, v1x*v2x + v1y*v2y);
+    const v1x = reference[i].x - reference[im].x, v1y = reference[i].y - reference[im].y;
+    const v2x = reference[ip].x - reference[i].x, v2y = reference[ip].y - reference[i].y;
+    const cross = v1x*v2y - v1y*v2x, dot = v1x*v2x + v1y*v2y;
+    if (Math.abs(cross) > 1e-9 || Math.abs(dot) > 1e-9) unitTurn[i] = Math.atan2(cross, dot);
   }
 
   let sharpest = null;
@@ -1203,11 +1207,45 @@ function sharpestCornerInteriorAngleDegrees(input) {
       if (Math.abs(j - center) <= 2) inner += Math.abs(unitTurn[jj]);
     }
     if (outer > 1e-9 && inner / outer < SHARPNESS_MIN_CONCENTRATION) continue;
-    sharpest = Math.max(sharpest ?? 0, local);
+    const rawTurn = turnAt(i, k, raw);
+    if (rawTurn == null || rawTurn < SHARPNESS_MIN_CORNER_TURN) continue;
+    sharpest = Math.max(sharpest ?? 0, rawTurn);
   }
   return sharpest == null ? null : Math.max(0, Math.min(180, 180 - sharpest * 180 / Math.PI));
 }
-function extractAxes(points, w, h) {
+function coreSmoothed(points) {
+  const n = points.length;
+  if (n < 30) return points;
+  let total = 0;
+  for (let i = 1; i < n; i++) total += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+  const closed = Math.hypot(points[0].x - points[n-1].x, points[0].y - points[n-1].y) < total / (n-1) * 3;
+  return points.map((p, i) => {
+    let x = 0, y = 0, count = 0;
+    for (let d = -2; d <= 2; d++) {
+      const j = closed ? (i + d + n) % n : i + d;
+      if (j < 0 || j >= n) continue;
+      x += points[j].x; y += points[j].y; count++;
+    }
+    return { x: x / count, y: y / count };
+  });
+}
+// Coreは密化済みの折れ線から折れ点と12pxごとの中継点を回収して幾何を再構成する。
+function coreSplineSmoothed(points) {
+  if (points.length < 3) return points;
+  const verts = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = points[i-1], b = points[i], c = points[i+1];
+    const cross = (b.x-a.x)*(c.y-b.y) - (b.y-a.y)*(c.x-b.x);
+    const dot = (b.x-a.x)*(c.x-b.x) + (b.y-a.y)*(c.y-b.y);
+    const kink = (Math.abs(cross) > 1e-9 || Math.abs(dot) > 1e-9) && Math.abs(Math.atan2(cross, dot)) > 0.02;
+    const last = verts[verts.length-1];
+    if (kink || Math.hypot(b.x-last.x, b.y-last.y) >= 12) verts.push(b);
+  }
+  verts.push(points[points.length-1]);
+  return verts.length >= 3 ? splineDensified(verts, 6) : points;
+}
+function extractAxes(rawPoints, w, h) {
+  const points = coreSmoothed(rawPoints);
   if (points.length < 2 || w <= 0 || h <= 0) return { size: 0, sharp: 0, tex: 0, bright: 0 };
   const clamp = v => Math.max(-1, Math.min(1, v));
   let minX = points[0].x, maxX = points[0].x, minY = points[0].y, maxY = points[0].y;
@@ -1221,7 +1259,7 @@ function extractAxes(points, w, h) {
   const sizeNorm = (Math.log2(ratio) - Math.log2(0.05)) / (0 - Math.log2(0.05));
   const size = clamp(sizeNorm * 2 - 1);
 
-  const sharp = sharpnessAxisValue(sharpnessStage(sharpestCornerInteriorAngleDegrees(points)));
+  const sharp = sharpnessAxisValue(sharpnessStage(sharpestCornerInteriorAngleDegrees(rawPoints)));
 
   let pathLen = 0;
   for (let i = 1; i < points.length; i++)
@@ -1969,7 +2007,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
     pathLen += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
   const sizeRatio = bboxDiag / Math.max(canvasDiag, 1);
   if (sizeRatio < 0.05 && pathLen < canvasDiag * 0.08)
-    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio: 0, pathRatio: 0, cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0, prototypeFamily: null }, ...emptyFixedShapeRecognition() };
+    return { corners: 0, loops: 0, moraCount: 1, cornerSharpness: 0, isClosed: false, rotationFraction: 0, curveConsistency: 0, sizeRatio, pathRatio: pathLen / Math.max(canvasDiag, 1), cornerPoints: [], formK: null, turnConcentration: null, retraced: false, shapeDescriptor: emptyShapeDescriptor(), trajectoryDescriptor: emptyTrajectoryDescriptor(), shapeRecognition: { candidates: [], selected: null, confidence: 0, margin: 0, prototypeFamily: null }, ...emptyFixedShapeRecognition() };
   // 角 v2 (2026-07-10): 検出は従来 (閾値 0.83rad・近接抑制) + **ピークホールド** (肩でなく
   // 抑制窓内の折返し最大を鋭さに)。
   const k = Math.max(1, Math.min(Math.floor(points.length / 24), 8));
@@ -2620,16 +2658,15 @@ function namingIsClean(kana) {
   return true;
 }
 
-// mora列 → ひらがな (KanaTable.swift/kanaMarks の移植)。web の通常表示は romajiOf を使う
-// ため (この web 版に既存のかな変換が無い)、NG フィルタの内部判定専用として追加する —
-// UI 表示・再生経路には一切影響しない。
+// mora列 → ひらがな (KanaTable.swift/kanaMarks の移植)。結果のかな表示と
+// NGフィルタで共有する。音声用romaji・サンプル選択は変更しない。
 const NAMING_KANA_ROWS = {
   "":   ["あ", "い", "う", "え", "お"],
   k:  ["か", "き", "く", "け", "こ"],
   g:  ["が", "ぎ", "ぐ", "げ", "ご"],
   s:  ["さ", "し", "す", "せ", "そ"],
   z:  ["ざ", "じ", "ず", "ぜ", "ぞ"],
-  t:  ["た", "ち", "つ", "て", "と"],
+  t:  ["た", "てぃ", "とぅ", "て", "と"],
   d:  ["だ", "でぃ", "どぅ", "で", "ど"],
   n:  ["な", "に", "ぬ", "ね", "の"],
   h:  ["は", "ひ", "ふ", "へ", "ほ"],
@@ -2661,6 +2698,7 @@ const NAMING_VOWEL_INDEX = { a: 0, i: 1, u: 2, e: 3, o: 4 };
 function namingKanaOf(moras) {
   let out = "", prevVowel = null;
   for (const m of moras) {
+    if (m.isSilentRest) continue;
     if (m.isN) { out += "ん"; prevVowel = null; continue; }
     if (m.isQ) { out += "っ"; prevVowel = null; continue; }
     if (m.onset === null && prevVowel !== null && prevVowel === m.nucleus) {
@@ -2714,6 +2752,21 @@ function openArcSignal(cx) {
 function openChevronSignal(cx) {
   return cx.corners === 1 && cx.loops === 0 && !cx.isClosed && cx.cornerSharpness >= 0.25;
 }
+// StrokeWordInterpreter.isStraightLineVocabularyCandidate と同じ境界。
+function straightLineVocabSignal(cx) {
+  return !cx.isClosed && cx.corners === 0 && cx.loops === 0
+    && cx.sizeRatio > 0.02 && cx.rotationFraction <= 0.08
+    && cx.pathRatio / cx.sizeRatio < 1.12;
+}
+const SHARPNESS_VOCAB = {
+  0: [["tsu", "つ"], ["tsuu", "つぅ"], ["tsuuu", "つぅぅ"]],
+  1: [["gyaQ", "ぎゃっ"], ["gyaa", "ぎゃあ"], ["gyaaa", "ぎゃああ"]],
+  2: [["gii", "ぎい"], ["giii", "ぎいい"], ["giiii", "ぎいいい"]],
+  3: [["koQ", "こっ"], ["kokoQ", "ここっ"], ["kokokoQ", "こここっ"]],
+  4: [["kaQ", "かっ"], ["kaaQ", "かあっ"], ["kaaaQ", "かああっ"]],
+  // 40°は現行Core正本でも未登録。素材の存在だけで語を制定しない。
+  6: [["chiQ", "ちっ"], ["chiiQ", "ちいっ"], ["chichiiQ", "ちちいっ"]],
+};
 // P12 完全な円 = aaan の判定 (2026-07-17 に純関数化+一周判定)。
 // 従来 (rotationFraction > 0.8 のみ) は多重ループの複雑な一筆 (渦・連ループ・二度なぞり) まで
 // 「完全な円」に吸われて aaan に潰れた (報告 mrnps275-7: cor=0/lp=2 の連ループが
@@ -2728,7 +2781,7 @@ function openChevronSignal(cx) {
 // 語彙が立つ (小円=oon。「う」=すぼめの口の法は、円判定に満たない形に自然に残る)。
 // |round| <= 0.25 は楕円 (え, P9e) の除外として維持。
 function circleVocabSignal(cx, ax) {
-  return cx.isClosed && cx.corners === 0 && cx.rotationFraction > 0.8
+  return !cx.isHeart && cx.isClosed && cx.corners === 0 && cx.rotationFraction > 0.8
     && cx.pathRatio / Math.max(1e-6, cx.sizeRatio) < 3.2
     && Math.abs(ax.round) <= 0.25;
 }
@@ -2897,6 +2950,159 @@ function vocabEvent(word, axes) {
   return { axes: { ...axes }, moras, baseF0: f0, isRedup: false };
 }
 
+// 表記の制定がある語だけを上書きする。音声用romajiとは分離する (Core SymbolVocab)。
+const LEGISLATED_DISPLAY = {
+  kuun: "くぅん", myuun: "みゅーん",
+  ayanoparu: "あやのぱる", ayanofaru: "あやのふぁる", ayanoharu: "あやのはる",
+  been: "べーん", feen: "ふぇーん", keen: "けーん",
+  jeen: "じぇーん", peen: "ぺーん", heen: "へーん",
+  bohoon: "ぼほーん", popoon: "ぽぽーん", hohoon: "ほほーん",
+  waraan: "わらーん", furaan: "ふらーん", haraan: "はらーん",
+  ruoon: "るおーん", nuoon: "ぬおーん", kuoon: "くおーん",
+  zochiQ: "ぞちっ", zechiQ: "ぜちっ", suchiQ: "すちっ",
+  teton: "てとん", tetoon: "てとおん", tetooon: "てとおおん",
+  tsukon: "つこん", tsukoon: "つこおん", tsukooon: "つこおおん",
+};
+// Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
+function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
+  const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
+  const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed;
+  const openArc = openArcSignal(cx) && !singleAngle;
+  const sizeClass = arcSizeClass(inkPts, w, h);
+  const sharpnessWord = SHARPNESS_VOCAB[stage]?.[sizeClass];
+  const hasSharpnessVocabulary = !!sharpnessWord && ((stage === 0 && straightLineVocabSignal(cx)) || singleAngle);
+  const openChevron = openChevronSignal(cx) || (hasSharpnessVocabulary && stage > 0);
+  let vocabWord = null, vocabReason = null, displayWordOverride = null;
+  if (heartVocabSignal(cx)) {
+    vocabWord = heartVocabWord(cx);
+    const heartLevel = cx.heartRecognitionLevel;
+    const heartDisplay = heartLevel === 3 ? "くぅん" : "みゅーん";
+    const heartScore = cx.heartConfidence.toFixed(2);
+    vocabReason = language === "ja"
+      ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
+      : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
+  } else if (oneStrokePentagramVocabSignal(cx)) {
+    vocabWord = oneStrokePentagramVocabWord(cx);
+    const pentagramLevel = cx.oneStrokePentagramRecognitionLevel;
+    const pentagramDisplay = ["", "あやのはる", "あやのふぁる", "あやのぱる"][pentagramLevel];
+    const pentagramScore = cx.oneStrokePentagramConfidence.toFixed(2);
+    vocabReason = language === "ja"
+      ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
+      : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
+  } else if (outlineStarVocabSignal(cx)) {
+    vocabWord = STAR_VOCAB;
+    vocabReason = language === "ja"
+      ? `輪郭星の完成形 → ${STAR_VOCAB}（固定語「ちぎゃーん」）`
+      : `outline star → ${STAR_VOCAB} (fixed word: chigyaan)`;
+  } else if (cx.isLeaf) {
+    vocabWord = prototypeVocabWord("leaf", cx.leafRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `葉・認識度${cx.leafRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `leaf level ${cx.leafRecognitionLevel} → ${vocabWord}`;
+  } else if (cx.isCrescent) {
+    vocabWord = prototypeVocabWord("crescent", cx.crescentRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `三日月・認識度${cx.crescentRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `crescent level ${cx.crescentRecognitionLevel} → ${vocabWord}`;
+  } else if (cx.isCloud) {
+    vocabWord = prototypeVocabWord("cloud", cx.cloudRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `雲・認識度${cx.cloudRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `cloud level ${cx.cloudRecognitionLevel} → ${vocabWord}`;
+  } else if (cx.isFlower) {
+    vocabWord = prototypeVocabWord("flower", cx.flowerRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
+  } else if (cx.isDroplet) {
+    vocabWord = prototypeVocabWord("droplet", cx.dropletRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `droplet level ${cx.dropletRecognitionLevel} → ${vocabWord}`;
+  } else if (cx.isLightning) {
+    vocabWord = prototypeVocabWord("lightning", cx.lightningRecognitionLevel);
+    vocabReason = language === "ja"
+      ? `稲妻・認識度${cx.lightningRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
+      : `lightning level ${cx.lightningRecognitionLevel} → ${vocabWord}`;
+  } else if (openArc) {
+    const dir = arcBulgeDirection(inkPts);
+    const sizeClass = arcSizeClass(inkPts, w, h);
+    vocabWord = ARC_VOCAB[dir][sizeClass];
+    const dirJa = { right: "⊃ 膨らみ右=接近", left: "⊂ 膨らみ左=後退",
+                    up: "∩ 持ち上がり=芽生え", down: "∪ 重力=籠り" }[dir];
+    const sizeJa = ["小", "中", "大"][sizeClass];
+    vocabReason = language === "ja"
+      ? `開いた弧 ${dirJa}・${sizeJa} → ${vocabWord}（鼻音=柔らかさ・ん は円が完成するまで付かない）`
+      : `open arc (${dir}, size ${sizeClass}) → ${vocabWord} (nasal = softness; no final N until the circle closes)`;
+  } else if (circleVocabSignal(cx, ax)) {
+    // 2026-07-21 立法: 円もサイズ3段階 (小=まとまり oon / 中=広がり→まとまり aoon / 大=全開 aaaan)。
+    const circleSize = arcSizeClass(inkPts, w, h);
+    vocabWord = CIRCLE_VOCAB[circleSize];
+    const csJa = ["小さな丸=まとまり", "中の丸=広がりと時間", "大きな丸=内部空間を完全に開く"][circleSize];
+    vocabReason = language === "ja"
+      ? `完全な円 (${["小", "中", "大"][circleSize]}) → ${vocabWord}（${csJa}・ん で空間を完成）`
+      : `completed circle (size ${circleSize}) → ${vocabWord} (o = gathering, a = opening; the final N completes the space)`;
+  } else if (triangleVocabSignal(cx)) {
+    const inverted = invertedTriangleVocabSignal(cx);
+    vocabWord = inverted ? INVERTED_TRIANGLE_VOCAB : TRIANGLE_VOCAB;
+    vocabReason = language === "ja"
+      ? (inverted
+        ? `逆三角形 ▽ → ${INVERTED_TRIANGLE_VOCAB}（ぎょ・ぎゃー・ん）`
+        : `三角形 △ → ${TRIANGLE_VOCAB}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`)
+      : (inverted
+        ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
+        : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
+  } else if (quadrilateralVocabSignal(cx)) {
+    const quadrilateralSize = arcSizeClass(inkPts, w, h);
+    const family = quadrilateralFamily(inkPts);
+    vocabWord = (family === "square" ? SQUARE_VOCAB : RECTANGLE_VOCAB)[quadrilateralSize];
+    vocabReason = language === "ja"
+      ? `${family === "square" ? "正方形" : "長方形"} (${["小", "中", "大"][quadrilateralSize]}) → ${vocabWord}（大きさに応じて語中のおを伸ばし、ん で閉じた空間を完成）`
+      : `${family} (size ${quadrilateralSize}) → ${vocabWord} (the medial o length follows size; final N completes the closed space)`;
+  } else if (hasSharpnessVocabulary) {
+    [vocabWord, displayWordOverride] = sharpnessWord;
+    vocabReason = language === "ja"
+      ? `角度の制定語（${stage === 0 ? "直線" : SHARPNESS_ANGLE_ANCHORS[stage - 1] + "°"}・${["小", "中", "大"][sizeClass]}）→ ${vocabWord}（${displayWordOverride}）`
+      : `legislated angle (stage ${stage}, size ${sizeClass}) → ${vocabWord}`;
+  }
+  displayWordOverride ??= LEGISLATED_DISPLAY[vocabWord] ?? null;
+  return { vocabWord, vocabReason, displayWordOverride, openChevron, stage };
+}
+
+// 密化済みの一筆 → 解析 → 制定語／構造単位／通常生成。iPadの共有入口に対応する。
+function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" } = {}) {
+  if (inkPts.length < 2 || w <= 0 || h <= 0) return null;
+  let ax = applyHandCorrection(extractAxes(inkPts, w, h), hc, !coarse);
+  if (coarse) ax = bucketedAxes(ax, 0.25);
+  const cx = strokeComplexity(coreSplineSmoothed(inkPts), w, h, 16);
+  const selection = selectStrokeVocabulary(inkPts, w, h, ax, cx, language);
+  let kDraw = cx.formK ?? drawK(ax.sharp, cx.corners, cx.cornerSharpness);
+  if (coarse) kDraw = Math.round(kDraw / 0.125) * 0.125;
+  const mDraw = mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
+  const sustained = cx.loops <= 1 && cx.corners <= 2 && cx.cornerSharpness < 0.35
+    && ax.tex < 0.3 && cx.moraCount >= 2;
+  const disorder = cx.disorder >= 0.4 ? cx.disorder : null;
+  let event, route;
+  if (selection.vocabWord) {
+    event = vocabEvent(selection.vocabWord, ax);
+    event.vocabReason = selection.vocabReason;
+    event.displayWordOverride = selection.displayWordOverride;
+    route = "vocabulary";
+  } else {
+    const seg = segmentStroke(inkPts);
+    if (unitEligible(seg) && cx.formK == null) {
+      event = generateFromUnits(seg.units, w, h, ax, kDraw, 0.4, mDraw, disorder);
+      route = "units";
+    } else {
+      event = generateEvent(ax, 0, { moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
+        kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
+        forceConsonantOnset: selection.openChevron, disorder });
+      route = "generated";
+    }
+  }
+  return { ax, cx, kDraw, event, route, stage: selection.stage };
+}
+
 // ─── StrokeSegmenter (構造単位分割: ループ=音節, つなぎ線=ー/ん/っ/直結) ───
 const LOOP_WINDING = 2 * Math.PI * 0.75;
 function segmentStroke(points) {
@@ -3015,7 +3221,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         // 大域 K は 25% だけ残す (語レベル整合ゲートは温存)。
         // 局所ループは K/manner だけを読む。96点の完成形認識は一筆全体の pen-up 時だけ行う。
         const ucx = (kiki !== null || manner !== null)
-          ? strokeComplexity(u.points, w, h, 16, false) : null;
+          ? strokeComplexity(coreSplineSmoothed(u.points), w, h, 16, false) : null;
         const kUnit = (kiki !== null && ucx)
           ? 0.25 * kiki + 0.75 * drawK(ax.sharp, ucx.corners, ucx.cornerSharpness)
           : kiki;
@@ -4355,7 +4561,7 @@ function axesEqual(a, b) {
 // (Google Apps Script 等で公開ユーザーから収集したい場合用。空なら何もしない)。
 const FEEDBACK_ENDPOINT = "";
 const FB_VERSION = 4;          // v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加 (v3: reason)
-const ENGINE_VERSION = "v23";  // 短尺diphの自然包絡・素材別接続・nuoon脱落修正
+const ENGINE_VERSION = "v25";  // 描線→制定語のCore照合・角度語彙・手描き平滑化・語末促音表示
 let feedbackLog = [];
 try { feedbackLog = JSON.parse(localStorage.getItem("onomatoi.feedback") || "[]"); } catch (e) {}
 let utteranceSeq = 0;
@@ -4772,14 +4978,16 @@ function readSliders() {
 }
 function showResult(event) {
   document.getElementById("result-word").textContent = romajiOf(event);
-  const n = event.moras.length;
-  document.getElementById("result-meta").innerHTML =
-    `${n} mora${event.isRedup ? " · redup" : ""}`;   // F0 は Web 版では音に反映されないため非表示
+  const n = event.moras.filter(m => !m.isSilentRest).length;
+  const kana = event.displayWordOverride ?? namingKanaOf(event.moras);
+  document.getElementById("result-meta").textContent =
+    `${kana} · ${n} mora${event.isRedup ? " · redup" : ""}`;   // F0 は Web 版では音に反映されないため非表示
 }
 function appendLog(event) {
   logEntries.push({ axes: { ...event.axes }, romaji: romajiOf(event),
                     f0: event.baseF0, moras: event.moras.map(m => ({ ...m })),
-                    isRedup: event.isRedup });
+                    isRedup: event.isRedup, displayWordOverride: event.displayWordOverride,
+                    vocabReason: event.vocabReason });
   if (logEntries.length > 100) logEntries.shift();
   renderLog();
 }
@@ -4799,7 +5007,8 @@ function renderLog() {
     // タップで「そのシニフィアンそのもの」を再生 (保存 mora 列、iPad 版 v0.4 と同じ)
     row.addEventListener("click", () => {
       setSliders(e.axes);
-      const ev = { axes: e.axes, moras: e.moras, baseF0: e.f0, isRedup: e.isRedup };
+      const ev = { axes: e.axes, moras: e.moras, baseF0: e.f0, isRedup: e.isRedup,
+                   displayWordOverride: e.displayWordOverride, vocabReason: e.vocabReason };
       playAndRemember(ev, e.axes, false, "log");   // PLAY で同じ語をリピート可能に
     });
     el.appendChild(row);
@@ -4807,7 +5016,7 @@ function renderLog() {
 }
 
 // 生成 + 再生 + ログ (決定的 seed)
-function generateAndPlay(axes, salt = 0, log = true, src = "tune", opts = {}, extra = {}) {
+function generateEvent(axes, salt = 0, opts = {}) {
   let event;
   if (opts.kiki != null) {
     // 語レベル K 整合ゲート: 語の K が描画の K とズレたら salt を変えて再試行 (最大3案・決定的)
@@ -4824,6 +5033,10 @@ function generateAndPlay(axes, salt = 0, log = true, src = "tune", opts = {}, ex
     const rand = mulberry32(axesSeed(axes, salt));
     event = generate(axes, rand, 0.4, opts);
   }
+  return event;
+}
+function generateAndPlay(axes, salt = 0, log = true, src = "tune", opts = {}, extra = {}) {
+  const event = generateEvent(axes, salt, opts);
   playAndRemember(event, axes, log, src, extra);
   return event;
 }
@@ -5034,124 +5247,14 @@ canvas.addEventListener("pointerup", ev => {
   const inkPts = (coarse && stroke.length >= 2) ? densified(stroke, 6) : stroke;
   if (inkPts.length >= 2) {
     const rect = canvas.getBoundingClientRect();
-    const raw = extractAxes(inkPts, rect.width, rect.height);
-    const hc = Number(document.getElementById("kn-hc").value);
-    let ax = applyHandCorrection(raw, hc, !coarse);
-    // 粗い筆: sharpnessは7段階、ほかは0.25刻み — 似た描写→同一の軸→同一の語。
-    if (coarse) ax = bucketedAxes(ax, 0.25);
+    const result = interpretStroke(inkPts, rect.width, rect.height, {
+      coarse, hc: Number(document.getElementById("kn-hc").value), language: uiLang });
+    const { ax, cx, kDraw } = result;
     setSliders(ax);
-    // 最新 Core 適応 (2026-07-09): 複雑さ → 語長 / bouba・kiki 大域判定 / 一筆連続=長音 /
-    // 構造単位 (ループ≥2 → ループ=音節・つなぎ線=ー,ん,っ,直結)。同じ描写 = 同じ語 (決定的)。
-    // P1: 角検出だけスプライン再構成幾何で行う (珠の継ぎ目の偽の角を除去)。
-    const geomPts = (coarse && stroke.length >= 3) ? splineDensified(stroke, 6) : inkPts;
-    const cx = strokeComplexity(geomPts, rect.width, rect.height, 16);
-    // Step2: 閉形は完成形から読んだ K (formK) が軌跡 K (drawK) を置き換える —
-    // 「最終的な重みは見た目・出来上がった形」(方針)。開いた線は従来どおり。
-    let kDraw = cx.formK != null ? cx.formK : drawK(ax.sharp, cx.corners, cx.cornerSharpness);
-    if (coarse) kDraw = Math.round(kDraw / 0.125) * 0.125;   // K も同じ格子に
-    // manner 次元 (2026-07-10): 描線の動態 → 子音の調音方法の親和。
-    const mDraw = mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
-    // cornerSharpness<0.35: 角が丸まって2個以下に数えられた三角の「保持=長音」誤爆を防ぐ保険。
-    const sustained = cx.loops <= 1 && cx.corners <= 2 && cx.cornerSharpness < 0.35
-      && ax.tex < 0.3 && cx.moraCount >= 2;
-    // P12 記号語彙 (2026-07-16 コウさん立法): 開いた弧 (⊃⊂∩∪) = 向き×大きさの固定語彙。
-    // 完全に閉じた大きく開いた円 = aaan (収束の ん が初めて立つ)。小さく閉じた丸 (う=すぼめ)
-    // と楕円 (え, P9e で round が動く) は既存の口の法のまま。
-    // 開いた一角 (＜＞∧∨) は子音開始・語末ん無し (2026-08-14 PF-02 確認)。
-    const openArc = openArcSignal(cx), openChevron = openChevronSignal(cx);
-    let vocabWord = null, vocabReason = null;
-    if (heartVocabSignal(cx)) {
-      vocabWord = heartVocabWord(cx);
-      const heartLevel = cx.heartRecognitionLevel;
-      const heartDisplay = heartLevel === 3 ? "くぅん" : "みゅーん";
-      const heartScore = cx.heartConfidence.toFixed(2);
-      vocabReason = uiLang === "ja"
-        ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
-        : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
-    } else if (oneStrokePentagramVocabSignal(cx)) {
-      vocabWord = oneStrokePentagramVocabWord(cx);
-      const pentagramLevel = cx.oneStrokePentagramRecognitionLevel;
-      const pentagramDisplay = ["", "あやのはる", "あやのふぁる", "あやのぱる"][pentagramLevel];
-      const pentagramScore = cx.oneStrokePentagramConfidence.toFixed(2);
-      vocabReason = uiLang === "ja"
-        ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
-        : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
-    } else if (outlineStarVocabSignal(cx)) {
-      vocabWord = STAR_VOCAB;
-      vocabReason = uiLang === "ja"
-        ? `輪郭星の完成形 → ${STAR_VOCAB}（固定語「ちぎゃーん」）`
-        : `outline star → ${STAR_VOCAB} (fixed word: chigyaan)`;
-    } else if (cx.isLeaf) {
-      vocabWord = prototypeVocabWord("leaf", cx.leafRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `葉・認識度${cx.leafRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `leaf level ${cx.leafRecognitionLevel} → ${vocabWord}`;
-    } else if (cx.isCrescent) {
-      vocabWord = prototypeVocabWord("crescent", cx.crescentRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `三日月・認識度${cx.crescentRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `crescent level ${cx.crescentRecognitionLevel} → ${vocabWord}`;
-    } else if (cx.isCloud) {
-      vocabWord = prototypeVocabWord("cloud", cx.cloudRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `雲・認識度${cx.cloudRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `cloud level ${cx.cloudRecognitionLevel} → ${vocabWord}`;
-    } else if (cx.isFlower) {
-      vocabWord = prototypeVocabWord("flower", cx.flowerRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
-    } else if (cx.isDroplet) {
-      vocabWord = prototypeVocabWord("droplet", cx.dropletRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `droplet level ${cx.dropletRecognitionLevel} → ${vocabWord}`;
-    } else if (cx.isLightning) {
-      vocabWord = prototypeVocabWord("lightning", cx.lightningRecognitionLevel);
-      vocabReason = uiLang === "ja"
-        ? `稲妻・認識度${cx.lightningRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-        : `lightning level ${cx.lightningRecognitionLevel} → ${vocabWord}`;
-    } else if (openArc) {
-      const dir = arcBulgeDirection(inkPts);
-      const sizeClass = arcSizeClass(inkPts, rect.width, rect.height);
-      vocabWord = ARC_VOCAB[dir][sizeClass];
-      const dirJa = { right: "⊃ 膨らみ右=接近", left: "⊂ 膨らみ左=後退",
-                      up: "∩ 持ち上がり=芽生え", down: "∪ 重力=籠り" }[dir];
-      const sizeJa = ["小", "中", "大"][sizeClass];
-      vocabReason = uiLang === "ja"
-        ? `開いた弧 ${dirJa}・${sizeJa} → ${vocabWord}（鼻音=柔らかさ・ん は円が完成するまで付かない）`
-        : `open arc (${dir}, size ${sizeClass}) → ${vocabWord} (nasal = softness; no final N until the circle closes)`;
-    } else if (circleVocabSignal(cx, ax)) {
-      // 2026-07-21 立法: 円もサイズ3段階 (小=まとまり oon / 中=広がり→まとまり aoon / 大=全開 aaaan)。
-      const circleSize = arcSizeClass(inkPts, rect.width, rect.height);
-      vocabWord = CIRCLE_VOCAB[circleSize];
-      const csJa = ["小さな丸=まとまり", "中の丸=広がりと時間", "大きな丸=内部空間を完全に開く"][circleSize];
-      vocabReason = uiLang === "ja"
-        ? `完全な円 (${["小", "中", "大"][circleSize]}) → ${vocabWord}（${csJa}・ん で空間を完成）`
-        : `completed circle (size ${circleSize}) → ${vocabWord} (o = gathering, a = opening; the final N completes the space)`;
-    } else if (triangleVocabSignal(cx)) {
-      const inverted = invertedTriangleVocabSignal(cx);
-      vocabWord = inverted ? INVERTED_TRIANGLE_VOCAB : TRIANGLE_VOCAB;
-      vocabReason = uiLang === "ja"
-        ? (inverted
-          ? `逆三角形 ▽ → ${INVERTED_TRIANGLE_VOCAB}（ぎょ・ぎゃー・ん）`
-          : `三角形 △ → ${TRIANGLE_VOCAB}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`)
-        : (inverted
-          ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
-          : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
-    } else if (quadrilateralVocabSignal(cx)) {
-      const quadrilateralSize = arcSizeClass(inkPts, rect.width, rect.height);
-      const family = quadrilateralFamily(inkPts);
-      vocabWord = (family === "square" ? SQUARE_VOCAB : RECTANGLE_VOCAB)[quadrilateralSize];
-      vocabReason = uiLang === "ja"
-        ? `${family === "square" ? "正方形" : "長方形"} (${["小", "中", "大"][quadrilateralSize]}) → ${vocabWord}（大きさに応じて語中のおを伸ばし、ん で閉じた空間を完成）`
-        : `${family} (size ${quadrilateralSize}) → ${vocabWord} (the medial o length follows size; final N completes the closed space)`;
-    }
     // Step1 確定▲: 判定に使った「形の角」(閉形は正準化後 = 描き始めの頂点も含む) を表示。
     // 実況▲(輪郭線) = 軌跡がその場で曲がった点 / 確定▲(塗り) = 完成形としての角 — 表示と判定を一致させる。
     confirmedCorners = cx.cornerPoints || [];
     redraw();
-    const seg = segmentStroke(inkPts);
     // v4 フィードバック用の発話コンテキスト: 判定に使った導出量 + 描いた珠の頂点列 (正規化・≤48点)。
     const r3 = v => Math.round(v * 1000) / 1000;
     // ≤48点へ**均一間引き** (端点保持)。旧 slice(0,48) は先頭48点で末尾を切り捨てており、
@@ -5166,34 +5269,15 @@ canvas.addEventListener("pointerup", ev => {
     // 明示フィールドしか写さないので、ここに載せても投票データには入らない。
     const extra = { k: kDraw, corners: cx.corners, cs: cx.cornerSharpness,
                     loops: cx.loops, stroke: beads, shape: cx };
-    // #4 乱雑度: 閾値 0.4 以上のときだけ生成へ注入 (規則的な描線は null = 従来と厳密互換)。
-    // 8類型の実測分離: なぐり書き ≥0.84 / 規則形 (ジグザグ・ハッチング・星・波) ≤0.17。
-    const disorder = cx.disorder >= 0.4 ? cx.disorder : null;
     // 命名モード (配置層, dev only): トグル ON のときはモードスイッチとして全ての経路
-    // (記号語彙/単位語/実況 generate) を上書きする。OFF (既定) ではこの分岐は素通り —
-    // 以降の従来経路 (vocabWord/unitEligible/generateAndPlay) はバイト単位で不変。
+    // (記号語彙/単位語/実況 generate) を上書きする。OFF は共有interpretStrokeの結果を使う。
     if (namingModeOn()) {
       const contrast = Number(document.getElementById("naming-contrast").value || 0);
       const inv = namingDecompose(ax, cx);
       const event = namingGenerateClean(inv, axesSeed(ax, 0), contrast);
       playAndRemember(event, ax, true, "naming", extra);
-    } else if (vocabWord) {
-      const ev2 = vocabEvent(vocabWord, ax);
-      ev2.vocabReason = vocabReason;
-      playAndRemember(ev2, ax, true, "draw", extra);
-    } else if (unitEligible(seg) && cx.formK == null) {
-      // 形が認識された閉形 (formK 非 null) は形経路 (generate+kiki=formK) を優先 —
-      // 5芒星は巻きで loops=2 になり単位語 (ループ=音節) に取られていたが、
-      // 頂点優勢の閉形の「ループ」は描いた輪でなく巻きの副産物 (2026-07-17 監査)。
-      // 連ループびーびー/8の字は formK=null のまま = 単位語経路を保持。
-      const event = generateFromUnits(seg.units, rect.width, rect.height, ax, kDraw, 0.4, mDraw,
-                                      disorder);
-      playAndRemember(event, ax, true, "draw", extra);
     } else {
-      generateAndPlay(ax, 0, true, "draw",
-                      { moraCountOverride: openChevron ? 1 : cx.moraCount,
-                        kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
-                        forceConsonantOnset: openChevron, disorder }, extra);
+      playAndRemember(result.event, ax, true, "draw", extra);
     }
   }
   ev.preventDefault();
