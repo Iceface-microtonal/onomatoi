@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="ひと筆描くと、ことばが生まれる。Onomatoiは、かたちを声にして遊ぶ、小さな音の遊び場です。">
 <title>Onomatoi / おのまとい</title>
 <style>
   :root {
@@ -109,36 +110,40 @@
   .knob-row .knob { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--gray); }
   .knob-row input[type=range] { width: 110px; accent-color: var(--pink); }
 </style>
+<link rel="stylesheet" href="./web-play.css">
 </head>
 <body>
 
-<header>
-  <span class="pts">Onomatoi</span><span class="brand"> / おのまとい</span>
-  <button id="btn-clear" class="gray" title="キャンバスを消去 / Clear the canvas">✕ <span id="t-eraser">消しゴム</span></button>
-  <a id="about-link" href="./about_onomatoi.html" style="
-    font-size: 10px; font-weight: 700; text-decoration: none;
-    border-radius: 4px; padding: 5px 9px;
-    background: var(--sub); color: var(--accent-ink);">？ <span id="t-about">解説</span></a>
-  <span class="sub">Onomatoi — Phonosymbolic Topology Synthesizer (web)</span>
+<header class="site-header">
+  <a class="wordmark" href="./iceface_onomatoi.html" aria-label="Onomatoi ホーム"><svg viewBox="0 0 40 36" aria-hidden="true"><path d="M5 23C3 5 27 1 28 16S10 35 12 20 36 12 35 27"/></svg>Onomatoi<span class="web-tag">web</span></a>
+  <nav aria-label="メイン"><button class="text-button" id="open-guide" data-copy="guide">遊び方</button><a class="ios-link" href="#ios" data-copy="iosLink">iPhone / iPad版 <span aria-hidden="true">↗</span></a></nav>
 </header>
 
+<main>
+<section class="play-intro" aria-labelledby="play-title">
+  <p class="eyebrow" data-copy="eyebrow">かたちから生まれる、音の遊び場。</p>
+  <h1 id="play-title" data-copy="title">線が、ことばになる。</h1>
+  <p data-copy="intro">丸くても、ギザギザでも。ひと筆、どうぞ。</p>
+</section>
+
+<section class="play-space" aria-label="描いて遊ぶ">
+<div class="canvas-tools"><span class="workspace-label"><i></i><span data-copy="workspace">あなたの一筆</span></span><button id="btn-clear" class="quiet-button" title="キャンバスを消去 / Clear the canvas"><span aria-hidden="true">↺</span> <span id="t-eraser">消しゴム</span></button></div>
 <!-- Loading banner (サンプル読込中の案内、完了後に Voice 表示へ) -->
-<div id="loading-note" style="
-  font-size: 11px; color: var(--pink); background: var(--pink-bg);
-  border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;
-  transition: opacity 0.6s;">
+<button type="button" id="loading-note" aria-live="polite">
   ♪ 音声サンプル読込中… — 音が出るまでしばらく時間がかかります
-</div>
+</button>
 
 <!-- Sketch canvas -->
-<div class="panel" style="padding:0; border:none;">
-  <canvas id="canvas"></canvas>
+<div class="canvas-wrap">
+  <canvas id="canvas" aria-label="指やマウスで一筆描くキャンバス"></canvas>
+  <div id="canvas-invitation" aria-hidden="true"><svg viewBox="0 0 240 98"><path d="M25 62C1 17 68 0 76 38S25 96 43 49 107 47 121 51L145 15 159 68 179 27 197 67 219 39"/><circle cx="25" cy="62" r="3"/></svg><span data-copy="invitation">ここに、ひと筆。</span></div>
 </div>
 
 <!-- Result -->
-<div class="panel">
+<div class="panel result-panel">
+  <div class="result-caption" id="result-caption" data-copy="resultCaption">指を離すと、線が声になります。</div>
   <div class="row">
-    <div class="result-word" id="result-word">—</div>
+    <div class="result-word" id="result-word" aria-live="polite">…</div>
     <!-- 2026-07-23 リリーススコープ: 👍👎 は「研究に参加する」オプトイン (下の FEEDBACK パネル)
          が ON のときだけ表示。display は JS (applyResearch) が制御。 -->
     <span class="vote" id="vote-ui" style="display:none;">
@@ -160,12 +165,32 @@
   </div>
 </div>
 
+<div class="listening-bar">
+  <button id="play-previous" class="listen-previous" disabled><span aria-hidden="true">↶</span><span><span data-copy="previous">ひとつ前</span><small id="previous-word">—</small></span></button>
+  <button id="play-current" class="listen-current" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg><span data-copy="replay">もう一度、聴く</span></button>
+  <button id="play-stop" class="listen-stop" aria-label="音を止める" title="音を止める"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+</div>
+</section>
+
+<nav class="play-dock" aria-label="遊びのメニュー">
+  <button class="dock-button" id="dock-draw" aria-pressed="true"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M4 23 8 14 20 3 25 8 13 20ZM8 14l5 6M4 23l6-1"/></svg><span data-copy="draw">描く</span></button>
+  <button class="dock-button" id="dock-presets" aria-expanded="false" aria-controls="preset-panel"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="9" cy="10" r="6"/><path d="m13 23 6-12 7 12Z"/></svg><span data-copy="presets">声の見本</span></button>
+  <button class="dock-button" id="dock-history" aria-expanded="false" aria-controls="history-panel"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M8 5h16v17H8ZM4 9v17h16M12 10h8M12 15h5"/></svg><span data-copy="history">これまでの声</span></button>
+</nav>
+<p id="discovery-note" class="discovery-note" data-copy="discovery">ひとつ描いて、もうひとつ。声の違いを聴いてみて。</p>
+
+<section id="guide-panel" class="guide-panel" hidden aria-labelledby="guide-title">
+  <div class="surface-heading"><h2 id="guide-title" data-copy="guideTitle">まず、ふたつ描いてみよう。</h2><button data-close-panel aria-label="閉じる">×</button></div>
+  <ol><li data-copy="guideOne">指やマウスで線を描き、離すと声に。</li><li data-copy="guideTwo">もうひとつ描いて、「ひとつ前」と聴き比べ。</li><li data-copy="guideThree">丸く、短く、ギザギザに。正解も点数もありません。</li></ol>
+  <a id="about-link" href="./about_onomatoi.html"><span id="t-about">解説</span> <span aria-hidden="true">↗</span></a>
+</section>
+
 <!-- Tuning -->
-<div class="panel">
+<div class="panel drawer-panel" id="preset-panel" hidden>
   <div class="row">
     <!-- 2026-07-23: 公開面はプリセット専用 (スライダーは dev-only) なので既定表記 PRESETS。
          ?dev=1 でスライダーが戻るときだけ JS が TUNE に戻す。 -->
-    <span class="panel-title" id="t-tune-title">PRESETS</span>
+    <span class="panel-title" id="t-tune-title">声の見本</span>
     <span id="status"></span>
     <button id="btn-play" class="primary" style="margin-left:8px;">▶ PLAY</button>
   </div>
@@ -217,6 +242,8 @@
 <!-- Feedback (👍👎 の収集と書き出し)
      2026-07-23 リリーススコープ: 既定は「研究に参加する」オプトインの1行だけ。
      ON (localStorage 永続・?dev=1 でも強制 ON) で 👍👎 と COPY/CLEAR が現れる。 -->
+<details class="research-panel">
+<summary data-copy="research">研究へのフィードバック</summary>
 <div class="panel">
   <div class="row">
     <label style="display:flex; align-items:center; gap:6px; font-size:11px; cursor:pointer;">
@@ -232,15 +259,28 @@
     <button id="btn-fb-clear" class="gray">CLEAR</button>
   </div>
 </div>
+</details>
 
 <!-- Log -->
-<div class="panel">
+<div class="panel drawer-panel" id="history-panel" hidden>
   <div class="row">
-    <span class="panel-title">LOG (<span id="log-count">0</span>)</span>
+    <span class="panel-title"><span data-copy="history">これまでの声</span> <span id="log-count">0</span></span>
     <button id="btn-log-clear" class="gray" style="margin-left:auto;">CLEAR</button>
   </div>
   <div id="log"></div>
+  <p class="hint" data-copy="historyHint">このページで生まれた声。押すと、もう一度聴けます。</p>
 </div>
+
+<section id="ios" class="ios-section" aria-labelledby="ios-title">
+  <div class="ios-copy"><p class="eyebrow">Onomatoi for iPhone &amp; iPad</p><h2 id="ios-title" data-copy="iosTitle">この声と、<br>もっと遊ぼう。</h2><p data-copy="iosIntro">気に入った声を残したり、並べたり。<br>あなたの線から、ひと唄まで。</p><span class="coming-soon" data-copy="comingSoon"><i></i> iOS版は、ただいま準備中。</span></div>
+  <div class="ios-features">
+    <article><div class="feature-sketch seed-sketch" aria-hidden="true"><svg viewBox="0 0 180 76"><path d="M31 58C8 43 14 9 43 20 72-3 88 39 53 59ZM106 57c-8-20-2-39 34-41-1 34-20 45-34 41Zm0 0 24-27"/></svg></div><h3 data-copy="seedTitle">ことばの種を残す</h3><p data-copy="seedDescription">また会いたい声を、ひとつずつ。</p></article>
+    <article><div class="feature-sketch melody-sketch" aria-hidden="true"><svg viewBox="0 0 180 76"><path d="M20 51h32V25h33v15h33V18h40"/><circle cx="20" cy="51" r="4"/><circle cx="158" cy="18" r="4"/></svg></div><h3 data-copy="melodyTitle">声に、節をつける</h3><p data-copy="melodyDescription">同じことばが、ちがう表情に。</p></article>
+    <article><div class="feature-sketch poem-sketch" aria-hidden="true"><span>○ 〜 △</span><span>〜 ○ ○ △</span><span>△ 〜 ○</span></div><h3 data-copy="poemTitle">あなたの線で、歌会</h3><p data-copy="poemDescription">集まったことばを、五・七・五に。</p></article>
+  </div>
+</section>
+</main>
+<footer class="site-footer"><a class="footer-brand" href="#play-title">Onomatoi</a><span data-copy="footer">つくる・こえ　PuppeTwin</span><a href="./about_onomatoi.html" data-copy="about">Onomatoiについて</a><button id="language-toggle" class="text-button" aria-label="Switch to English">English</button></footer>
 
 <script>
 "use strict";
@@ -312,8 +352,8 @@ if (uiLang !== "ja" && uiLang !== "en") {
 const T = uiLang === "ja" ? {
   eraser: "消しゴム",
   about: "解説",
-  loading: (n, total) => `♪ 音声サンプル読込中 ${n}/${total} — 音が出るまでしばらく時間がかかります`,
-  loadingInitial: "♪ 音声サンプル読込中… — 音が出るまでしばらく時間がかかります",
+  loading: (n, total) => `声を準備しています…`,
+  loadingInitial: "声を準備しています…",
   voice: "Voice(声): PuppeTwin",
   romajiTitle: "ROMAJI 直接入力",
   romajiHint: "空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
@@ -323,12 +363,12 @@ const T = uiLang === "ja" ? {
   fbCopied: "COPIED!",
   fbSaved: (n) => `✓ 記録しました（計${n}件）`,
   fbReasonPH: "理由 (任意): どこがイメージ通り/違う?",
-  start: "▶ タップして開始 (音を有効化)",
+  start: "▶ 音をオンにして、描く",
 } : {
   eraser: "Eraser",
   about: "About",
-  loading: (n, total) => `♪ Loading voice samples ${n}/${total} — sound will be ready in a moment`,
-  loadingInitial: "♪ Loading voice samples… — sound will be ready in a moment",
+  loading: (n, total) => `Getting your voice ready…`,
+  loadingInitial: "Getting your voice ready…",
   voice: "Voice: PuppeTwin",
   romajiTitle: "ROMAJI input",
   romajiHint: "space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
@@ -338,7 +378,7 @@ const T = uiLang === "ja" ? {
   fbCopied: "COPIED!",
   fbSaved: (n) => `✓ saved (${n} total)`,
   fbReasonPH: "why? (optional): what matched / didn't",
-  start: "▶ Tap to Start (enable sound)",
+  start: "▶ Turn sound on and draw",
 };
 function applyLangTexts() {
   document.getElementById("t-eraser").textContent = T.eraser;
@@ -4852,6 +4892,12 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
   updateWhy(axesUsed, event.moras, event.vocabReason ?? null, extra.shape ?? null);
   playEvent(event);
   if (log) appendLog(event);
+  const viewRect = canvas.getBoundingClientRect();
+  window.dispatchEvent(new CustomEvent("onomatoi-utterance", { detail: {
+    event, src, points: stroke.map(p => [p.x / viewRect.width, p.y / viewRect.height]),
+    aspect: viewRect.width / viewRect.height,
+    presetPoints: presetShapePts ? presetShapePts.map(p => ({x:p.x,y:p.y})) : null
+  } }));
 }
 
 // 口アイコン (2026-07-10, ChatGPT提案): round/open を連続的に口の形へ。
@@ -4982,6 +5028,7 @@ function showResult(event) {
   const kana = event.displayWordOverride ?? namingKanaOf(event.moras);
   document.getElementById("result-meta").textContent =
     `${kana} · ${n} mora${event.isRedup ? " · redup" : ""}`;   // F0 は Web 版では音に反映されないため非表示
+  window.dispatchEvent(new CustomEvent("onomatoi-result", { detail: { event } }));
 }
 function appendLog(event) {
   logEntries.push({ axes: { ...event.axes }, romaji: romajiOf(event),
@@ -5599,6 +5646,7 @@ function startApp() {
     Object.assign(note.style, { background: "rgba(152, 192, 228, 0.20)", color: "#2b2b30",
       cursor: "default", textAlign: "left", fontWeight: "normal", fontSize: "11px", padding: "6px 10px" });
     note.textContent = T.voice;
+    if (ctx.state === "running") note.dataset.started = "true";
   };
   ctx.resume().then(finish).catch(finish);
 }
@@ -5619,10 +5667,12 @@ function unlockAudio() {
   } catch (e) {}
   preloadAll();              // 万一 decode 失敗が残っていれば再試行
   if (ctx.state === "running") {
+    document.getElementById("loading-note").dataset.started = "true";
     for (const ev of UNLOCK_EVENTS) document.removeEventListener(ev, unlockAudio);
   }
 }
 for (const ev of UNLOCK_EVENTS) document.addEventListener(ev, unlockAudio);
 </script>
+<script src="./web-play.js"></script>
 </body>
 </html>
