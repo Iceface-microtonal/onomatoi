@@ -22,7 +22,8 @@
     comingSoon:'iPhone and iPad app — coming soon.', seedTitle:'Keep a little seed', seedDescription:'A voice you would like to meet again.',
     melodyTitle:'Give it a melody', melodyDescription:'The same word, a different expression.',
     poemTitle:'A gathering of songs', poemDescription:'Your words, woven into five–seven–five.',
-    footer:'Created and voiced by PuppeTwin', about:'About Onomatoi'
+    footer:'Created and voiced by PuppeTwin', about:'About Onomatoi',
+    shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking'
   };
   if (!ja) document.querySelectorAll('[data-copy]').forEach(el => {
     const text = en[el.dataset.copy];
@@ -36,6 +37,9 @@
     document.querySelector('.play-space').setAttribute('aria-label', 'Draw and play');
     document.querySelector('.play-dock').setAttribute('aria-label', 'Play menu');
     document.querySelector('[data-close-panel]').setAttribute('aria-label', 'Close');
+    $('mouth-icon').setAttribute('aria-label', 'Mouth opening and rounding inferred from the shape');
+    $('mouth-timeline').setAttribute('aria-label', 'Mouth shapes along the utterance');
+    document.querySelector('.mouth-explanation').title = 'Simplified diagrams of mouth opening and lip rounding.';
   }
   $('language-toggle').textContent = ja ? 'English' : '日本語';
   $('language-toggle').setAttribute('aria-label', ja ? 'Switch to English' : '日本語に切り替える');
@@ -88,6 +92,20 @@
     $('previous-word').textContent = previousDrawing ? kana(previousDrawing.event) : '—';
     $('play-previous').setAttribute('aria-label', previousDrawing ? `${ja ? 'ひとつ前の声' : 'Previous voice'}: ${kana(previousDrawing.event)}` : (ja ? 'ひとつ前の声はまだありません' : 'No previous voice yet'));
   }
+  function explain(entry) {
+    const {event, explanation} = entry;
+    const axes = explanation?.axes || event.axes;
+    drawMouthIcon(axes.open ?? 0, axes.round ?? 0);
+    updateWhy(axes, event.moras, event.vocabReason ?? null, explanation?.shape ?? null);
+    // These sources do not use the ordinary stroke-to-word explanation.
+    if (['preset', 'romaji', 'naming'].includes(explanation?.source)) {
+      $('why-lines').textContent = explanation.source === 'preset'
+        ? (ja ? '選んだ声の見本です。口の図で、発声するときの動きを見られます。' : 'A selected voice sample. The diagrams show its mouth movements.')
+        : explanation.source === 'naming'
+        ? (ja ? '開発用の命名モードで、描いた形から組み立てた声です。' : 'A voice assembled from the drawing in experimental naming mode.')
+        : (ja ? '入力したことばの発声です。口の図で、各音の動きを見られます。' : 'A typed word. The diagrams show the mouth movements for each sound.');
+    }
+  }
   function renderLine(entry) {
     displayed = entry;
     const rect = canvas.getBoundingClientRect();
@@ -105,6 +123,7 @@
     renderLine(entry);
     playEvent(entry.event);
     result(entry.event, caption);
+    explain(entry);
     $('canvas-invitation').hidden = true;
     refresh();
   }
@@ -126,9 +145,10 @@
   }
   window.addEventListener('onomatoi-result', e => result(e.detail.event));
   window.addEventListener('onomatoi-utterance', e => {
-    const {event,src,points,aspect,presetPoints} = e.detail;
-    selected = {event:structuredClone(event),points,aspect,presetPoints};
+    const {event,src,points,aspect,presetPoints,explanation} = e.detail;
+    selected = {event:structuredClone(event),points,aspect,presetPoints,explanation:structuredClone(explanation)};
     displayed = selected;
+    explain(selected);
     if (src === 'draw') {
       previousDrawing = currentDrawing;
       currentDrawing = selected;
@@ -151,6 +171,7 @@
     if (!selected) return;
     renderLine(selected);
     playEvent(selected.event); result(selected.event, ja ? 'もう一度、同じ声。' : 'The same voice, once more.');
+    explain(selected);
   };
   $('play-previous').onclick = () => {
     const current = selected;
@@ -165,6 +186,10 @@
     selected = null; displayed = null; currentDrawing = null; previousDrawing = null;
     $('canvas-invitation').hidden = false;
     $('result-word').textContent = '…';
+    $('why-panel').style.display = 'none';
+    clearInterval(mouthTimelineTimer);
+    $('mouth-timeline').replaceChildren();
+    $('mouth-arrow').style.display = 'none';
     $('result-caption').textContent = ja ? '指を離すと、線が声になります。' : 'Lift your finger. Hear your line.';
     refresh();
   });

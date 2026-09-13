@@ -66,9 +66,17 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .chips button { min-height:46px; padding:10px 16px; font-size:13px; border-radius:14px; color:#416680; background:var(--soft-blue); }
 .chips button:hover { background:#dceaf6; }
 .hint { font-size:11px; line-height:1.6; }
-#preset-panel>.axis-row,#status,#why-panel,#phrase-line,#btn-play { display:none !important; }
+#preset-panel>.axis-row,#status,#phrase-line,#btn-play { display:none !important; }
 body.is-dev #preset-panel>.axis-row { display:flex !important; }
-body.is-dev #status,body.is-dev #why-panel,body.is-dev #phrase-line,body.is-dev #btn-play { display:block !important; }
+body.is-dev #status,body.is-dev #phrase-line,body.is-dev #btn-play { display:block !important; }
+#why-panel { border-top:1px solid #e9e6e0; padding:14px 24px 18px; text-align:left; }
+#why-title { font-size:11px; font-weight:600; color:#99506c; }
+#why-lines { font-size:11px; line-height:1.75; color:#696661; overflow-wrap:anywhere; }
+.mouth-explanation { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:5px 0 8px; color:#696661; font-size:10px; }
+#mouth-icon { flex:none; }
+#mouth-vowel { font-size:14px; }
+#mouth-arrow { margin:0 4px; }
+#mouth-timeline { display:flex; align-items:flex-end; gap:6px; flex-wrap:wrap; min-width:0; }
 .research-panel { max-width:860px; margin:20px auto; font-size:11px; color:var(--muted); }
 .research-panel summary { cursor:pointer; width:fit-content; padding:8px 0; min-height:36px; }
 .research-panel .panel { margin-top:12px; border-radius:18px; padding:18px; }

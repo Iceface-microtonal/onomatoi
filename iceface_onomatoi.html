@@ -159,16 +159,24 @@
   <div id="phrase-line" style="display:none; margin-top:4px; font-size:11px; color:var(--gray);
     font-family: 'SF Mono', Menlo, monospace;"></div>
   <div class="chips" id="fb-tags" style="display:none; margin-top:4px;"></div>
-  <div id="why-panel" style="display:none; margin-top:6px;">
-    <div id="why-title" style="font-size:10px; font-weight:800; color:var(--pink); letter-spacing:0.5px;">なぜ?</div>
-    <div id="why-lines" style="font-size:10px; color:#888; line-height:1.55;"></div>
-  </div>
 </div>
 
 <div class="listening-bar">
   <button id="play-previous" class="listen-previous" disabled><span aria-hidden="true">↶</span><span><span data-copy="previous">ひとつ前</span><small id="previous-word">—</small></span></button>
   <button id="play-current" class="listen-current" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg><span data-copy="replay">もう一度、聴く</span></button>
   <button id="play-stop" class="listen-stop" aria-label="音を止める" title="音を止める"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg></button>
+</div>
+<div id="why-panel" style="display:none;" aria-labelledby="why-title">
+  <div id="why-title">なぜ?</div>
+  <div class="mouth-explanation" title="口の図は、開きと丸めを簡略化して表しています。">
+    <span data-copy="shapeMouth">形から読んだ口</span>
+    <canvas id="mouth-icon" width="46" height="32" aria-label="形から推定した口の開きと丸め"></canvas>
+    <span id="mouth-vowel"></span>
+    <span id="mouth-arrow" style="display:none;" aria-hidden="true">→</span>
+    <span data-copy="spokenMouth">発声の口</span>
+    <div id="mouth-timeline" role="group" aria-label="発声に沿った口の形の推移"></div>
+  </div>
+  <div id="why-lines"></div>
 </div>
 </section>
 
@@ -204,13 +212,6 @@
   <div class="axis-row dev-only"><label>bright</label><input type="range" id="ax-bright" min="-1" max="1" step="0.01" value="0"><span class="val" id="val-bright">+0.00</span></div>
   <div class="axis-row dev-only"><label>round</label><input type="range" id="ax-round" min="-1" max="1" step="0.01" value="0"><span class="val" id="val-round">+0.00</span></div>
   <div class="axis-row dev-only"><label>open</label><input type="range" id="ax-open" min="-1" max="1" step="0.01" value="0"><span class="val" id="val-open">+0.00</span></div>
-  <div class="axis-row" title="round/open をそのまま口の形に — 描いた形を「発音するときの口」として読んでいる。→ の右は発話中のモーラごとの口の推移 (P3)">
-    <label>口</label>
-    <canvas id="mouth-icon" width="46" height="32" style="flex:none;"></canvas>
-    <span class="val" id="mouth-vowel" style="font-size:15px;"></span>
-    <span id="mouth-arrow" style="display:none; color:#aaa; font-size:11px; font-weight:600; flex:none;">→</span>
-    <div id="mouth-timeline" style="display:flex; align-items:flex-end; gap:3px; flex-wrap:wrap;"></div>
-  </div>
   <div class="chips" id="preset-chips"></div>
   <!-- hand corr も非表示 (既定 0.00 のまま)。生ペン時代の遺物で、コウさん実聴 (07-15) で 0 が確定。 -->
   <div class="knob-row dev-only" style="margin-top:10px;">
@@ -4796,11 +4797,7 @@ function explainEvent(ax, moras, vocabReason = null, shape = null) {
     lines.push(ja ? "小さい=軽い → 清音（か・ぱ・さ）" : "small = light → voiceless (k/p/s)");
   // 語形 (実際の末尾から型を読む)
   lines.push((ja ? "語形: " : "form: ") + whyFormReason(ax, voiced, ja));
-  // ピッチ ← brightness / size
-  if (ax.bright > 0.3 || ax.size < -0.3)
-    lines.push(ja ? "明るい/小さい → 高めのピッチ" : "bright/small → higher pitch");
-  else if (ax.bright < -0.3 || ax.size > 0.3)
-    lines.push(ja ? "暗い/大きい → 低めのピッチ" : "dark/big → lower pitch");
+  // Web は平坦音程。軸からピッチが変わるという説明は出さない。
   return lines;
 }
 function whyFormReason(ax, moras, ja) {
@@ -4896,7 +4893,8 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
   window.dispatchEvent(new CustomEvent("onomatoi-utterance", { detail: {
     event, src, points: stroke.map(p => [p.x / viewRect.width, p.y / viewRect.height]),
     aspect: viewRect.width / viewRect.height,
-    presetPoints: presetShapePts ? presetShapePts.map(p => ({x:p.x,y:p.y})) : null
+    presetPoints: presetShapePts ? presetShapePts.map(p => ({x:p.x,y:p.y})) : null,
+    explanation: { axes: { ...axesUsed }, shape: extra.shape ?? null, source: src }
   } }));
 }
 
