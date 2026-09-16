@@ -13,7 +13,8 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .site-header { height:72px; padding:0; align-items:center; justify-content:space-between; }
 .wordmark { display:flex; align-items:center; gap:10px; font-size:24px; font-weight:650; letter-spacing:-.8px; }
 .wordmark:hover { text-decoration:none; }
-.wordmark svg { width:34px; height:34px; color:var(--accent); stroke-width:2.8; }
+/* Frame the selected artwork without its candidate number; preserve the original image. */
+.wordmark-logo { width:38px; height:34px; flex:none; overflow:hidden; mix-blend-mode:multiply; }
 .web-tag { font-size:10px; font-weight:500; letter-spacing:1px; align-self:center; color:var(--muted); margin:5px 0 0 3px; }
 .site-header nav { display:flex; align-items:center; gap:28px; font-size:12px; }
 .text-button { background:transparent; padding:8px 2px; color:var(--muted); font-size:12px; }
@@ -111,7 +112,7 @@ body.is-dev #log { display:block; }
   body { padding:0 18px; }
   .site-header { height:70px; }
   .wordmark { font-size:21px; gap:7px; }
-  .wordmark svg { width:27px; }
+  .wordmark-logo { width:31px; height:28px; }
   .site-header nav { gap:16px; }
   .site-header .ios-link { padding:9px 0; border:0; font-size:11px; }
   .play-intro { margin:14px 0 22px; }
