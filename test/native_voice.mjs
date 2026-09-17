@@ -91,6 +91,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
   "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample",
+  "nvUsesStandaloneVowel", "nvReadRootVowelSample",
   "nvContinuousMoraGain", "nvReadMoraicNSample"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`,
@@ -174,6 +175,37 @@ function rmsWindows(data, sr, winSec = 0.02) {
 
 const MORA_MS = 250;
 const q = w => api.nvQuantizeMoras(api.segmentWord(w), MORA_MS);
+
+console.log("── Base単音母音: 短音 / 長音 / 接続の分離 ──");
+{
+  const bank = makeBank();
+  bank.shortV = new Map();
+  bank.shortVHandoff = new Map();
+  for (const v of "aiueo") {
+    bank.shortV.set(v, new Float32Array(SR * 0.36).fill(0.2));
+    bank.shortVHandoff.set(v, 0.30);
+    bank.v.set(v, new Float32Array(SR * 1.2).fill(-0.2));
+    check(`${v}: 単音は専用短音を選ぶ`, api.nvUsesStandaloneVowel(0, q(v), bank));
+    check(`${v}: 短音の波形を読む`, api.nvReadRootVowelSample(bank, v, 0.1, 250, true) > 0.19);
+  }
+  const oldBank = { ...bank, shortV: new Map(), shortVHandoff: new Map() };
+  const render = (w, b) => api.nvRenderEvent(api.segmentWord(w), b, SR, MORA_MS).data;
+  for (const w of ["aa", "aaaa", "an", "in", "un", "en", "on", "ai", "sai", "kaaaa"]) {
+    const before = render(w, oldBank), after = render(w, bank);
+    check(`${w}: 持続/接続音声は全フレーム不変`, before.length === after.length && before.every((x, i) => x === after[i]));
+  }
+  for (const w of ["iii", "keii"]) {
+    const moras = q(w), before = render(w, oldBank), after = render(w, bank);
+    check(`${w}: 最後の母音だけ単音を選ぶ`, api.nvUsesStandaloneVowel(moras.length - 1, moras, bank));
+    const boundary = 2 * MORA_MS / 1000 * SR;
+    check(`${w}: 先行する2モーラは不変`, before.slice(0, boundary).every((x, i) => x === after[i]));
+    check(`${w}: 最後の言い直しは短音に切り替わる`, before.slice(boundary).some((x, i) => x !== after[boundary + i]));
+  }
+  const slow = Array.from({length: 24000}, (_, i) => api.nvReadRootVowelSample(bank, "a", i / SR, 500, true));
+  check("遅い単音: ファイル終端を越えて持続音に接続", slow.every(Number.isFinite) && slow[22000] < -0.19);
+  check("遅い単音: 接続点で段差が生じない", slow.every((x, i) => i === 0 || Math.abs(x - slow[i - 1]) < 0.001));
+  check("短音欠落時: 従来の持続素材で発音", api.nvReadRootVowelSample(oldBank, "a", 0.1, 250, true) < -0.19);
+}
 
 console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末尾孤立例外) ──");
 {
@@ -490,6 +522,16 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     api.sampleBank.set(key, { getChannelData: () => data });
   }
   const bank = api.buildNativeVoiceBank(SR);
+  for (const v of "aiueo") {
+    check(`${v}: 配布MP3が短音バンクに載る`, bank.shortV.get(v)?.length > SR * 0.12);
+    check(`${v}: 短音と長音を別素材で保持`, bank.shortV.get(v) !== bank.v.get(v));
+    for (const ms of [125, 250, 500]) {
+      const result = api.nvRenderEvent(api.segmentWord(v), bank, SR, ms);
+      const windows = rmsWindows(result.data, SR);
+      const voiced = windows.filter(w => w.tMs >= 40 && w.tMs < ms - 40);
+      check(`${v}/${ms}ms: 実短音の発音が途切れない`, result.data.every(Number.isFinite) && voiced.length > 0 && voiced.every(w => w.db > -60));
+    }
+  }
   for (const p of api.DIPH_PAIRS) {
     check(`${p}: 接続素材が120ms超`, bank.cvDiph.get(p)?.length > SR * 0.12,
       `${bank.cvDiph.get(p)?.length / SR * 1000}ms`);

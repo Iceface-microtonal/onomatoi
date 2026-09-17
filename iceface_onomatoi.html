@@ -3444,7 +3444,8 @@ async function fetchSample(key) {
   if (rawCache.has(key)) return;
   for (const name of sampleUrlCandidates(key)) {
     try {
-      const res = await fetch(SAMPLE_BASE + name);
+      const revision = /^v_[aiueo]\.mp3$/.test(name) ? "?v=20260917-short-vowels" : "";
+      const res = await fetch(SAMPLE_BASE + name + revision);
       if (res.ok) { rawCache.set(key, await res.arrayBuffer()); break; }
     } catch (e) { /* try next candidate */ }
   }
@@ -3998,6 +3999,30 @@ function nvReadSustainedVowelSample(bank, vowel, timeSec) {
   return nvInterp(arr, bank.sr, nvSustainWrap(timeSec, duration));
 }
 
+// Dedicated Base short vowels, matching the app's isolated-mora policy.
+function nvUsesStandaloneVowel(idx, moras, bank) {
+  const m = moras[idx];
+  if (m.onset !== null || m.isN || m.isQ || m.isSilentRest || !bank.shortV?.has(m.nucleus)) return false;
+  if (idx + 1 < moras.length && moras[idx + 1].isN) return false;
+  return !nvLongVowelExtension(idx, moras)
+    && !nvNextUsesLongVowelExtension(idx, moras)
+    && !nvNextUsesCVtoVDiph(idx, moras, bank)
+    && !nvNextTakenByVVDiph(idx, moras, bank);
+}
+function nvReadRootVowelSample(bank, vowel, timeSec, durationMs, standalone) {
+  const arr = bank.shortV?.get(vowel), duration = nvDur(arr, bank.sr);
+  if (!standalone || !arr || duration <= 0) return nvReadSustainedVowelSample(bank, vowel, timeSec);
+  const short = nvInterp(arr, bank.sr, timeSec);
+  if (durationMs / 1000 <= duration) return short ?? 0;
+  const fade = Math.min(0.045, Math.max(0.005, duration * 0.15));
+  const start = Math.min(bank.shortVHandoff?.get(vowel) ?? duration, Math.max(0, duration - fade));
+  if (timeSec < start) return short ?? 0;
+  const held = nvReadSustainedVowelSample(bank, vowel, timeSec);
+  if (held === null) return (short ?? 0) * Math.min(1, Math.max(0, (duration - timeSec) / fade));
+  const u = Math.min(1, Math.max(0, (timeSec - start) / fade));
+  return (short ?? 0) * Math.cos(u * Math.PI / 2) + held * Math.sin(u * Math.PI / 2);
+}
+
 function nvReadMoraicNSample(arr, sr, timeMs) {
   const duration = nvDur(arr, sr), t = timeMs / 1000;
   if (!arr || duration <= 0 || t >= duration) return 0;
@@ -4157,7 +4182,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const suppressTail =
         (nvNextUsesLongVowelExtension(i, moras) && !nvNextTakenByVVDiph(i, moras, bank))
         || nvNextUsesCVtoVDiph(i, moras, bank);
-      return { kind: "v", arr: vArr, suppressTail };
+      return { kind: "v", arr: vArr, suppressTail, standalone: nvUsesStandaloneVowel(i, moras, bank) };
     }
     return plan;
   });
@@ -4288,7 +4313,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = value * nvContinuousMoraGain(prevAmp, amp, phoneT, m.durationMs)
           * env * eventFade;
     } else if (plan.kind === "v") {
-      const value = nvReadSustainedVowelSample(bank, m.nucleus, phoneT / 1000);
+      const value = nvReadRootVowelSample(bank, m.nucleus, phoneT / 1000, m.durationMs, plan.standalone);
       const envTotal = plan.suppressTail
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
       const env = nvSampleEnvelope(phoneT, envTotal);
@@ -4353,7 +4378,7 @@ let nvBank = null, nvBankStamp = -1;
 function nvChan(key) { const b = sampleBank.get(key); return b ? b.getChannelData(0) : null; }
 function buildNativeVoiceBank(sr) {
   const bank = { sr, cv: new Map(), cvHandoff: new Map(),
-                 v: new Map(), nN: null, contN: new Map(),
+                 v: new Map(), shortV: new Map(), shortVHandoff: new Map(), nN: null, contN: new Map(),
                  diph: new Map(), cvDiph: new Map(), cvDiphFin: new Map(),
                  longDiph: new Set() };
   for (const [key, buf] of sampleBank) {
@@ -4368,6 +4393,12 @@ function buildNativeVoiceBank(sr) {
     // native 同様: 長い持続テイク (v_aaaa 等) があれば母音サンプルとして優先
     const sustainKey = "v_" + v + v + v + v;
     const sustainArr = nvChan(sustainKey);
+    const shortRaw = nvChan("v_" + v);
+    if (shortRaw) {
+      const short = nvTrimTrailingSilence(shortRaw, 0.004, Math.round(sr * 0.01));
+      bank.shortV.set(v, short);
+      bank.shortVHandoff.set(v, nvComputeCvSustainHandoffEnd(short, sr));
+    }
     let arr = sustainArr || nvChan("v_" + v);
     // 個別サンプルの録音レベル差の是正 (2026-07-24 実聴報告 2件): 長い持続
     // テイクのうち v_uuuu (duuuu) と v_iiii (mii の単独 i) が他より大きく聴こえた → 各-3dB。
