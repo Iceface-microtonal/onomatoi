@@ -276,6 +276,8 @@ function step(dt, now) {
     } else if (t.reserve) {
       // 控えの語: 画面の下へ沈んで待つ (山とは衝突しない)
       if (t.y < H + 80) t.vy += G * dt; else { t.y = H + 80; t.vy = 0; t.vx = 0; }
+    } else if (t.sleep) {
+      continue;                                   // 眠っている語は動かさない (山の細かい震えを止める)
     } else {
       t.vy += G * dt;
       t.vx *= 0.999;
@@ -287,7 +289,7 @@ function step(dt, now) {
   if (thinking) {
     for (let n = 0; n < 2; n++) {
       const t = tiles[(Math.random() * tiles.length) | 0];
-      if (!t.reserve && t.state !== "float") { t.vy -= 90 + Math.random() * 120; t.vrot += (Math.random() - 0.5) * 2; }
+      if (!t.reserve && t.state !== "float") { wake(t); t.vy -= 90 + Math.random() * 120; t.vrot += (Math.random() - 0.5) * 2; }
     }
   }
   // 衝突は山の中だけ (浮いている語は山を突き抜ける)
@@ -302,16 +304,18 @@ function step(dt, now) {
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
       const list = grid.get((gx + dx) + "," + (gy + dy)); if (!list) continue;
       for (const b of list) {
-        if (b.i <= a.i) continue;
+        if (b.i <= a.i || (a.sleep && b.sleep)) continue;
         const ex = b.x - a.x, ey = b.y - a.y, rr = (a.r + b.r) * 0.58;   // 重ねて積む (動画の山と同じ密度)
         const d2 = ex * ex + ey * ey;
         if (d2 >= rr * rr || d2 === 0) continue;
-        const d = Math.sqrt(d2), nx = ex / d, ny = ey / d, pen = (rr - d) * 0.5;
-        a.x -= nx * pen; a.y -= ny * pen; b.x += nx * pen; b.y += ny * pen;
+        // 眠っている語は動かない床として扱い、起きている側だけを押し戻す
+        const d = Math.sqrt(d2), nx = ex / d, ny = ey / d, pen = rr - d;
+        const wa = a.sleep ? 0 : b.sleep ? 1 : 0.5, wb = 1 - wa;
+        a.x -= nx * pen * wa; a.y -= ny * pen * wa; b.x += nx * pen * wb; b.y += ny * pen * wb;
         const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         if (rv < 0) {
-          const j = -1.15 * rv * 0.5;
-          a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny;
+          const j = -1.15 * rv;
+          a.vx -= j * nx * wa; a.vy -= j * ny * wa; b.vx += j * nx * wb; b.vy += j * ny * wb;
           a.vrot -= nx * 0.02 * rv / 60; b.vrot += nx * 0.02 * rv / 60;
         }
       }
@@ -321,8 +325,15 @@ function step(dt, now) {
     if (t.y > floorY - TILE_H * 0.5) { t.y = floorY - TILE_H * 0.5; if (t.vy > 0) t.vy *= -0.12; t.vx *= 0.9; t.vrot *= 0.8; }
     if (t.x < t.r * 0.7) { t.x = t.r * 0.7; t.vx = Math.abs(t.vx) * 0.3; }
     if (t.x > W - t.r * 0.7) { t.x = W - t.r * 0.7; t.vx = -Math.abs(t.vx) * 0.3; }
+    if (t.sleep) continue;
+    // ほぼ止まった状態が続いたら眠らせる
+    if (Math.abs(t.vx) < 14 && Math.abs(t.vy) < 14 && Math.abs(t.vrot) < 0.25) t.still = (t.still || 0) + 1; else t.still = 0;
+    if (t.still > 40) { t.sleep = true; t.vx = t.vy = t.vrot = 0; }
   }
 }
+function wake(t) { t.sleep = false; t.still = 0; }
+/** 山の形が変わるとき (語が抜ける・戻る・画面が変わる) は全員を起こし、もう一度落ち着かせる。 */
+function wakeAll() { for (const t of tiles) wake(t); }
 
 // ─── 描画 ───
 function roundRect(x, y, w, h, r) {
@@ -362,6 +373,7 @@ const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);   // 中�
 const liveConds = new Map();      // 自由入力の答え (このページを開いている間の控え)
 function setQueryText(s) { $q.value = s; }
 function dropAll() {
+  wakeAll();
   for (const t of tiles) if (t.state === "float") {
     t.state = "pile"; t.arrived = false; t.vx += (Math.random() - 0.5) * 240; t.vy = -80 - Math.random() * 160;
   }
@@ -404,6 +416,7 @@ function select(cond) {
     .filter(t => t.p >= THRESHOLD).sort((a, b) => b.p - a.p).slice(0, MAX_FLOAT());
   layoutTargets(ranked);
   voicesExpected = Math.min(ranked.length, MAX_VOICES); voicesArrived = 0;
+  wakeAll();
   const now = performance.now();
   ranked.forEach((t, k) => {
     t.state = "float"; t.arrived = false; t.voiceRank = k; t.launchAt = now + 160 + k * 70;
@@ -454,6 +467,18 @@ document.getElementById("clear").addEventListener("click", clearAll);
 
 // ─── 自由入力 ───
 function normalizeQuery(q) { return q.normalize("NFKC").trim().replace(/\s+/g, " "); }
+// 最低限フィルタ (data/input_filter.json・tools/input_filter.py と同じ手順)。止めた言葉は Jev に送らず履歴にも残さない
+let filterRules = null;
+fetch("data/input_filter.json").then(r => r.json()).then(j => { filterRules = j; }).catch(() => {});
+function isBlockedQuery(q, rules = filterRules) {
+  if (!rules) return false;
+  const n = q.normalize("NFKC").toLowerCase()
+    .replace(/[\u30A1-\u30F6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
+  const flat = n.replace(/-/g, "");
+  if (Object.values(rules.contains).some(ws => ws.some(w => n.includes(w)))) return true;
+  if (Object.values(rules.exact).some(ws => ws.includes(n))) return true;
+  return Object.values(rules.patterns).some(ps => ps.some(p => new RegExp(p).test(n) || new RegExp(p).test(flat)));
+}
 function addLiveChip(cond) {
   const old = $chips.querySelector(`.chip.live[data-id="${CSS.escape(cond.id)}"]`);
   if (old) old.remove();
@@ -469,6 +494,7 @@ async function submitQuery(raw) {
   if (!q) return;
   if (!soundOn) enableSound();
   stopAuto(); clearTimeout(typing);
+  if (isBlockedQuery(q)) { stopVoices(); $status.textContent = "その言葉では探せません"; return; }
   const preset = conditions.find(c => c.query === q);
   if (preset) return select(preset);
   if (liveConds.has(q)) return select(liveConds.get(q));
@@ -529,7 +555,7 @@ cv.addEventListener("pointerdown", e => {
   best.pop = 1;
   stopVoices();
   speak(best, (best.x / W) * 2 - 1, 1);
-  if (best.state !== "float") { best.vy = -520; best.vx += (Math.random() - 0.5) * 200; }
+  if (best.state !== "float") { wakeAll(); best.vy = -520; best.vx += (Math.random() - 0.5) * 200; }
   if (current) $status.textContent = `${best.w.kana} — 「${current.query}」の確率 ${Math.round((current.table[best.w.id] ?? 0) * 100)}%`;
 });
 
@@ -555,6 +581,7 @@ window.addEventListener("resize", () => {
     t.x = oldW > 0 ? t.x * (W / oldW) : 40 + (hash(t.w.id) % 1000) / 1000 * Math.max(0, W - 80);
     if (!Number.isFinite(t.y)) { t.y = -60; t.vy = 0; }
   }
+  wakeAll();
   if (current) select(current);
 });
 
