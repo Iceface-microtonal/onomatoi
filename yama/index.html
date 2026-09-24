@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta name="yama-api" content="https://yama-api.puppetwin.workers.dev">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>オノマトペの山</title>
 <style>
@@ -382,7 +383,9 @@ function draw() {
 // ─── 検索 ───
 let current = null, typing = null, autoTimer = null;
 let liveOn = false, thinking = false, searchSeq = 0;
-const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);   // 中継を探すのは手元だけ
+const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);
+// 中継の場所: 手元は同じポートの relay.py、公開版は publish.py --api で埋めた Worker (空なら自由入力なし)
+const API_BASE = LOCAL ? "" : (document.querySelector('meta[name="yama-api"]')?.content || "");
 const liveConds = new Map();      // 自由入力の答え (このページを開いている間の控え)
 function setQueryText(s) { $q.value = s; }
 function dropAll() {
@@ -521,7 +524,7 @@ async function submitQuery(raw) {
   thinking = true; stopVoices(); dropAll();
   $status.textContent = `Jev が ${words.length} 語を考え中…`;
   try {
-    const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
+    const res = await fetch(API_BASE + "/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ q, set: SET }) });
     const j = await res.json();
     if (seq !== searchSeq) return;            // もっと新しい入力が来ている
@@ -625,7 +628,7 @@ window.addEventListener("resize", () => {
     return;
   }
   buildChips(); makeTiles(); prefetchAudio();
-  if (LOCAL) fetch("/api/health").then(r => r.ok ? r.json() : null).then(h => {
+  if (LOCAL || API_BASE) fetch(API_BASE + "/api/health").then(r => r.ok ? r.json() : null).then(h => {
     liveOn = !!(h && h.live && h.sets && h.sets[SET]);
     if (liveOn) $q.placeholder = "どんな音をさがす?  (自由に書けます)";
   }).catch(() => {});
