@@ -1,0 +1,18 @@
+{
+  "about": "検索窓に打ち込まれる条件。query=画面に打たれる文字、instructions=Jev への noul の問い。",
+  "conditions": [
+    {"id": "toge",    "query": "とげとげしたもの",   "instructions": "このオノマトペは、とげとげした・尖った感じを表しますか?"},
+    {"id": "maru",    "query": "まるくてやわらかい", "instructions": "このオノマトペは、まるくてやわらかい感じを表しますか?"},
+    {"id": "omoi",    "query": "おもたいもの",       "instructions": "このオノマトペは、重たい・ずっしりした感じを表しますか?"},
+    {"id": "karui",   "query": "かるいもの",         "instructions": "このオノマトペは、軽い・ふわっとした感じを表しますか?"},
+    {"id": "ame",     "query": "雨の日の音",         "instructions": "このオノマトペは、雨の日に聞こえる音や雨の様子を表しますか?"},
+    {"id": "mizu",    "query": "水にまつわる",       "instructions": "このオノマトペは、水・液体・濡れることに関係しますか?"},
+    {"id": "oishii",  "query": "おいしそう",         "instructions": "このオノマトペは、食べ物がおいしそうな様子や食べる様子を表しますか?"},
+    {"id": "nemui",   "query": "ねむたい",           "instructions": "このオノマトペは、眠たい・眠っている様子を表しますか?"},
+    {"id": "ikimono", "query": "生きものの声",       "instructions": "このオノマトペは、動物や虫など生きものの鳴き声ですか?"},
+    {"id": "okoru",   "query": "怒っている",         "instructions": "このオノマトペは、怒っている・苛立っている気持ちを表しますか?"},
+    {"id": "hikari",  "query": "光っているもの",     "instructions": "このオノマトペは、光る・輝く様子を表しますか?"},
+    {"id": "hayai",   "query": "すばやい動き",       "instructions": "このオノマトペは、素早い・一瞬の動きを表しますか?"},
+    {"id": "kawaii",  "query": "かわいい",           "instructions": "このオノマトペは、かわいらしい感じがしますか?"}
+  ]
+}

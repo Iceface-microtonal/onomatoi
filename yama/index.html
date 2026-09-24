@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>オノマトペの山</title>
+<style>
+  :root {
+    --bg: #f4f3f1;
+    --ink: #2b2a28;
+    --ink-soft: #8b8883;
+    --box: #ffffff;
+    --box-shadow: 0 6px 24px rgba(40, 36, 30, .10), 0 1px 2px rgba(40, 36, 30, .08);
+    --chip: #ffffff;
+    --chip-ink: #55524d;
+    --chip-on: #2b2a28;
+    --chip-on-ink: #ffffff;
+    --tile-ink: #2b2a28;
+    --tile-l: 88%;
+    --tile-l-float: 80%;
+    --tile-s: 62%;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1a19; --ink: #efece7; --ink-soft: #8f8b85; --box: #2a2927;
+      --box-shadow: 0 6px 24px rgba(0,0,0,.45); --chip: #2a2927; --chip-ink: #cfcac3;
+      --chip-on: #efece7; --chip-on-ink: #1b1a19; --tile-ink: #1b1a19;
+      --tile-l: 72%; --tile-l-float: 80%; --tile-s: 52%;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1a19; --ink: #efece7; --ink-soft: #8f8b85; --box: #2a2927;
+    --box-shadow: 0 6px 24px rgba(0,0,0,.45); --chip: #2a2927; --chip-ink: #cfcac3;
+    --chip-on: #efece7; --chip-on-ink: #1b1a19; --tile-ink: #1b1a19;
+    --tile-l: 72%; --tile-l-float: 80%; --tile-s: 52%;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Maru Gothic ProN", "Zen Maru Gothic", "Hiragino Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; touch-action: manipulation; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .top { position: fixed; left: 0; right: 0; top: max(28px, env(safe-area-inset-top)); display: flex;
+    flex-direction: column; align-items: center; gap: 14px; padding: 0 16px; pointer-events: none; }
+  .search { pointer-events: auto; width: min(560px, 100%); height: 60px; border-radius: 18px;
+    background: var(--box); box-shadow: var(--box-shadow); display: flex; align-items: center;
+    padding: 0 20px 0 24px; font-size: 21px; letter-spacing: .02em; }
+  .search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink);
+    font: inherit; letter-spacing: inherit; padding: 0; }
+  .search input::placeholder { color: var(--ink-soft); }
+  .chip.live { box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
+  .search button { border: 0; background: none; color: var(--ink-soft); font-size: 20px; cursor: pointer;
+    padding: 6px; line-height: 1; }
+  .chips { pointer-events: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+    width: min(760px, 100%); }
+  .chip { border: 0; border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13.5px;
+    background: var(--chip); color: var(--chip-ink); box-shadow: 0 1px 3px rgba(40,36,30,.12); cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+  .chip.auto { font-weight: 600; }
+  .status { font-size: 12px; color: var(--ink-soft); min-height: 1.2em; text-align: center; }
+  .corner { position: fixed; right: 16px; top: max(16px, env(safe-area-inset-top)); display: flex; gap: 8px; z-index: 2; }
+  .corner button { border: 0; border-radius: 12px; background: var(--box); color: var(--ink); box-shadow: var(--box-shadow);
+    font: inherit; font-size: 13px; padding: 8px 12px; cursor: pointer; }
+  .sets { display: flex; border-radius: 12px; background: var(--box); box-shadow: var(--box-shadow); padding: 3px; }
+  .corner .sets button { box-shadow: none; background: transparent; color: var(--ink-soft); border-radius: 9px; padding: 5px 10px; }
+  .corner .sets button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+  .foot { position: fixed; left: 16px; bottom: max(10px, env(safe-area-inset-bottom)); font-size: 11px;
+    color: var(--ink-soft); pointer-events: none; background: var(--bg); padding: 3px 9px; border-radius: 8px;
+    opacity: .92; }
+  .notice { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 24px;
+    font-size: 15px; line-height: 1.8; }
+  .notice code { background: var(--box); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+  @media (max-width: 560px) {
+    .search { height: 52px; font-size: 18px; }
+    .chip { font-size: 12.5px; padding: 6px 11px; flex: none; }
+    .chips { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none;
+      width: calc(100% + 32px); margin: 0 -16px; padding: 2px 16px 4px; }
+    .chips::-webkit-scrollbar { display: none; }
+    .corner { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
+    .foot { display: none; }
+    .sets .long { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top">
+  <div class="search" role="search">
+    <input id="query" type="text" enterkeyhint="search" maxlength="40" autocomplete="off" spellcheck="false"
+      placeholder="どんな音をさがす?" aria-label="どんな音をさがす">
+    <button id="clear" aria-label="クリア">×</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="status" id="status"></div>
+</div>
+<div class="corner">
+  <div class="sets" role="group" aria-label="語彙">
+    <button data-set="ja" aria-pressed="false">日本<span class="long">のオノマトペ</span></button>
+    <button data-set="onomatoi" aria-pressed="false">Onomatoi<span class="long"> のことば</span></button>
+  </div>
+  <button id="sound" aria-pressed="false">🔈 音を出す</button>
+</div>
+<div class="foot">Onomatoi × Jev — 判定は Jev の事前計算 · 声は Onomatoi · PuppeTwin</div>
+<div class="notice" id="notice"></div>
+
+<script>
+"use strict";
+// ─── 定数 ───
+const THRESHOLD = 0.5;          // noul がこれ以上なら浮く
+const MAX_FLOAT = () => (W < 560 ? 14 : 26);   // 一度に浮く最大数
+const UNSURE = 0.65;            // THRESHOLD〜UNSURE は「迷い」= ぷるぷる震える
+const MAX_VOICES = 10;          // 1回の検索で喋る数
+const VOICE_GAP = 0.14;         // 前の語が鳴り終わってから次の語までの間 (秒)。声は重ねない
+const TARGET_PEAK = 0.8;        // 語ごとの音量差をそろえる目標 (書き出し時の peak を基準に補正)
+const MAX_BOOST = 2.5;          // 小さい語を持ち上げる上限
+const TYPE_MS = 85;             // 打鍵の間隔
+const AUTO_MIN_MS = 4200;       // おまかせ: 1条件に最低これだけ留まる
+const AUTO_TAIL_S = 1.0;        // おまかせ: 最後の声が終わってから次へ移るまでの余韻 (秒)
+
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+const $q = document.getElementById("query");
+const $chips = document.getElementById("chips");
+const $status = document.getElementById("status");
+const $sound = document.getElementById("sound");
+let W = 0, H = 0, DPR = 1, TILE_H = 27, FONT = 14;
+
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// ─── データ ───
+// 組: ja = 日本語の代表的なオノマトペ / onomatoi = Onomatoi が生成した辞書にない語
+const SET = new URLSearchParams(location.search).get("set") === "onomatoi" ? "onomatoi" : "ja";
+for (const b of document.querySelectorAll(".sets button")) {
+  b.setAttribute("aria-pressed", String(b.dataset.set === SET));
+  b.addEventListener("click", () => {
+    if (b.dataset.set === SET) return;
+    const u = new URL(location.href); u.searchParams.set("set", b.dataset.set); location.href = u.toString();
+  });
+}
+let words = [], conditions = [], scores = {};
+async function loadData() {
+  const [w, c, j] = await Promise.all([
+    fetch(`data/${SET}/words.json`).then(r => { if (!r.ok) throw new Error("words"); return r.json(); }),
+    fetch("data/conditions.json").then(r => r.json()),
+    fetch(`data/${SET}/jev.json`).then(r => { if (!r.ok) throw new Error("jev"); return r.json(); }),
+  ]);
+  words = w.words; conditions = c.conditions; scores = j.scores;
+  return j;
+}
+
+// ─── 音 ───
+let actx = null, soundOn = false;
+const buffers = new Map(), raw = new Map();
+// 声の順番待ち: 1つずつ、前の語が鳴り終わってから次を鳴らす。
+// voiceChain で「準備 (decode) → 予約」を直列にするので、準備の速さが語ごとに違っても順番は崩れない。
+let voiceGen = 0, voiceChain = Promise.resolve(), voiceEnd = 0, voicesPending = 0;
+const activeVoices = new Set();
+function prefetchAudio() {
+  for (const w of words) fetch(w.audio).then(r => r.arrayBuffer()).then(b => raw.set(w.id, b)).catch(() => {});
+}
+async function decode(id) {
+  if (buffers.has(id)) return buffers.get(id);
+  let b = raw.get(id);
+  if (!b) { const w = words.find(x => x.id === id); b = await fetch(w.audio).then(r => r.arrayBuffer()); }
+  const buf = await actx.decodeAudioData(b.slice(0));
+  buffers.set(id, buf);
+  return buf;
+}
+async function enableSound() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  await actx.resume();
+  soundOn = true;
+  $sound.textContent = "🔊 音あり"; $sound.setAttribute("aria-pressed", "true");
+}
+function disableSound() {
+  soundOn = false;
+  $sound.textContent = "🔈 音を出す"; $sound.setAttribute("aria-pressed", "false");
+}
+/** 鳴っている声と順番待ちの声をすべて取り消す (条件の切り替え・クリア・タップ)。 */
+function stopVoices() {
+  voiceGen++; voiceChain = Promise.resolve(); voiceEnd = 0; voicesPending = 0;
+  for (const src of activeVoices) { try { src.stop(); } catch (e) {} }
+  activeVoices.clear();
+  for (const t of tiles) t.speakUntil = 0;
+}
+/** 順番待ちが空で、最後の声も鳴り終わっているか。 */
+function voicesIdle(tailS = 0) {
+  return voicesPending === 0 && (!actx || actx.currentTime >= voiceEnd - VOICE_GAP + tailS);
+}
+/** tile の語を列の最後に並べる。鳴り始めに合わせてタイルを光らせる。 */
+function speak(tile, pan = 0, level = 1) {
+  if (!soundOn || !actx) return;
+  const gen = voiceGen;
+  voicesPending++;
+  voiceChain = voiceChain.then(async () => {
+    try {
+      if (gen !== voiceGen) return;
+      const buf = await decode(tile.w.id).catch(() => null);
+      if (!buf || gen !== voiceGen) return;
+      const t0 = Math.max(actx.currentTime + 0.03, voiceEnd);
+      voiceEnd = t0 + buf.duration + VOICE_GAP;
+      const src = actx.createBufferSource(); src.buffer = buf;
+      const norm = Math.min(MAX_BOOST, TARGET_PEAK / Math.max(0.05, tile.w.peak || TARGET_PEAK));
+      const g = actx.createGain(); g.gain.value = norm * level;       // peak × norm × level ≤ TARGET_PEAK
+      const p = actx.createStereoPanner ? actx.createStereoPanner() : null;
+      if (p) { p.pan.value = Math.max(-0.6, Math.min(0.6, pan)); src.connect(g).connect(p).connect(actx.destination); }
+      else src.connect(g).connect(actx.destination);
+      src.onended = () => activeVoices.delete(src);
+      activeVoices.add(src);
+      src.start(t0);
+      const startMs = performance.now() + (t0 - actx.currentTime) * 1000;
+      tile.speakFrom = startMs; tile.speakUntil = startMs + buf.duration * 1000;
+    } finally {
+      if (gen === voiceGen) voicesPending--;
+    }
+  });
+}
+$sound.addEventListener("click", () => soundOn ? disableSound() : enableSound());
+
+// ─── タイル (剛体) ───
+function hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const HUES = [8, 28, 46, 92, 150, 178, 200, 222, 262, 300, 330];
+let tiles = [];
+const PILE_SHARE = 0.30;         // 山が画面の高さに占める割合の目安
+const PACK = 0.64;              // 重ね積みの詰まり具合 (1024x768 で実測した係数)
+/** 画面の面積から、山の高さが PILE_SHARE に収まるタイルの大きさを決める。 */
+function sizeTiles() {
+  if (!W || !H || !words.length) return;
+  const fam = getComputedStyle(document.body).fontFamily;
+  const baseH = 27, baseF = 14;
+  ctx.font = `600 ${baseF}px ${fam}`;
+  const area = words.reduce((s, w) => s + (ctx.measureText(w.kana).width + baseH * 0.7) * baseH, 0);
+  const est = area * PACK / W;
+  // 字は 0.8 倍より小さくしない。収まらない分は画面の下に控えさせる (選ばれたら下から浮く)
+  const k = Math.max(0.8, Math.min(1.15, Math.sqrt(PILE_SHARE * H / est)));
+  TILE_H = baseH * k; FONT = baseF * k;
+  const visible = Math.round(words.length * Math.min(1, PILE_SHARE * H / (est * k * k)));
+  const order = tiles.slice().sort((a, b) => hash(a.w.id + "v") - hash(b.w.id + "v"));
+  order.forEach((t, n) => { t.reserve = n >= visible; });
+  ctx.font = `600 ${FONT}px ${fam}`;
+  for (const t of tiles) {
+    t.tw = ctx.measureText(t.w.kana).width + TILE_H * 0.7;
+    t.r = Math.max(TILE_H * 0.62, t.tw * 0.44);
+  }
+}
+function makeTiles() {
+  tiles = words.map((w, i) => {
+    const h = hash(w.id);
+    return {
+      w, i, tw: 0, r: 0,
+      x: 40 + (h % 1000) / 1000 * (W - 80), y: -60 - Math.random() * H * 1.4, reserve: false,
+      vx: 0, vy: 0, rot: ((h >> 10) % 100 - 50) / 50 * 0.32, vrot: 0,
+      hue: HUES[h % HUES.length], state: "pile", tx: 0, ty: 0, p: 0,
+      arrived: false, launchAt: 0, lift: 0, seed: (h % 628) / 100, pop: 0,
+    };
+  });
+  sizeTiles();
+  for (const t of tiles) if (t.reserve) t.y = H + 80;
+}
+
+// ─── 物理 ───
+const G = 1900;
+function step(dt, now) {
+  const floorY = H - 6;
+  for (const t of tiles) {
+    if (t.state === "float" && now >= t.launchAt) {
+      // ばね + 減衰で目標へ。迷っている語は目標が震える
+      const unsure = t.p < UNSURE;
+      const jx = unsure ? Math.sin(now * 0.055 + t.seed) * 3.2 : Math.sin(now * 0.002 + t.seed) * 2;
+      const jy = Math.sin(now * 0.0023 + t.seed * 2) * 4;
+      const k = 38, c = 9.5;
+      t.vx += (k * (t.tx + jx - t.x) - c * t.vx) * dt;
+      t.vy += (k * (t.ty + jy - t.y) - c * t.vy) * dt;
+      const wob = unsure ? Math.sin(now * 0.06 + t.seed) * 0.10 : 0;
+      t.vrot += (-(t.rot - wob) * 30 - t.vrot * 8) * dt;
+      if (!t.arrived && Math.hypot(t.tx - t.x, t.ty - t.y) < 26) { t.arrived = true; t.pop = 1; onArrive(t); }
+    } else if (t.reserve) {
+      // 控えの語: 画面の下へ沈んで待つ (山とは衝突しない)
+      if (t.y < H + 80) t.vy += G * dt; else { t.y = H + 80; t.vy = 0; t.vx = 0; }
+    } else {
+      t.vy += G * dt;
+      t.vx *= 0.999;
+      t.vrot *= 0.96;
+    }
+    t.x += t.vx * dt; t.y += t.vy * dt; t.rot += t.vrot * dt;
+    t.pop = Math.max(0, t.pop - dt * 3);
+  }
+  if (thinking) {
+    for (let n = 0; n < 2; n++) {
+      const t = tiles[(Math.random() * tiles.length) | 0];
+      if (!t.reserve && t.state !== "float") { t.vy -= 90 + Math.random() * 120; t.vrot += (Math.random() - 0.5) * 2; }
+    }
+  }
+  // 衝突は山の中だけ (浮いている語は山を突き抜ける)
+  const pile = tiles.filter(t => !t.reserve && (t.state !== "float" || now < t.launchAt));
+  const cell = 90, grid = new Map();
+  for (const t of pile) {
+    const key = ((t.x / cell) | 0) + "," + ((t.y / cell) | 0);
+    (grid.get(key) || grid.set(key, []).get(key)).push(t);
+  }
+  for (const a of pile) {
+    const gx = (a.x / cell) | 0, gy = (a.y / cell) | 0;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const list = grid.get((gx + dx) + "," + (gy + dy)); if (!list) continue;
+      for (const b of list) {
+        if (b.i <= a.i) continue;
+        const ex = b.x - a.x, ey = b.y - a.y, rr = (a.r + b.r) * 0.58;   // 重ねて積む (動画の山と同じ密度)
+        const d2 = ex * ex + ey * ey;
+        if (d2 >= rr * rr || d2 === 0) continue;
+        const d = Math.sqrt(d2), nx = ex / d, ny = ey / d, pen = (rr - d) * 0.5;
+        a.x -= nx * pen; a.y -= ny * pen; b.x += nx * pen; b.y += ny * pen;
+        const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (rv < 0) {
+          const j = -1.15 * rv * 0.5;
+          a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny;
+          a.vrot -= nx * 0.02 * rv / 60; b.vrot += nx * 0.02 * rv / 60;
+        }
+      }
+    }
+  }
+  for (const t of pile) {
+    if (t.y > floorY - TILE_H * 0.5) { t.y = floorY - TILE_H * 0.5; if (t.vy > 0) t.vy *= -0.12; t.vx *= 0.9; t.vrot *= 0.8; }
+    if (t.x < t.r * 0.7) { t.x = t.r * 0.7; t.vx = Math.abs(t.vx) * 0.3; }
+    if (t.x > W - t.r * 0.7) { t.x = W - t.r * 0.7; t.vx = -Math.abs(t.vx) * 0.3; }
+  }
+}
+
+// ─── 描画 ───
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const fam = getComputedStyle(document.body).fontFamily;
+  const L = css("--tile-l"), LF = css("--tile-l-float"), S = css("--tile-s"), ink = css("--tile-ink");
+  // 浮いている語を最前面に
+  const rank = t => (t.state === "float") + (performance.now() < (t.speakUntil || 0) ? 2 : 0);
+  const order = tiles.slice().sort((a, b) => rank(a) - rank(b));
+  const nowMs = performance.now();
+  for (const t of order) {
+    if (t.y > H + TILE_H * 2) continue;
+    const fl = t.state === "float";
+    const speaking = nowMs >= (t.speakFrom || 0) && nowMs < (t.speakUntil || 0);
+    const s = 1 + t.pop * 0.18 + (fl ? 0.06 : 0) + (speaking ? 0.16 : 0);
+    ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rot); ctx.scale(s, s);
+    if (fl) { ctx.shadowColor = "rgba(40,36,30,.18)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4; }
+    ctx.fillStyle = `hsl(${t.hue} ${S} ${fl ? LF : L})`;
+    roundRect(-t.tw / 2, -TILE_H / 2, t.tw, TILE_H, TILE_H / 2); ctx.fill();
+    ctx.shadowColor = "transparent";
+    if (speaking) { ctx.lineWidth = 2.2; ctx.strokeStyle = ink; ctx.stroke(); }
+    ctx.fillStyle = ink; ctx.font = `600 ${FONT}px ${fam}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(t.w.kana, 0, 1);
+    ctx.restore();
+  }
+}
+
+// ─── 検索 ───
+let current = null, typing = null, autoTimer = null;
+let liveOn = false, thinking = false, searchSeq = 0;
+const LOCAL = ["127.0.0.1", "localhost"].includes(location.hostname);   // 中継を探すのは手元だけ
+const liveConds = new Map();      // 自由入力の答え (このページを開いている間の控え)
+function setQueryText(s) { $q.value = s; }
+function dropAll() {
+  for (const t of tiles) if (t.state === "float") {
+    t.state = "pile"; t.arrived = false; t.vx += (Math.random() - 0.5) * 240; t.vy = -80 - Math.random() * 160;
+  }
+}
+function layoutTargets(sel) {
+  const top = document.querySelector(".status").getBoundingClientRect().bottom + 28;
+  const bottom = Math.max(top + 120, H * 0.56);
+  const maxW = Math.min(W - 32, 820);
+  const rows = []; let row = [], rowW = 0;
+  for (const t of sel) {
+    const need = t.tw * 1.06 + 18;
+    if (row.length && rowW + need > maxW) { rows.push(row); row = []; rowW = 0; }
+    row.push(t); rowW += need;
+  }
+  if (row.length) rows.push(row);
+  const gapY = Math.min(64, (bottom - top) / Math.max(1, rows.length));
+  rows.forEach((r, ri) => {
+    const total = r.reduce((s, t) => s + t.tw * 1.06 + 18, 0);
+    let x = W / 2 - total / 2;
+    for (const t of r) {
+      const w = t.tw * 1.06 + 18;
+      t.tx = x + w / 2 + (hash(t.w.id + "x") % 21 - 10);
+      t.ty = top + ri * gapY + gapY / 2 + (hash(t.w.id + "y") % 23 - 11);
+      x += w;
+    }
+  });
+}
+let voicesExpected = 0, voicesArrived = 0;
+function onArrive(t) {
+  if (t.voiceRank >= MAX_VOICES) return;
+  voicesArrived++;
+  speak(t, (t.x / W) * 2 - 1, 0.75 + 0.25 * t.p);
+}
+function select(cond) {
+  current = cond;
+  stopVoices();
+  for (const b of $chips.querySelectorAll(".chip[data-id]")) b.setAttribute("aria-pressed", String(b.dataset.id === cond.id));
+  dropAll();
+  const ranked = tiles.map(t => (t.p = cond.table[t.w.id] ?? 0, t))
+    .filter(t => t.p >= THRESHOLD).sort((a, b) => b.p - a.p).slice(0, MAX_FLOAT());
+  layoutTargets(ranked);
+  voicesExpected = Math.min(ranked.length, MAX_VOICES); voicesArrived = 0;
+  const now = performance.now();
+  ranked.forEach((t, k) => {
+    t.state = "float"; t.arrived = false; t.voiceRank = k; t.launchAt = now + 160 + k * 70;
+    t.vy = -420 - Math.random() * 200;
+  });
+  const unsure = ranked.filter(t => t.p < UNSURE).length;
+  $status.textContent = ranked.length
+    ? `${ranked.length} 語が浮かびました` + (unsure ? ` · ${unsure} 語は Jev が迷い中` : "")
+    : "当てはまる音が見つかりませんでした";
+}
+function typeAndSelect(cond) {
+  clearTimeout(typing);
+  $status.textContent = "";
+  const s = cond.query; let i = 0;
+  const tick = () => {
+    setQueryText(s.slice(0, i));
+    if (i < s.length) { i++; typing = setTimeout(tick, TYPE_MS + Math.random() * 40); }
+    else typing = setTimeout(() => select(cond), 260);
+  };
+  tick();
+}
+function clearAll() {
+  clearTimeout(typing); stopAuto(); stopVoices(); current = null; searchSeq++; thinking = false;
+  dropAll(); setQueryText(""); $status.textContent = "";
+  for (const b of $chips.querySelectorAll(".chip")) b.setAttribute("aria-pressed", "false");
+}
+function startAuto() {
+  stopAuto();
+  const btn = $chips.querySelector(".chip.auto"); btn.setAttribute("aria-pressed", "true");
+  let k = current ? conditions.indexOf(current) + 1 : 0;
+  const next = () => {
+    typeAndSelect(conditions[k % conditions.length]); k++;
+    const began = performance.now();
+    const check = () => {
+      const allArrived = voicesArrived >= voicesExpected;
+      const ready = performance.now() - began >= AUTO_MIN_MS && allArrived && voicesIdle(AUTO_TAIL_S);
+      autoTimer = setTimeout(ready ? next : check, ready ? 0 : 200);
+    };
+    autoTimer = setTimeout(check, AUTO_MIN_MS);
+  };
+  next();
+}
+function stopAuto() {
+  clearTimeout(autoTimer); autoTimer = null;
+  const btn = $chips.querySelector(".chip.auto"); if (btn) btn.setAttribute("aria-pressed", "false");
+}
+document.getElementById("clear").addEventListener("click", clearAll);
+
+// ─── 自由入力 ───
+function normalizeQuery(q) { return q.normalize("NFKC").trim().replace(/\s+/g, " "); }
+function addLiveChip(cond) {
+  const old = $chips.querySelector(`.chip.live[data-id="${CSS.escape(cond.id)}"]`);
+  if (old) old.remove();
+  const b = document.createElement("button");
+  b.className = "chip live"; b.dataset.id = cond.id; b.textContent = cond.query; b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => { if (!soundOn) enableSound(); stopAuto(); typeAndSelect(cond); });
+  $chips.querySelector(".chip.auto").after(b);
+  const lives = $chips.querySelectorAll(".chip.live");
+  for (let i = 6; i < lives.length; i++) lives[i].remove();
+}
+async function submitQuery(raw) {
+  const q = normalizeQuery(raw);
+  if (!q) return;
+  if (!soundOn) enableSound();
+  stopAuto(); clearTimeout(typing);
+  const preset = conditions.find(c => c.query === q);
+  if (preset) return select(preset);
+  if (liveConds.has(q)) return select(liveConds.get(q));
+  if (!liveOn) {
+    $status.textContent = LOCAL
+      ? "自由入力は、手元の中継 (tools/relay.py) を起動したときだけ使えます"
+      : "自由入力は準備中です。下の条件から選んでください";
+    return;
+  }
+  const seq = ++searchSeq;
+  thinking = true; stopVoices(); dropAll();
+  $status.textContent = `Jev が ${words.length} 語を考え中…`;
+  try {
+    const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q, set: SET }) });
+    const j = await res.json();
+    if (seq !== searchSeq) return;            // もっと新しい入力が来ている
+    if (!res.ok) throw new Error(j.error || res.status);
+    const cond = { id: "live:" + j.q, query: j.q, table: j.scores, live: true };
+    liveConds.set(q, cond); liveConds.set(j.q, cond);
+    thinking = false;
+    addLiveChip(cond); select(cond);
+  } catch (e) {
+    if (seq !== searchSeq) return;
+    thinking = false;
+    $status.textContent = `うまく聞けませんでした (${e.message})`;
+  }
+}
+$q.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitQuery($q.value); $q.blur(); }
+});
+$q.addEventListener("focus", () => { stopAuto(); clearTimeout(typing); });
+
+function buildChips() {
+  const auto = document.createElement("button");
+  auto.className = "chip auto"; auto.textContent = "▶ おまかせ"; auto.setAttribute("aria-pressed", "false");
+  auto.addEventListener("click", () => { if (!soundOn) enableSound(); autoTimer ? stopAuto() : startAuto(); });
+  $chips.append(auto);
+  for (const c of conditions) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.id = c.id; b.textContent = c.query; b.setAttribute("aria-pressed", "false");
+    c.table = Object.fromEntries(words.map(w => [w.id, scores[w.id]?.[c.id] ?? 0]));
+    b.addEventListener("click", () => { if (!soundOn) enableSound(); stopAuto(); typeAndSelect(c); });
+    $chips.append(b);
+  }
+}
+
+// ─── タップで鳴らす ───
+cv.addEventListener("pointerdown", e => {
+  if (!soundOn) enableSound();
+  const x = e.clientX, y = e.clientY;
+  let best = null, bd = Infinity;
+  for (const t of tiles) {
+    const d = Math.hypot(t.x - x, t.y - y);
+    if (d < Math.max(TILE_H * 0.7, t.tw * 0.5) && d < bd) { best = t; bd = d; }
+  }
+  if (!best) return;
+  best.pop = 1;
+  stopVoices();
+  speak(best, (best.x / W) * 2 - 1, 1);
+  if (best.state !== "float") { best.vy = -520; best.vx += (Math.random() - 0.5) * 200; }
+  if (current) $status.textContent = `${best.w.kana} — 「${current.query}」の確率 ${Math.round((current.table[best.w.id] ?? 0) * 100)}%`;
+});
+
+// ─── 起動 ───
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  sizeTiles();
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  const sub = 3;
+  for (let i = 0; i < sub; i++) step(dt / sub, now);
+  draw();
+  requestAnimationFrame(frame);
+}
+window.addEventListener("resize", () => {
+  const oldW = W; resize();
+  // 起動時に幅 0 (非表示の枠など) だった場合は比率が取れないので撒き直す
+  for (const t of tiles) {
+    t.x = oldW > 0 ? t.x * (W / oldW) : 40 + (hash(t.w.id) % 1000) / 1000 * Math.max(0, W - 80);
+    if (!Number.isFinite(t.y)) { t.y = -60; t.vy = 0; }
+  }
+  if (current) select(current);
+});
+
+(async () => {
+  resize();
+  try {
+    const j = await loadData();
+    document.querySelector(".foot").textContent = SET === "onomatoi"
+      ? `Onomatoi が生んだ辞書にない ${words.length} 語 — Jev は意味を知らず、音の響きだけで判定 (${j.model || "Jev"}) · 声は Onomatoi · PuppeTwin`
+      : `Onomatoi × Jev — ${words.length} 語 × ${conditions.length} 条件を ${j.model || "Jev"} で事前判定 · 声は Onomatoi · PuppeTwin`;
+  } catch (e) {
+    const n = document.getElementById("notice");
+    n.style.display = "grid";
+    n.innerHTML = `Jev の判定結果 (<code>data/${SET}/</code>) がまだありません。<br>` +
+      `ターミナルで <code>python3 tools/precompute_jev.py${SET === "ja" ? "" : " " + SET}</code> を実行してください。`;
+    return;
+  }
+  buildChips(); makeTiles(); prefetchAudio();
+  if (LOCAL) fetch("/api/health").then(r => r.ok ? r.json() : null).then(h => {
+    liveOn = !!(h && h.live && h.sets && h.sets[SET]);
+    if (liveOn) $q.placeholder = "どんな音をさがす?  (自由に書けます)";
+  }).catch(() => {});
+  const params = new URLSearchParams(location.search);
+  if (params.has("theme")) document.documentElement.dataset.theme = params.get("theme");
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
