@@ -1,0 +1,1606 @@
+{
+ "about": "よく使われる日本語 (オノマトペ) の一覧。正本 = OnomatoiCore/Data/common_japanese.tsv (生成物・手で編集しない)。tokens は Romaji.parseRomaji の書式。",
+ "count": 400,
+ "entries": [
+  {
+   "kana": "ざあざあ",
+   "tokens": "za a za a"
+  },
+  {
+   "kana": "しとしと",
+   "tokens": "shi to shi to"
+  },
+  {
+   "kana": "ぽつぽつ",
+   "tokens": "po tsu po tsu"
+  },
+  {
+   "kana": "ぱらぱら",
+   "tokens": "pa ra pa ra"
+  },
+  {
+   "kana": "ごろごろ",
+   "tokens": "go ro go ro"
+  },
+  {
+   "kana": "ぴかっ",
+   "tokens": "pi ka q"
+  },
+  {
+   "kana": "びしょびしょ",
+   "tokens": "bi sho bi sho"
+  },
+  {
+   "kana": "じめじめ",
+   "tokens": "ji me ji me"
+  },
+  {
+   "kana": "からっ",
+   "tokens": "ka ra q"
+  },
+  {
+   "kana": "ひゅうひゅう",
+   "tokens": "hyu u hyu u"
+  },
+  {
+   "kana": "そよそよ",
+   "tokens": "so yo so yo"
+  },
+  {
+   "kana": "ぽたぽた",
+   "tokens": "po ta po ta"
+  },
+  {
+   "kana": "ちゃぷちゃぷ",
+   "tokens": "cha pu cha pu"
+  },
+  {
+   "kana": "ざぶん",
+   "tokens": "za bu n"
+  },
+  {
+   "kana": "どぶん",
+   "tokens": "do bu n"
+  },
+  {
+   "kana": "ぴちゃぴちゃ",
+   "tokens": "pi cha pi cha"
+  },
+  {
+   "kana": "さらさら",
+   "tokens": "sa ra sa ra"
+  },
+  {
+   "kana": "ごうごう",
+   "tokens": "go o go o"
+  },
+  {
+   "kana": "しんしん",
+   "tokens": "shi n shi n"
+  },
+  {
+   "kana": "こんこん",
+   "tokens": "ko n ko n"
+  },
+  {
+   "kana": "ふわっ",
+   "tokens": "fu wa q"
+  },
+  {
+   "kana": "ふわふわ",
+   "tokens": "fu wa fu wa"
+  },
+  {
+   "kana": "もふもふ",
+   "tokens": "mo fu mo fu"
+  },
+  {
+   "kana": "ふかふか",
+   "tokens": "fu ka fu ka"
+  },
+  {
+   "kana": "ぷにぷに",
+   "tokens": "pu ni pu ni"
+  },
+  {
+   "kana": "ぷるぷる",
+   "tokens": "pu ru pu ru"
+  },
+  {
+   "kana": "ぬるぬる",
+   "tokens": "nu ru nu ru"
+  },
+  {
+   "kana": "ねばねば",
+   "tokens": "ne ba ne ba"
+  },
+  {
+   "kana": "べたべた",
+   "tokens": "be ta be ta"
+  },
+  {
+   "kana": "ざらざら",
+   "tokens": "za ra za ra"
+  },
+  {
+   "kana": "つるつる",
+   "tokens": "tsu ru tsu ru"
+  },
+  {
+   "kana": "すべすべ",
+   "tokens": "su be su be"
+  },
+  {
+   "kana": "かちかち",
+   "tokens": "ka chi ka chi"
+  },
+  {
+   "kana": "かちこち",
+   "tokens": "ka chi ko chi"
+  },
+  {
+   "kana": "ごつごつ",
+   "tokens": "go tsu go tsu"
+  },
+  {
+   "kana": "とげとげ",
+   "tokens": "to ge to ge"
+  },
+  {
+   "kana": "ちくちく",
+   "tokens": "chi ku chi ku"
+  },
+  {
+   "kana": "ちくっ",
+   "tokens": "chi ku q"
+  },
+  {
+   "kana": "もちもち",
+   "tokens": "mo chi mo chi"
+  },
+  {
+   "kana": "とろとろ",
+   "tokens": "to ro to ro"
+  },
+  {
+   "kana": "ぐにゃぐにゃ",
+   "tokens": "gu nya gu nya"
+  },
+  {
+   "kana": "ふにゃふにゃ",
+   "tokens": "fu nya fu nya"
+  },
+  {
+   "kana": "しっとり",
+   "tokens": "shi q to ri"
+  },
+  {
+   "kana": "ねっとり",
+   "tokens": "ne q to ri"
+  },
+  {
+   "kana": "ぱさぱさ",
+   "tokens": "pa sa pa sa"
+  },
+  {
+   "kana": "ぎざぎざ",
+   "tokens": "gi za gi za"
+  },
+  {
+   "kana": "でこぼこ",
+   "tokens": "de ko bo ko"
+  },
+  {
+   "kana": "ぺらぺら",
+   "tokens": "pe ra pe ra"
+  },
+  {
+   "kana": "すかすか",
+   "tokens": "su ka su ka"
+  },
+  {
+   "kana": "ぎっしり",
+   "tokens": "gi q shi ri"
+  },
+  {
+   "kana": "もぐもぐ",
+   "tokens": "mo gu mo gu"
+  },
+  {
+   "kana": "ぱくぱく",
+   "tokens": "pa ku pa ku"
+  },
+  {
+   "kana": "ぱくっ",
+   "tokens": "pa ku q"
+  },
+  {
+   "kana": "ごくごく",
+   "tokens": "go ku go ku"
+  },
+  {
+   "kana": "ずるずる",
+   "tokens": "zu ru zu ru"
+  },
+  {
+   "kana": "ぐつぐつ",
+   "tokens": "gu tsu gu tsu"
+  },
+  {
+   "kana": "じゅうじゅう",
+   "tokens": "ju u ju u"
+  },
+  {
+   "kana": "ことこと",
+   "tokens": "ko to ko to"
+  },
+  {
+   "kana": "さくさく",
+   "tokens": "sa ku sa ku"
+  },
+  {
+   "kana": "かりかり",
+   "tokens": "ka ri ka ri"
+  },
+  {
+   "kana": "ぱりぱり",
+   "tokens": "pa ri pa ri"
+  },
+  {
+   "kana": "しゃきしゃき",
+   "tokens": "sha ki sha ki"
+  },
+  {
+   "kana": "ほくほく",
+   "tokens": "ho ku ho ku"
+  },
+  {
+   "kana": "むしゃむしゃ",
+   "tokens": "mu sha mu sha"
+  },
+  {
+   "kana": "ぺろっ",
+   "tokens": "pe ro q"
+  },
+  {
+   "kana": "ちゅうちゅう",
+   "tokens": "chu u chu u"
+  },
+  {
+   "kana": "がりがり",
+   "tokens": "ga ri ga ri"
+  },
+  {
+   "kana": "ばりばり",
+   "tokens": "ba ri ba ri"
+  },
+  {
+   "kana": "ぽりぽり",
+   "tokens": "po ri po ri"
+  },
+  {
+   "kana": "しゅわしゅわ",
+   "tokens": "shu wa shu wa"
+  },
+  {
+   "kana": "ころころ",
+   "tokens": "ko ro ko ro"
+  },
+  {
+   "kana": "ころん",
+   "tokens": "ko ro n"
+  },
+  {
+   "kana": "ごろん",
+   "tokens": "go ro n"
+  },
+  {
+   "kana": "ぴょんぴょん",
+   "tokens": "pyo n pyo n"
+  },
+  {
+   "kana": "すたすた",
+   "tokens": "su ta su ta"
+  },
+  {
+   "kana": "とことこ",
+   "tokens": "to ko to ko"
+  },
+  {
+   "kana": "よちよち",
+   "tokens": "yo chi yo chi"
+  },
+  {
+   "kana": "のそのそ",
+   "tokens": "no so no so"
+  },
+  {
+   "kana": "のろのろ",
+   "tokens": "no ro no ro"
+  },
+  {
+   "kana": "しゅっ",
+   "tokens": "shu q"
+  },
+  {
+   "kana": "さっ",
+   "tokens": "sa q"
+  },
+  {
+   "kana": "すいすい",
+   "tokens": "su i su i"
+  },
+  {
+   "kana": "ぐるぐる",
+   "tokens": "gu ru gu ru"
+  },
+  {
+   "kana": "くるくる",
+   "tokens": "ku ru ku ru"
+  },
+  {
+   "kana": "ふらふら",
+   "tokens": "fu ra fu ra"
+  },
+  {
+   "kana": "ゆらゆら",
+   "tokens": "yu ra yu ra"
+  },
+  {
+   "kana": "ぶらぶら",
+   "tokens": "bu ra bu ra"
+  },
+  {
+   "kana": "ばたばた",
+   "tokens": "ba ta ba ta"
+  },
+  {
+   "kana": "どたばた",
+   "tokens": "do ta ba ta"
+  },
+  {
+   "kana": "どすん",
+   "tokens": "do su n"
+  },
+  {
+   "kana": "ずしん",
+   "tokens": "zu shi n"
+  },
+  {
+   "kana": "どしん",
+   "tokens": "do shi n"
+  },
+  {
+   "kana": "ぴたっ",
+   "tokens": "pi ta q"
+  },
+  {
+   "kana": "ぽん",
+   "tokens": "po n"
+  },
+  {
+   "kana": "ぽおん",
+   "tokens": "po o n"
+  },
+  {
+   "kana": "ばたん",
+   "tokens": "ba ta n"
+  },
+  {
+   "kana": "どかん",
+   "tokens": "do ka n"
+  },
+  {
+   "kana": "どかあん",
+   "tokens": "do ka a n"
+  },
+  {
+   "kana": "がたがた",
+   "tokens": "ga ta ga ta"
+  },
+  {
+   "kana": "がたん",
+   "tokens": "ga ta n"
+  },
+  {
+   "kana": "ぐらぐら",
+   "tokens": "gu ra gu ra"
+  },
+  {
+   "kana": "そろそろ",
+   "tokens": "so ro so ro"
+  },
+  {
+   "kana": "そわそわ",
+   "tokens": "so wa so wa"
+  },
+  {
+   "kana": "うろうろ",
+   "tokens": "u ro u ro"
+  },
+  {
+   "kana": "ぐいっ",
+   "tokens": "gu i q"
+  },
+  {
+   "kana": "ぎゅっ",
+   "tokens": "gyu q"
+  },
+  {
+   "kana": "ぎゅうぎゅう",
+   "tokens": "gyu u gyu u"
+  },
+  {
+   "kana": "ぱたぱた",
+   "tokens": "pa ta pa ta"
+  },
+  {
+   "kana": "ひらひら",
+   "tokens": "hi ra hi ra"
+  },
+  {
+   "kana": "ふわり",
+   "tokens": "fu wa ri"
+  },
+  {
+   "kana": "ちょこちょこ",
+   "tokens": "cho ko cho ko"
+  },
+  {
+   "kana": "にょろにょろ",
+   "tokens": "nyo ro nyo ro"
+  },
+  {
+   "kana": "うねうね",
+   "tokens": "u ne u ne"
+  },
+  {
+   "kana": "くねくね",
+   "tokens": "ku ne ku ne"
+  },
+  {
+   "kana": "きらきら",
+   "tokens": "ki ra ki ra"
+  },
+  {
+   "kana": "ぴかぴか",
+   "tokens": "pi ka pi ka"
+  },
+  {
+   "kana": "ぎらぎら",
+   "tokens": "gi ra gi ra"
+  },
+  {
+   "kana": "ちかちか",
+   "tokens": "chi ka chi ka"
+  },
+  {
+   "kana": "ぼんやり",
+   "tokens": "bo n ya ri"
+  },
+  {
+   "kana": "くっきり",
+   "tokens": "ku q ki ri"
+  },
+  {
+   "kana": "てかてか",
+   "tokens": "te ka te ka"
+  },
+  {
+   "kana": "つやつや",
+   "tokens": "tsu ya tsu ya"
+  },
+  {
+   "kana": "ぽっちゃり",
+   "tokens": "po q cha ri"
+  },
+  {
+   "kana": "ほっそり",
+   "tokens": "ho q so ri"
+  },
+  {
+   "kana": "がっしり",
+   "tokens": "ga q shi ri"
+  },
+  {
+   "kana": "ずっしり",
+   "tokens": "zu q shi ri"
+  },
+  {
+   "kana": "ふっくら",
+   "tokens": "fu q ku ra"
+  },
+  {
+   "kana": "ぺちゃんこ",
+   "tokens": "pe cha n ko"
+  },
+  {
+   "kana": "にこにこ",
+   "tokens": "ni ko ni ko"
+  },
+  {
+   "kana": "にやにや",
+   "tokens": "ni ya ni ya"
+  },
+  {
+   "kana": "わくわく",
+   "tokens": "wa ku wa ku"
+  },
+  {
+   "kana": "どきどき",
+   "tokens": "do ki do ki"
+  },
+  {
+   "kana": "はらはら",
+   "tokens": "ha ra ha ra"
+  },
+  {
+   "kana": "いらいら",
+   "tokens": "i ra i ra"
+  },
+  {
+   "kana": "むかむか",
+   "tokens": "mu ka mu ka"
+  },
+  {
+   "kana": "しょんぼり",
+   "tokens": "sho n bo ri"
+  },
+  {
+   "kana": "めそめそ",
+   "tokens": "me so me so"
+  },
+  {
+   "kana": "うとうと",
+   "tokens": "u to u to"
+  },
+  {
+   "kana": "すやすや",
+   "tokens": "su ya su ya"
+  },
+  {
+   "kana": "ぐうぐう",
+   "tokens": "gu u gu u"
+  },
+  {
+   "kana": "ぽかぽか",
+   "tokens": "po ka po ka"
+  },
+  {
+   "kana": "ぬくぬく",
+   "tokens": "nu ku nu ku"
+  },
+  {
+   "kana": "ひやっ",
+   "tokens": "hi ya q"
+  },
+  {
+   "kana": "ぞくぞく",
+   "tokens": "zo ku zo ku"
+  },
+  {
+   "kana": "がっかり",
+   "tokens": "ga q ka ri"
+  },
+  {
+   "kana": "のんびり",
+   "tokens": "no n bi ri"
+  },
+  {
+   "kana": "ほっ",
+   "tokens": "ho q"
+  },
+  {
+   "kana": "ぷんぷん",
+   "tokens": "pu n pu n"
+  },
+  {
+   "kana": "げらげら",
+   "tokens": "ge ra ge ra"
+  },
+  {
+   "kana": "くすくす",
+   "tokens": "ku su ku su"
+  },
+  {
+   "kana": "しくしく",
+   "tokens": "shi ku shi ku"
+  },
+  {
+   "kana": "ぺこぺこ",
+   "tokens": "pe ko pe ko"
+  },
+  {
+   "kana": "へとへと",
+   "tokens": "he to he to"
+  },
+  {
+   "kana": "くたくた",
+   "tokens": "ku ta ku ta"
+  },
+  {
+   "kana": "ずきずき",
+   "tokens": "zu ki zu ki"
+  },
+  {
+   "kana": "きゅん",
+   "tokens": "kyu n"
+  },
+  {
+   "kana": "ぱっ",
+   "tokens": "pa q"
+  },
+  {
+   "kana": "にゃあ",
+   "tokens": "nya a"
+  },
+  {
+   "kana": "わんわん",
+   "tokens": "wa n wa n"
+  },
+  {
+   "kana": "ぴよぴよ",
+   "tokens": "pi yo pi yo"
+  },
+  {
+   "kana": "ちゅんちゅん",
+   "tokens": "chu n chu n"
+  },
+  {
+   "kana": "かあかあ",
+   "tokens": "ka a ka a"
+  },
+  {
+   "kana": "もう",
+   "tokens": "mo o"
+  },
+  {
+   "kana": "ぶうぶう",
+   "tokens": "bu u bu u"
+  },
+  {
+   "kana": "けろけろ",
+   "tokens": "ke ro ke ro"
+  },
+  {
+   "kana": "みんみん",
+   "tokens": "mi n mi n"
+  },
+  {
+   "kana": "ぶんぶん",
+   "tokens": "bu n bu n"
+  },
+  {
+   "kana": "がおお",
+   "tokens": "ga o o"
+  },
+  {
+   "kana": "ほうほう",
+   "tokens": "ho o ho o"
+  },
+  {
+   "kana": "ちりん",
+   "tokens": "chi ri n"
+  },
+  {
+   "kana": "りんりん",
+   "tokens": "ri n ri n"
+  },
+  {
+   "kana": "かちっ",
+   "tokens": "ka chi q"
+  },
+  {
+   "kana": "かちゃかちゃ",
+   "tokens": "ka cha ka cha"
+  },
+  {
+   "kana": "がちゃん",
+   "tokens": "ga cha n"
+  },
+  {
+   "kana": "ぱりん",
+   "tokens": "pa ri n"
+  },
+  {
+   "kana": "がしゃん",
+   "tokens": "ga sha n"
+  },
+  {
+   "kana": "ぴんぽん",
+   "tokens": "pi n po n"
+  },
+  {
+   "kana": "とんとん",
+   "tokens": "to n to n"
+  },
+  {
+   "kana": "こつこつ",
+   "tokens": "ko tsu ko tsu"
+  },
+  {
+   "kana": "ちくたく",
+   "tokens": "chi ku ta ku"
+  },
+  {
+   "kana": "ぶうん",
+   "tokens": "bu u n"
+  },
+  {
+   "kana": "ごとごと",
+   "tokens": "go to go to"
+  },
+  {
+   "kana": "かたかた",
+   "tokens": "ka ta ka ta"
+  },
+  {
+   "kana": "ぎいぎい",
+   "tokens": "gi i gi i"
+  },
+  {
+   "kana": "きいきい",
+   "tokens": "ki i ki i"
+  },
+  {
+   "kana": "ちゃりん",
+   "tokens": "cha ri n"
+  },
+  {
+   "kana": "ぽこぽこ",
+   "tokens": "po ko po ko"
+  },
+  {
+   "kana": "ぶくぶく",
+   "tokens": "bu ku bu ku"
+  },
+  {
+   "kana": "ぱちん",
+   "tokens": "pa chi n"
+  },
+  {
+   "kana": "ぱちぱち",
+   "tokens": "pa chi pa chi"
+  },
+  {
+   "kana": "ぽきっ",
+   "tokens": "po ki q"
+  },
+  {
+   "kana": "ばきっ",
+   "tokens": "ba ki q"
+  },
+  {
+   "kana": "びりびり",
+   "tokens": "bi ri bi ri"
+  },
+  {
+   "kana": "がんがん",
+   "tokens": "ga n ga n"
+  },
+  {
+   "kana": "からから",
+   "tokens": "ka ra ka ra"
+  },
+  {
+   "kana": "からん",
+   "tokens": "ka ra n"
+  },
+  {
+   "kana": "あっさり",
+   "tokens": "a q sa ri"
+  },
+  {
+   "kana": "いそいそ",
+   "tokens": "i so i so"
+  },
+  {
+   "kana": "うきうき",
+   "tokens": "u ki u ki"
+  },
+  {
+   "kana": "うっとり",
+   "tokens": "u q to ri"
+  },
+  {
+   "kana": "おろおろ",
+   "tokens": "o ro o ro"
+  },
+  {
+   "kana": "かさかさ",
+   "tokens": "ka sa ka sa"
+  },
+  {
+   "kana": "がさがさ",
+   "tokens": "ga sa ga sa"
+  },
+  {
+   "kana": "きびきび",
+   "tokens": "ki bi ki bi"
+  },
+  {
+   "kana": "ぐずぐず",
+   "tokens": "gu zu gu zu"
+  },
+  {
+   "kana": "くよくよ",
+   "tokens": "ku yo ku yo"
+  },
+  {
+   "kana": "こそこそ",
+   "tokens": "ko so ko so"
+  },
+  {
+   "kana": "ごちゃごちゃ",
+   "tokens": "go cha go cha"
+  },
+  {
+   "kana": "さっぱり",
+   "tokens": "sa q pa ri"
+  },
+  {
+   "kana": "ざわざわ",
+   "tokens": "za wa za wa"
+  },
+  {
+   "kana": "しぶしぶ",
+   "tokens": "shi bu shi bu"
+  },
+  {
+   "kana": "じろじろ",
+   "tokens": "ji ro ji ro"
+  },
+  {
+   "kana": "すっきり",
+   "tokens": "su q ki ri"
+  },
+  {
+   "kana": "せかせか",
+   "tokens": "se ka se ka"
+  },
+  {
+   "kana": "そっと",
+   "tokens": "so q to"
+  },
+  {
+   "kana": "だらだら",
+   "tokens": "da ra da ra"
+  },
+  {
+   "kana": "ちらちら",
+   "tokens": "chi ra chi ra"
+  },
+  {
+   "kana": "ちょろちょろ",
+   "tokens": "cho ro cho ro"
+  },
+  {
+   "kana": "つんつん",
+   "tokens": "tsu n tsu n"
+  },
+  {
+   "kana": "でれでれ",
+   "tokens": "de re de re"
+  },
+  {
+   "kana": "どんどん",
+   "tokens": "do n do n"
+  },
+  {
+   "kana": "とぼとぼ",
+   "tokens": "to bo to bo"
+  },
+  {
+   "kana": "にっこり",
+   "tokens": "ni q ko ri"
+  },
+  {
+   "kana": "ぬめぬめ",
+   "tokens": "nu me nu me"
+  },
+  {
+   "kana": "のしのし",
+   "tokens": "no shi no shi"
+  },
+  {
+   "kana": "はきはき",
+   "tokens": "ha ki ha ki"
+  },
+  {
+   "kana": "ばらばら",
+   "tokens": "ba ra ba ra"
+  },
+  {
+   "kana": "ぱんぱん",
+   "tokens": "pa n pa n"
+  },
+  {
+   "kana": "ひそひそ",
+   "tokens": "hi so hi so"
+  },
+  {
+   "kana": "びくびく",
+   "tokens": "bi ku bi ku"
+  },
+  {
+   "kana": "ぴりぴり",
+   "tokens": "pi ri pi ri"
+  },
+  {
+   "kana": "ふさふさ",
+   "tokens": "fu sa fu sa"
+  },
+  {
+   "kana": "ぶつぶつ",
+   "tokens": "bu tsu bu tsu"
+  },
+  {
+   "kana": "ぷかぷか",
+   "tokens": "pu ka pu ka"
+  },
+  {
+   "kana": "へなへな",
+   "tokens": "he na he na"
+  },
+  {
+   "kana": "べとべと",
+   "tokens": "be to be to"
+  },
+  {
+   "kana": "ぺたぺた",
+   "tokens": "pe ta pe ta"
+  },
+  {
+   "kana": "ほかほか",
+   "tokens": "ho ka ho ka"
+  },
+  {
+   "kana": "ぼろぼろ",
+   "tokens": "bo ro bo ro"
+  },
+  {
+   "kana": "ぽろぽろ",
+   "tokens": "po ro po ro"
+  },
+  {
+   "kana": "まじまじ",
+   "tokens": "ma ji ma ji"
+  },
+  {
+   "kana": "むずむず",
+   "tokens": "mu zu mu zu"
+  },
+  {
+   "kana": "めらめら",
+   "tokens": "me ra me ra"
+  },
+  {
+   "kana": "もじもじ",
+   "tokens": "mo ji mo ji"
+  },
+  {
+   "kana": "ゆったり",
+   "tokens": "yu q ta ri"
+  },
+  {
+   "kana": "よろよろ",
+   "tokens": "yo ro yo ro"
+  },
+  {
+   "kana": "わいわい",
+   "tokens": "wa i wa i"
+  },
+  {
+   "kana": "がやがや",
+   "tokens": "ga ya ga ya"
+  },
+  {
+   "kana": "きらり",
+   "tokens": "ki ra ri"
+  },
+  {
+   "kana": "ぎらり",
+   "tokens": "gi ra ri"
+  },
+  {
+   "kana": "ころり",
+   "tokens": "ko ro ri"
+  },
+  {
+   "kana": "ごろり",
+   "tokens": "go ro ri"
+  },
+  {
+   "kana": "ぽろり",
+   "tokens": "po ro ri"
+  },
+  {
+   "kana": "ほろり",
+   "tokens": "ho ro ri"
+  },
+  {
+   "kana": "ぱらり",
+   "tokens": "pa ra ri"
+  },
+  {
+   "kana": "ふらり",
+   "tokens": "fu ra ri"
+  },
+  {
+   "kana": "ぴたり",
+   "tokens": "pi ta ri"
+  },
+  {
+   "kana": "ずばり",
+   "tokens": "zu ba ri"
+  },
+  {
+   "kana": "がらがら",
+   "tokens": "ga ra ga ra"
+  },
+  {
+   "kana": "からり",
+   "tokens": "ka ra ri"
+  },
+  {
+   "kana": "ちゃぽん",
+   "tokens": "cha po n"
+  },
+  {
+   "kana": "ぽちゃん",
+   "tokens": "po cha n"
+  },
+  {
+   "kana": "ぽとん",
+   "tokens": "po to n"
+  },
+  {
+   "kana": "ぽたん",
+   "tokens": "po ta n"
+  },
+  {
+   "kana": "ぷつん",
+   "tokens": "pu tsu n"
+  },
+  {
+   "kana": "ぶつん",
+   "tokens": "bu tsu n"
+  },
+  {
+   "kana": "がくん",
+   "tokens": "ga ku n"
+  },
+  {
+   "kana": "かくん",
+   "tokens": "ka ku n"
+  },
+  {
+   "kana": "ぐらり",
+   "tokens": "gu ra ri"
+  },
+  {
+   "kana": "どきん",
+   "tokens": "do ki n"
+  },
+  {
+   "kana": "ずきん",
+   "tokens": "zu ki n"
+  },
+  {
+   "kana": "ちくり",
+   "tokens": "chi ku ri"
+  },
+  {
+   "kana": "ぴくり",
+   "tokens": "pi ku ri"
+  },
+  {
+   "kana": "びくっ",
+   "tokens": "bi ku q"
+  },
+  {
+   "kana": "ぎくっ",
+   "tokens": "gi ku q"
+  },
+  {
+   "kana": "どきっ",
+   "tokens": "do ki q"
+  },
+  {
+   "kana": "はっ",
+   "tokens": "ha q"
+  },
+  {
+   "kana": "ぷっ",
+   "tokens": "pu q"
+  },
+  {
+   "kana": "ぶっ",
+   "tokens": "bu q"
+  },
+  {
+   "kana": "ぐっ",
+   "tokens": "gu q"
+  },
+  {
+   "kana": "ずっ",
+   "tokens": "zu q"
+  },
+  {
+   "kana": "きゅっ",
+   "tokens": "kyu q"
+  },
+  {
+   "kana": "ぴっ",
+   "tokens": "pi q"
+  },
+  {
+   "kana": "ちゅっ",
+   "tokens": "chu q"
+  },
+  {
+   "kana": "ぽっ",
+   "tokens": "po q"
+  },
+  {
+   "kana": "ほっこり",
+   "tokens": "ho q ko ri"
+  },
+  {
+   "kana": "ぽっかり",
+   "tokens": "po q ka ri"
+  },
+  {
+   "kana": "ぽっきり",
+   "tokens": "po q ki ri"
+  },
+  {
+   "kana": "ばっさり",
+   "tokens": "ba q sa ri"
+  },
+  {
+   "kana": "ばったり",
+   "tokens": "ba q ta ri"
+  },
+  {
+   "kana": "ぐったり",
+   "tokens": "gu q ta ri"
+  },
+  {
+   "kana": "ぴったり",
+   "tokens": "pi q ta ri"
+  },
+  {
+   "kana": "ひっそり",
+   "tokens": "hi q so ri"
+  },
+  {
+   "kana": "こっそり",
+   "tokens": "ko q so ri"
+  },
+  {
+   "kana": "しっかり",
+   "tokens": "shi q ka ri"
+  },
+  {
+   "kana": "すっかり",
+   "tokens": "su q ka ri"
+  },
+  {
+   "kana": "うっかり",
+   "tokens": "u q ka ri"
+  },
+  {
+   "kana": "ちゃっかり",
+   "tokens": "cha q ka ri"
+  },
+  {
+   "kana": "めっきり",
+   "tokens": "me q ki ri"
+  },
+  {
+   "kana": "はっきり",
+   "tokens": "ha q ki ri"
+  },
+  {
+   "kana": "ぎっくり",
+   "tokens": "gi q ku ri"
+  },
+  {
+   "kana": "びっくり",
+   "tokens": "bi q ku ri"
+  },
+  {
+   "kana": "ゆっくり",
+   "tokens": "yu q ku ri"
+  },
+  {
+   "kana": "じっくり",
+   "tokens": "ji q ku ri"
+  },
+  {
+   "kana": "そっくり",
+   "tokens": "so q ku ri"
+  },
+  {
+   "kana": "ざっくり",
+   "tokens": "za q ku ri"
+  },
+  {
+   "kana": "がっくり",
+   "tokens": "ga q ku ri"
+  },
+  {
+   "kana": "こってり",
+   "tokens": "ko q te ri"
+  },
+  {
+   "kana": "ぽってり",
+   "tokens": "po q te ri"
+  },
+  {
+   "kana": "むっちり",
+   "tokens": "mu q chi ri"
+  },
+  {
+   "kana": "ぱっちり",
+   "tokens": "pa q chi ri"
+  },
+  {
+   "kana": "がっちり",
+   "tokens": "ga q chi ri"
+  },
+  {
+   "kana": "きっちり",
+   "tokens": "ki q chi ri"
+  },
+  {
+   "kana": "ばっちり",
+   "tokens": "ba q chi ri"
+  },
+  {
+   "kana": "ほんのり",
+   "tokens": "ho n no ri"
+  },
+  {
+   "kana": "こんがり",
+   "tokens": "ko n ga ri"
+  },
+  {
+   "kana": "ふんわり",
+   "tokens": "fu n wa ri"
+  },
+  {
+   "kana": "しんなり",
+   "tokens": "shi n na ri"
+  },
+  {
+   "kana": "まったり",
+   "tokens": "ma q ta ri"
+  },
+  {
+   "kana": "もっさり",
+   "tokens": "mo q sa ri"
+  },
+  {
+   "kana": "あたふた",
+   "tokens": "a ta fu ta"
+  },
+  {
+   "kana": "うようよ",
+   "tokens": "u yo u yo"
+  },
+  {
+   "kana": "ちまちま",
+   "tokens": "chi ma chi ma"
+  },
+  {
+   "kana": "ちびちび",
+   "tokens": "chi bi chi bi"
+  },
+  {
+   "kana": "ぐびぐび",
+   "tokens": "gu bi gu bi"
+  },
+  {
+   "kana": "ごくり",
+   "tokens": "go ku ri"
+  },
+  {
+   "kana": "ぱくり",
+   "tokens": "pa ku ri"
+  },
+  {
+   "kana": "がぶり",
+   "tokens": "ga bu ri"
+  },
+  {
+   "kana": "がぶがぶ",
+   "tokens": "ga bu ga bu"
+  },
+  {
+   "kana": "ちゅるちゅる",
+   "tokens": "chu ru chu ru"
+  },
+  {
+   "kana": "つるり",
+   "tokens": "tsu ru ri"
+  },
+  {
+   "kana": "ぬるり",
+   "tokens": "nu ru ri"
+  },
+  {
+   "kana": "にゅるにゅる",
+   "tokens": "nyu ru nyu ru"
+  },
+  {
+   "kana": "ぬるっ",
+   "tokens": "nu ru q"
+  },
+  {
+   "kana": "ぷりぷり",
+   "tokens": "pu ri pu ri"
+  },
+  {
+   "kana": "ぱりっ",
+   "tokens": "pa ri q"
+  },
+  {
+   "kana": "さくっ",
+   "tokens": "sa ku q"
+  },
+  {
+   "kana": "かりっ",
+   "tokens": "ka ri q"
+  },
+  {
+   "kana": "もっちり",
+   "tokens": "mo q chi ri"
+  },
+  {
+   "kana": "とろり",
+   "tokens": "to ro ri"
+  },
+  {
+   "kana": "とろっ",
+   "tokens": "to ro q"
+  },
+  {
+   "kana": "じゅわっ",
+   "tokens": "ju wa q"
+  },
+  {
+   "kana": "しゅわっ",
+   "tokens": "shu wa q"
+  },
+  {
+   "kana": "ぐちゃぐちゃ",
+   "tokens": "gu cha gu cha"
+  },
+  {
+   "kana": "びちゃびちゃ",
+   "tokens": "bi cha bi cha"
+  },
+  {
+   "kana": "ぽつん",
+   "tokens": "po tsu n"
+  },
+  {
+   "kana": "しいん",
+   "tokens": "shi i n"
+  },
+  {
+   "kana": "があん",
+   "tokens": "ga a n"
+  },
+  {
+   "kana": "ばあん",
+   "tokens": "ba a n"
+  },
+  {
+   "kana": "どおん",
+   "tokens": "do o n"
+  },
+  {
+   "kana": "ぼおん",
+   "tokens": "bo o n"
+  },
+  {
+   "kana": "ちいん",
+   "tokens": "chi i n"
+  },
+  {
+   "kana": "きいん",
+   "tokens": "ki i n"
+  },
+  {
+   "kana": "ごおん",
+   "tokens": "go o n"
+  },
+  {
+   "kana": "ぴゅう",
+   "tokens": "pyu u"
+  },
+  {
+   "kana": "ひゅう",
+   "tokens": "hyu u"
+  },
+  {
+   "kana": "ぐう",
+   "tokens": "gu u"
+  },
+  {
+   "kana": "ふう",
+   "tokens": "fu u"
+  },
+  {
+   "kana": "はあ",
+   "tokens": "ha a"
+  },
+  {
+   "kana": "へえ",
+   "tokens": "he e"
+  },
+  {
+   "kana": "わあ",
+   "tokens": "wa a"
+  },
+  {
+   "kana": "きゃあ",
+   "tokens": "kya a"
+  },
+  {
+   "kana": "ぎゃあ",
+   "tokens": "gya a"
+  },
+  {
+   "kana": "にゃん",
+   "tokens": "nya n"
+  },
+  {
+   "kana": "わん",
+   "tokens": "wa n"
+  },
+  {
+   "kana": "めえめえ",
+   "tokens": "me e me e"
+  },
+  {
+   "kana": "ぴいぴい",
+   "tokens": "pi i pi i"
+  },
+  {
+   "kana": "かっこう",
+   "tokens": "ka q ko o"
+  },
+  {
+   "kana": "ぽかん",
+   "tokens": "po ka n"
+  },
+  {
+   "kana": "ぱかっ",
+   "tokens": "pa ka q"
+  },
+  {
+   "kana": "ぱかぱか",
+   "tokens": "pa ka pa ka"
+  },
+  {
+   "kana": "どんどこ",
+   "tokens": "do n do ko"
+  },
+  {
+   "kana": "てくてく",
+   "tokens": "te ku te ku"
+  },
+  {
+   "kana": "ずんずん",
+   "tokens": "zu n zu n"
+  },
+  {
+   "kana": "そろり",
+   "tokens": "so ro ri"
+  },
+  {
+   "kana": "するする",
+   "tokens": "su ru su ru"
+  },
+  {
+   "kana": "ずるっ",
+   "tokens": "zu ru q"
+  },
+  {
+   "kana": "つるっ",
+   "tokens": "tsu ru q"
+  },
+  {
+   "kana": "くるっ",
+   "tokens": "ku ru q"
+  },
+  {
+   "kana": "ぐるっ",
+   "tokens": "gu ru q"
+  },
+  {
+   "kana": "ぴょこん",
+   "tokens": "pyo ko n"
+  },
+  {
+   "kana": "ぴょこぴょこ",
+   "tokens": "pyo ko pyo ko"
+  },
+  {
+   "kana": "ひょこひょこ",
+   "tokens": "hyo ko hyo ko"
+  },
+  {
+   "kana": "ちょろっ",
+   "tokens": "cho ro q"
+  },
+  {
+   "kana": "にょきにょき",
+   "tokens": "nyo ki nyo ki"
+  },
+  {
+   "kana": "にょきっ",
+   "tokens": "nyo ki q"
+  },
+  {
+   "kana": "むくむく",
+   "tokens": "mu ku mu ku"
+  },
+  {
+   "kana": "もくもく",
+   "tokens": "mo ku mo ku"
+  },
+  {
+   "kana": "ぐんぐん",
+   "tokens": "gu n gu n"
+  },
+  {
+   "kana": "すくすく",
+   "tokens": "su ku su ku"
+  },
+  {
+   "kana": "めきめき",
+   "tokens": "me ki me ki"
+  },
+  {
+   "kana": "ぴちぴち",
+   "tokens": "pi chi pi chi"
+  },
+  {
+   "kana": "ぷくぷく",
+   "tokens": "pu ku pu ku"
+  },
+  {
+   "kana": "もやもや",
+   "tokens": "mo ya mo ya"
+  },
+  {
+   "kana": "ずどん",
+   "tokens": "zu do n"
+  },
+  {
+   "kana": "ごそっ",
+   "tokens": "go so q"
+  },
+  {
+   "kana": "ひいひい",
+   "tokens": "hi i hi i"
+  },
+  {
+   "kana": "ぱたっ",
+   "tokens": "pa ta q"
+  },
+  {
+   "kana": "ぼよぼよ",
+   "tokens": "bo yo bo yo"
+  },
+  {
+   "kana": "ふにゅう",
+   "tokens": "fu nyu u"
+  }
+ ]
+}

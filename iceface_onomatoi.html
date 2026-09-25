@@ -52,6 +52,9 @@
   }
   .row { display: flex; align-items: center; gap: 8px; }
   .result-word { font-size: 30px; font-weight: 700; min-height: 38px; word-break: break-all; }
+  .common-ja { display: none; align-self: center; font-size: 11px; color: var(--gray); border: 1px solid #ccc;
+    border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .common-ja.on { display: inline-block; }
   .result-meta { margin-left: auto; text-align: right; font-size: 11px; color: var(--gray); white-space: nowrap; }
   .axis-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   /* 2026-07-17: 開発用コントロール (軸スライダー/hand corr) は既定非表示 — ?dev=1 で表示。
@@ -144,6 +147,8 @@
   <div class="result-caption" id="result-caption" data-copy="resultCaption">指を離すと、線が声になります。</div>
   <div class="row">
     <div class="result-word" id="result-word" aria-live="polite">…</div>
+    <!-- 2026-09-25: 生まれた語が既存のオノマトペと偶然重なったときだけ出す印。Onomatoi の本分は辞書にない言葉 -->
+    <span class="common-ja" id="common-ja"></span>
     <!-- 2026-07-23 リリーススコープ: 👍👎 は「研究に参加する」オプトイン (下の FEEDBACK パネル)
          が ON のときだけ表示。display は JS (applyResearch) が制御。 -->
     <span class="vote" id="vote-ui" style="display:none;">
@@ -5051,8 +5056,35 @@ function readSliders() {
     open: Number(document.getElementById("ax-open").value),
   };
 }
+// ─── よく使われる日本語 (2026-09-25) ───
+// Onomatoi の本分は、辞書にない・意味の決まっていない言葉を形から生むこと。既存のオノマトペと偶然
+// 重なったときは隠さず「よく使われる日本語」と小さく添える。一覧の正本 = OnomatoiCore/Data/common_japanese.tsv
+// (data/common_japanese.json は生成物)。照合は音 (romajiOf) で行い、ネイティブ版 CommonJapanese と同じ判定にする。
+const commonJapanese = new Map();
+fetch("data/common_japanese.json").then(r => r.json()).then(doc => {
+  for (const e of doc.entries) {
+    const moras = [];
+    let pendingQ = false;
+    for (const tk of e.tokens.trim().toLowerCase().split(/\s+/)) {
+      if (tk === "q") { pendingQ = true; continue; }
+      if (tk === "n" || tk === "nn") { moras.push({ onset: null, nucleus: "a", gapMs: pendingQ ? 70 : 0, isN: true, isQ: false }); pendingQ = false; continue; }
+      const m = parseMora(tk, pendingQ);
+      if (!m) { moras.length = 0; break; }
+      moras.push(m); pendingQ = false;
+    }
+    if (pendingQ && moras.length) moras.push({ onset: null, nucleus: moras[moras.length - 1].nucleus, isQ: true });
+    if (moras.length) { const k = romajiOf({ moras }); if (!commonJapanese.has(k)) commonJapanese.set(k, e.kana); }
+  }
+}).catch(() => {});
+function showCommonJapanese(event) {
+  const el = document.getElementById("common-ja");
+  const kana = commonJapanese.get(romajiOf(event));
+  el.textContent = kana ? `よく使われる日本語 · ${kana}` : "";
+  el.classList.toggle("on", !!kana);
+}
 function showResult(event) {
   document.getElementById("result-word").textContent = romajiOf(event);
+  showCommonJapanese(event);
   const n = event.moras.filter(m => !m.isSilentRest).length;
   const kana = event.displayWordOverride ?? namingKanaOf(event.moras);
   document.getElementById("result-meta").textContent =
