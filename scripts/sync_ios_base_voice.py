@@ -11,18 +11,36 @@
 - wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音。mp3 の頭の余白とフレーム区切りを避ける)
 - mp3  = それ以外。48kHz・モノラル・96kbps (旧版は 22.05kHz・48kbps だった)
 - base に無いファイルは Web 側から消す。どの録音から作ったかは SOURCE.json (sha256) に残す
+- SOURCE.json には元 wav の長さ (frames) と、iOS のロード時と同じ判定で求めた頭の無音トリム位置
+  (trimStart) も書く。mp3 は立ち上がり直前に符号化の雑音が出て、Web でその場判定すると数ms早く切れるため
+  (ConsonantSampleBank.loadWavFloats → trimLeadingSilence: 閾値 0.01・走査は 80% まで・
+   CV/diph/撥音は頭の無音が 3500 サンプル超なら閉鎖期として残す・母音だけの録音は常に切る)
 """
+import array
 import hashlib
 import json
 import re
 import subprocess
 import sys
+import wave
 from pathlib import Path
 
 SRC = Path("/Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants")
 DST = Path(__file__).resolve().parent.parent / "ConsonantsOnomatoi"
 NOT_BASE = re.compile(r"(\.orig\d*|_[mp]\d{3}[a-z]?)$")
 KEEP_WAV = re.compile(r"^(diph_.+|v_([aiueo])\2\2\2)$")
+VOWEL_ONLY = re.compile(r"^v_([aiueo])(\1\1\1)?$")
+
+
+def trim_start(path, key):
+    """iOS の頭の無音トリム位置 (サンプル)。16bit を float (/32768) にした |x| > 0.01f は |s| >= 328。"""
+    with wave.open(str(path)) as w:
+        assert w.getsampwidth() == 2 and w.getnchannels() == 1, path
+        samples = array.array("h", w.readframes(w.getnframes()))
+    onset = next((i for i in range(len(samples) * 4 // 5) if abs(samples[i]) >= 328), -1)
+    if onset <= 0 or (not VOWEL_ONLY.match(key) and onset > 3500):
+        return len(samples), 0
+    return len(samples), onset
 
 
 def sha(p):
@@ -42,7 +60,9 @@ def main():
         out = DST / f"{key}.{ext}"
         want.add(out.name)
         digest = sha(src)
-        manifest[out.name] = {"source": f"Onomatoi/Resources/Consonants/{src.name}", "sha256": digest}
+        frames, start = trim_start(src, key)
+        manifest[out.name] = {"source": f"Onomatoi/Resources/Consonants/{src.name}", "sha256": digest,
+                              "frames": frames, "trimStart": start}
         if old_manifest.get(out.name, {}).get("sha256") == digest and out.exists():
             kept += 1
             continue                                   # 元が変わっていなければ作り直さない (repo を膨らませない)

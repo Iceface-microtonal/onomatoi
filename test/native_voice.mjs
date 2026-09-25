@@ -8,7 +8,8 @@
 //   2. nvPrepareCvDiph: 整形後のレベル (頭 -12dBFS 付近) と第2母音の復元
 //   3. nvRenderEvent: aauu / an / ai の語中に無音級の谷 (テイク境界の途切れ) が無い
 //   4. 促音 isQ の音価 (60ms) が量子化で保存される
-//   5. 語末専用 diph テイクが通常テイクより優先される
+//   4b. 後続モーラの弱め (iOS FormantRenderer と同じ -3dB・主音の diph run・tea-mi 型の二重)
+//   5. 語末専用 diph テイク (_fin) は iOS と同じく使わない
 //
 // 実行: node test/native_voice.mjs
 
@@ -83,9 +84,9 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "RECORDED_EXTENDED_CVS", "expressiveVariantCandidate", "expressiveOnset",
   "enforceVowelAspectOrder",
   "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
-  "nvApplySimpleDynamics", "NV_WEB_WEAK_MORA_GAIN", "NV_WEB_TAIL_MORA_GAIN",
-  "nvQuantizeMoras", "nvVowelRunRootHasOnset",
-  "nvExtendedVRunTakesCvDiph", "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
+  "nvApplyFollowingMoraAttenuation", "NV_FOLLOWING_MORA_ATTENUATION_DB", "nvPlaybackMoras",
+  "nvQuantizeMoras", "nvVowelRunRootHasOnset", "parseMora",
+  "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
@@ -140,8 +141,10 @@ function synthLongDiphRaw() {
 }
 
 function makeBank() {
-  const bank = { sr: SR, cv: new Map(), cvHandoff: new Map(), v: new Map(), nN: null, contN: new Map(),
-                 diph: new Map(), cvDiph: new Map(), cvDiphFin: new Map(), longDiph: new Set() };
+  const bank = { sr: SR, cv: new Map(), cvHandoff: new Map(), v: new Map(),
+                 shortV: new Map(), shortVHandoff: new Map(), vQ: new Map(),
+                 fricQ: new Map(), fricQOnset: new Map(), nN: null, contN: new Map(),
+                 diph: new Map(), cvDiph: new Map() };
   bank.v.set("a", sine(1.0, 200, 0.15));
   bank.v.set("e", sine(1.0, 270, 0.15));
   bank.v.set("u", sine(1.0, 300, 0.15));
@@ -157,7 +160,6 @@ function makeBank() {
     bank.diph.set(p, sine(0.6, 250, 0.12));
     const prepared = api.nvPrepareCvDiph(synthLongDiphRaw(), SR);
     bank.cvDiph.set(p, prepared);
-    bank.longDiph.add(p);
   }
   return bank;
 }
@@ -357,10 +359,11 @@ console.log("── 4. 促音の音価 (量子化) ──");
         JSON.stringify(qk.map(m => m.gapMs)));
 }
 
-console.log("── 4b. Web専用の単純強弱 (先頭0dB・2モーラ目-3dB・3モーラ目以降-5dB) ──");
+console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApplyingFollowingMoraAttenuation) ──");
 {
-  const weak = Math.pow(10, -3 / 20);
-  const tail = Math.pow(10, -5 / 20);
+  const g = Math.pow(10, -3 / 20);
+  const bank = makeBank();
+  check("Onomatoi 本体と同じ -3dB", api.NV_FOLLOWING_MORA_ATTENUATION_DB === -3);
   const source = [
     { onset:"k", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.74, isN:false, isQ:false },
     { onset:null, nucleus:"a", durationMs:180, gapMs:0, amplitude:0, isN:false, isQ:false, isSilentRest:true },
@@ -368,57 +371,59 @@ console.log("── 4b. Web専用の単純強弱 (先頭0dB・2モーラ目-3dB�
     { onset:null, nucleus:"a", durationMs:60, gapMs:0, amplitude:0.18, isN:false, isQ:true },
     { onset:"m", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.66, isN:false, isQ:false },
   ];
-  const actual = api.nvApplySimpleDynamics(source);
-  check("弱モーラ係数は正確に-3dB",
-        Math.abs(api.NV_WEB_WEAK_MORA_GAIN - weak) < 1e-12);
-  check("3モーラ目以降の係数は正確に-5dB",
-        Math.abs(api.NV_WEB_TAIL_MORA_GAIN - tail) < 1e-12);
-  check("最初の実音は生成時の減衰値に依らず1.0",
-        actual[0].amplitude === 1);
-  check("無音は数えず0のまま",
-        actual[1].amplitude === 0);
-  check("2モーラ目の通常音は-3dB",
-        Math.abs(actual[2].amplitude - weak) < 1e-12);
-  check("3モーラ目の促音は断ちの比率0.18を保って-5dB",
-        Math.abs(actual[3].amplitude - 0.18 * tail) < 1e-12);
-  check("4モーラ目以降も-5dBを保つ",
-        Math.abs(actual[4].amplitude - tail) < 1e-12);
-  check("表示/記録用の元モーラ列は非破壊",
-        source[0].amplitude === 0.74 && source[2].amplitude === 0.92);
-  const quantized = api.nvQuantizeMoras(source, MORA_MS);
-  check("native再生の量子化経路にも単純強弱が入る",
-        quantized[0].amplitude === 1 && Math.abs(quantized[2].amplitude - weak) < 1e-12);
-  check("legacyフォールバックも同じ強弱を使う",
-        fs.readFileSync(HTML_PATH, "utf8").includes("const moras = nvApplySimpleDynamics(event.moras);"));
+  const actual = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank);
+  check("語頭の主音は生成時の強弱のまま (0.74)", actual[0].amplitude === 0.74);
+  check("休符は数えず 0 のまま", actual[1].amplitude === 0);
+  check("2モーラ目以降は生成時の強弱 × -3dB",
+        Math.abs(actual[2].amplitude - 0.92 * g) < 1e-12 && Math.abs(actual[4].amplitude - 0.66 * g) < 1e-12);
+  check("語末促音も同じ -3dB (断ちの 0.18 を保つ)", Math.abs(actual[3].amplitude - 0.18 * g) < 1e-12);
+  check("元のモーラ列は非破壊", source[0].amplitude === 0.74 && source[2].amplitude === 0.92);
+  const kai = api.nvApplyFollowingMoraAttenuation(q("kaita"), bank);
+  check("kaita: 主音と同じ diph run (ka→i) は弱めない", kai[0].amplitude === 1 && kai[1].amplitude === 1,
+        JSON.stringify(kai.map(m => m.amplitude)));
+  check("kaita: 先頭2モーラが一続きの diph で3モーラ目が新しい子音なら -6dB (tea-mi 型)",
+        Math.abs(kai[2].amplitude - g * g) < 1e-12, JSON.stringify(kai.map(m => m.amplitude)));
+  const kakiku = api.nvApplyFollowingMoraAttenuation(q("kakiku"), bank);
+  check("kakiku: 通常の3モーラ語は2・3モーラ目とも -3dB",
+        kakiku[0].amplitude === 1 && Math.abs(kakiku[1].amplitude - g) < 1e-12
+          && Math.abs(kakiku[2].amplitude - g) < 1e-12, JSON.stringify(kakiku.map(m => m.amplitude)));
+  check("legacyフォールバックも同じ弱め方を使う",
+        fs.readFileSync(HTML_PATH, "utf8").includes(
+          "const moras = nvApplyFollowingMoraAttenuation(nvPlaybackMoras(event.moras), null);"));
 }
 
-console.log("── 5. 語末 diph 専用テイク ──");
+console.log("── 5. 語末専用 diph テイク (_fin) は使わない ──");
 {
-  const normalBank = makeBank();
-  const finalBank = makeBank();
-  // sei の e→i は語末なので cvDiphFin[ei] があれば通常テイクより優先される。
-  finalBank.cvDiphFin.set("ei", sine(0.8, 510, 0.18, 1));
-  const normal = api.nvRenderEvent(api.segmentWord("sei"), normalBank, SR, MORA_MS);
-  const final = api.nvRenderEvent(api.segmentWord("sei"), finalBank, SR, MORA_MS);
-  check("sei: 通常/語末テイクともレンダ成功", !!normal && !!final);
-  if (normal && final) {
-    const n = Math.min(normal.data.length, final.data.length);
-    let diff = 0;
-    for (let i = 0; i < n; i++) diff += Math.abs(normal.data[i] - final.data[i]);
-    check("sei: 旧語末専用テイクが短尺を上書きしない", diff === 0,
-          `meanAbsDiff=${(diff / n).toFixed(4)}`);
-  }
+  // iOS は全11ペアで短尺 diph を優先し (prefersShortCvDiphForCV)、語末 _fin も長尺 diph_aaii 等も
+  // CV→V 連結に使わない。Web も _fin は読み込まない (長尺は legacy 経路の cvDiphExt 用にだけ読む)。
+  check("_fin を読み込まない", !api.sampleKeys().some(k => k.endsWith("_fin")));
+  const sei = api.nvRenderEvent(api.segmentWord("sei"), makeBank(), SR, MORA_MS);
+  check("sei: 短尺 diph でレンダ成功", !!sei && sei.data.every(Number.isFinite));
 }
 
 console.log("── 6. 現行Core入力正規化・NG語 ──");
 {
   const wordOf = word => api.romajiOf({ moras: api.segmentWord(word) });
-  const cases = { kyi: "ki", kye: "ke", gyi: "gi", gye: "ge", nyi: "ni", nye: "nye",
-                  myi: "myi", mye: "me", iye: "iye", kwakwi: "kwakwi",
+  const cases = { myi: "myi", iye: "iye", kwakwi: "kwakwi", twi: "twi",
                   gwe: "gwe", swi: "swi", zwi: "zwi", hyahyuhyehyo: "hyahyuhyehyo",
-                  pyapyupyo: "pyapyupyo", ryaryuryo: "ryaryuryo" };
+                  pyapyupyo: "pyapyupyo", ryaryuryo: "ryaryuryo", yi: "i" };
   for (const [input, expected] of Object.entries(cases))
     check(`${input} → ${expected}`, wordOf(input) === expected, `got ${wordOf(input)}`);
+  // 一時停止中の CV (iOS SuspendedCVTests と同じ): 両方の解析器で丸ごと拒否し、短く読み直して代用しない
+  const suspended = ["kyi", "kye", "gyi", "gye", "nyi", "mye", "ye", "hyi", "kwu", "pyi", "pye", "ryi", "rye", "nye"];
+  for (const token of suspended) {
+    check(`${token}: 停止中なので鳴らさない (代用しない)`,
+          api.parseMora(token, false) === null && api.segmentWord(token).length === 0);
+    check(`ka${token}Qyo → kayo`, wordOf("ka" + token + "Qyo") === "kayo", `got ${wordOf("ka" + token + "Qyo")}`);
+  }
+  for (const token of ["hye", "iye", "myi", "kya", "gya", "nya", "ya", "yu", "yo"])
+    check(`${token}: 停止対象ではない`, api.segmentWord(token).length === 1);
+  const stale = api.nvQuantizeMoras([
+    { onset:"k", nucleus:"a", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+    { onset:"ny", nucleus:"e", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+  ], MORA_MS);
+  check("再生時も停止中の CV を語から取り除く (PhonosymbolicEvent.init)",
+        stale.length === 1 && stale[0].onset === "k");
   check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
 }
 
@@ -488,15 +493,18 @@ console.log("── 7. Base追加音源と連続接続 ──");
   check("撥音EOF後は無音", api.nvReadMoraicNSample(nTake, SR, 101) === 0);
 
   const assetDir = path.resolve(__dirname, "../ConsonantsOnomatoi");
-  // 素材到達性パトロール: canonicalなCV/diphを置いたのに preload keyへ追加し忘れる事故を止める。
-  // 促音専用テイク3本は現Web renderer未採用だが、黙殺でなく明示的な既知allowlistにする。
-  const rendererOnly = new Set(["cv_sQs", "cv_shQsh", "cv_tsQts"]);
+  // 素材到達性パトロール: canonicalなCV/diph/促音テイクを置いたのに preload keyへ追加し忘れる事故を止める。
+  // 例外は iOS の解析器も受け付けない表情CV (recordedExpressiveVowels 外 = 山専用の録音 cv_swo 等) だけ。
+  const iosUnused = key => {
+    const m = key.match(/^cv_([a-z]+?)([aiueo])$/);
+    return !!m && !!api.RECORDED_EXTENDED_CVS[m[1]] && !api.RECORDED_EXTENDED_CVS[m[1]].has(m[2]);
+  };
   const preloadKeys = new Set(api.sampleKeys());
   const canonicalAssets = fs.readdirSync(assetDir)
     .map(name => name.replace(/\.(?:wav|mp3)$/, ""))
-    .filter(key => /^cv_[A-Za-z]+$/.test(key) || /^diph_[aeiou]{2}$/.test(key));
+    .filter(key => /^cv_[A-Za-z]+$/.test(key) || /^diph_[aeiou]{2}$/.test(key) || /^v_[aeiou]_Q$/.test(key));
   const ignoredAssets = [...new Set(canonicalAssets)]
-    .filter(key => !preloadKeys.has(key) && !rendererOnly.has(key));
+    .filter(key => !preloadKeys.has(key) && !iosUnused(key));
   check("追加音声に未到達のcanonical assetがない", ignoredAssets.length === 0,
         ignoredAssets.join(", "));
 
@@ -536,7 +544,10 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     check(`${p}: 接続素材が120ms超`, bank.cvDiph.get(p)?.length > SR * 0.12,
       `${bank.cvDiph.get(p)?.length / SR * 1000}ms`);
   }
-  check("nyeが実際にバンクへ載る", bank.cv.has("ny|e"));
+  check("促音テイクがバンクへ載る (v_<v>_Q 4本・摩擦延長 3本)",
+        bank.vQ.size === 4 && ["s", "sh", "ts"].every(c => bank.fricQ.has(c)));
+  check("停止中の nye は鳴らさない", api.nvRenderEvent([{ onset: "ny", nucleus: "e", durationMs: 180,
+        gapMs: 0, amplitude: 1, isN: false, isQ: false }], bank, SR, 250) === null);
   let patrolled = 0;
   const silentMoras = [], invalid = [];
   for (const key of bank.cv.keys()) {

@@ -3,7 +3,9 @@
 // cases.json = {"cases":[{"id":"kai_250","tokens":"ka i","moraMs":250}, ...]}
 // 手順 (アプリの playEvent → FormantRenderer.play と同じ):
 //   parseRomaji → bpmQuantized(targetMoraMs) → 2モーラ目以降 -3dB (アプリ既定・主音と同じ diph run は除く)
-//   → FormantSynth.render (base 音源のみ・音程変化なし・フェードイン 5ms)
+//   → FormantSynth.render (base 音源のみ・音程変化なし・フェードイン 5ms・iPhone 経路 =
+//     録音が尽きても合成器へ落とさず録音で続ける AudioCompatibilityMode.isolatedPhoneRecovery)
+// 書き出す長さ = playbackDurationMs (語末の単独母音の余韻込み) + 60ms。
 // Web 版は平坦な音程なので、声域による音程変化 (axisModulationPlan) は掛けない。
 import Foundation
 @testable import OnomatoiCore
@@ -36,8 +38,9 @@ for c in cases {
     var synth = FormantSynth()
     synth.sampleBank = bank
     synth.eventFadeInMs = 5.0
+    synth.continuesRecordedSamplesAtEOF = true   // Onomatoi iPhone (isolatedPhoneRecovery)
     synth.reset()
-    let frames = Int((event.totalDurationMs + 60) / 1000.0 * sampleRate)
+    let frames = Int((synth.playbackDurationMs(event: event) + 60) / 1000.0 * sampleRate)
     var out = [Float](repeating: 0, count: frames)
     out.withUnsafeMutableBufferPointer { buf in
         _ = synth.render(event: event, samplesElapsed: 0, frameCount: frames,

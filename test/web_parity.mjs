@@ -3,6 +3,8 @@
 //   1) iOS 版: cd test/native_render && swift build -c release -Xswiftc -enable-testing
 //              ./test/native_render/.build/release/native_render test/parity_cases.json test/parity_out/native
 //   2) Web 版: node test/web_parity.mjs            (ffmpeg が要る。配布音声 ConsonantsOnomatoi/ を本番のバンク構築で読む)
+//              node test/web_parity.mjs --wav      (配布音声の代わりに iOS base の wav そのものを読む = 合成の論理だけの比較。
+//                                                   mp3 の符号化誤差が消えるので、差はほぼ 0dB になるはず)
 //
 // 比べるもの (10ms ごと・どちらかが -45dBFS 以上の区間):
 //   meanDb / p95Db = 音量の差 (dB) の平均と 95% 点
@@ -23,6 +25,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML_PATH = path.resolve(__dirname, "../iceface_onomatoi.html");
 const NATIVE_DIR = path.resolve(__dirname, "parity_out/native");
 const ASSET_DIR = path.resolve(__dirname, "../ConsonantsOnomatoi");
+const IOS_BASE_DIR = "/Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants";
+const USE_WAV = process.argv.includes("--wav");
 const SR = 48000;
 
 // ─── エンジン抽出 (native_voice.mjs と同じ方式: 純粋な宣言だけを vm で評価) ───
@@ -73,7 +77,8 @@ function extractEngine(html) {
   }
   return blocks.filter(b => !IMPURE.test(b)).join("\n\n");
 }
-const EXPORTS = ["parseMora", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank", "nvRenderEvent"];
+const EXPORTS = ["parseMora", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank", "nvRenderEvent",
+                 "nvLeadingTrimStart"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(extractEngine(fs.readFileSync(HTML_PATH, "utf8")) +
   `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx, { filename: "engine(extracted)" });
@@ -85,15 +90,18 @@ const decode = file => {
                          { maxBuffer: 1 << 28 });
   return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
 };
+const source = JSON.parse(fs.readFileSync(path.join(ASSET_DIR, "SOURCE.json"), "utf8")).files;
 for (const key of api.sampleKeys()) {
   const name = api.sampleUrlCandidates(key).find(n => fs.existsSync(path.join(ASSET_DIR, n)));
   if (!name) continue;
-  const data = decode(path.join(ASSET_DIR, name));
+  const decoded = decode(USE_WAV ? path.join(IOS_BASE_DIR, name.replace(/\.mp3$/, ".wav")) : path.join(ASSET_DIR, name));
+  // 本番のデコード後処理 (trimLeadingSilence) と同じ頭の無音トリム (目録の trimStart)
+  const data = decoded.subarray(api.nvLeadingTrimStart(decoded, SR, key, source[name]));
   api.sampleBank.set(key, { getChannelData: () => data, length: data.length, sampleRate: SR });
 }
 const bank = api.buildNativeVoiceBank(SR);
 
-// ─── トークン列 → Web のモーラ (playRomaji と同じ + 語末の q は語末促音) ───
+// ─── トークン列 → Web のモーラ (playRomaji のトークン経路と同じ・語末の q は語末促音) ───
 function webMoras(tokens) {
   const moras = [];
   let pendingQ = false;
@@ -155,7 +163,7 @@ for (const c of manifest.cases) {
 const scored = rows.filter(r => !r.skip);
 const byCat = {};
 for (const r of scored) { const cat = r.id.split("__")[0]; (byCat[cat] ||= []).push(r); }
-console.log(`比較 ${scored.length} 件 / 合格 ${scored.filter(r => r.pass).length} / 対象外 ${rows.length - scored.length}`);
+console.log(`${USE_WAV ? "[iOS base wav で合成] " : ""}比較 ${scored.length} 件 / 合格 ${scored.filter(r => r.pass).length} / 対象外 ${rows.length - scored.length}`);
 for (const [cat, rs] of Object.entries(byCat)) {
   const avg = k => (rs.reduce((s, r) => s + Math.abs(r[k]), 0) / rs.length).toFixed(1);
   console.log(`  ${cat.padEnd(7)} 合格 ${String(rs.filter(r => r.pass).length).padStart(2)}/${rs.length}  平均|差| ${avg("meanDb")}dB  p95 ${avg("p95Db")}dB  終わり ${avg("endMs")}ms  脱落 ${avg("holeMs")}ms`);
