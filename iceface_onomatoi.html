@@ -2742,13 +2742,23 @@ const NAMING_KANA_ROWS = {
   ry: ["りゃ", "りぃ", "りゅ", "りぇ", "りょ"],
 };
 const NAMING_VOWEL_INDEX = { a: 0, i: 1, u: 2, e: 3, o: 4 };
-function namingKanaOf(moras) {
+// 長音符「ー」は発声が続く所だけ。発声で言い直すモーラ (同母音 run の2モーラごと・diph 直後) は
+// 母音の仮名で書く (reeeyuuuu = れーえゆーうー / kaii = かいい)。判定は合成と同じ再アタック3法
+// (PhonosymbolicEvent.kanaMarks → isSpokenVowelReattack と同一)。
+function nvIsSpokenVowelReattack(idx, moras) {
+  return nvDiphReattackBreaks(idx, moras) || nvExtendedRunBoundaryReattacks(idx, moras)
+    || nvSameVowelRunReattacks(idx, moras);
+}
+function namingKanaOf(sourceMoras) {
+  const moras = nvPlaybackMoras(sourceMoras);
   let out = "", prevVowel = null;
-  for (const m of moras) {
+  for (let i = 0; i < moras.length; i++) {
+    const m = moras[i];
     if (m.isSilentRest) continue;
     if (m.isN) { out += "ん"; prevVowel = null; continue; }
     if (m.isQ) { out += "っ"; prevVowel = null; continue; }
-    if (m.onset === null && prevVowel !== null && prevVowel === m.nucleus) {
+    if (m.onset === null && prevVowel !== null && prevVowel === m.nucleus &&
+        !nvIsSpokenVowelReattack(i, moras)) {
       out += "ー";   // 長音符 (直前母音を伸ばす)。prevVowel は据え置き。
     } else {
       const row = NAMING_KANA_ROWS[m.onset ?? ""] ?? NAMING_KANA_ROWS[""];

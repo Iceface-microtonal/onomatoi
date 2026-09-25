@@ -85,7 +85,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "enforceVowelAspectOrder",
   "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
   "nvApplyFollowingMoraAttenuation", "NV_FOLLOWING_MORA_ATTENUATION_DB", "nvPlaybackMoras",
-  "nvQuantizeMoras", "nvVowelRunRootHasOnset", "parseMora",
+  "nvQuantizeMoras", "nvVowelRunRootHasOnset", "parseMora", "namingKanaOf",
   "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
@@ -425,6 +425,17 @@ console.log("── 6. 現行Core入力正規化・NG語 ──");
   check("再生時も停止中の CV を語から取り除く (PhonosymbolicEvent.init)",
         stale.length === 1 && stale[0].onset === "k");
   check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
+}
+
+console.log("── 6.2. 長音符は発声が続く所だけ (言い直すモーラは母音で書く・Core KanaReattackMarkTests と同じ) ──");
+{
+  const want = { reeeyuuuu: "れーえゆーうー", aaaa: "あーあー", kaaa: "かーあ", nyoooo: "にょーおー",
+                 kaii: "かいい", uii: "ういい", gaa: "がー", zaazaa: "ざーざー", aaan: "あーーん",
+                 aiin: "あいーん", aaaaa: "あーあーー", piuuuu: "ぴうーうー" };
+  for (const [w, kana] of Object.entries(want)) {
+    const got = api.namingKanaOf(api.segmentWord(w));
+    check(`${w} → ${kana}`, got === kana, `got ${got}`);
+  }
 }
 
 console.log("── 6.5. 表情CVと母音順序 ──");
