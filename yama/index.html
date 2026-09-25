@@ -155,13 +155,15 @@ const buffers = new Map(), raw = new Map();
 // voiceChain で「準備 (decode) → 予約」を直列にするので、準備の速さが語ごとに違っても順番は崩れない。
 let voiceGen = 0, voiceChain = Promise.resolve(), voiceEnd = 0, voicesPending = 0;
 const activeVoices = new Set();
+// 音声は同じ名前のまま作り直すので、中身の印 (v) を URL に付けてブラウザのキャッシュを確実に外す
+const audioURL = w => w.v ? `${w.audio}?v=${w.v}` : w.audio;
 function prefetchAudio() {
-  for (const w of words) fetch(w.audio).then(r => r.arrayBuffer()).then(b => raw.set(w.id, b)).catch(() => {});
+  for (const w of words) fetch(audioURL(w)).then(r => r.arrayBuffer()).then(b => raw.set(w.id, b)).catch(() => {});
 }
 async function decode(id) {
   if (buffers.has(id)) return buffers.get(id);
   let b = raw.get(id);
-  if (!b) { const w = words.find(x => x.id === id); b = await fetch(w.audio).then(r => r.arrayBuffer()); }
+  if (!b) { const w = words.find(x => x.id === id); b = await fetch(audioURL(w)).then(r => r.arrayBuffer()); }
   const buf = await actx.decodeAudioData(b.slice(0));
   buffers.set(id, buf);
   return buf;
