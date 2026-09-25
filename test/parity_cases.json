@@ -1,0 +1,1372 @@
+{
+ "cases": [
+  {
+   "id": "plain__ka__125",
+   "tokens": "ka",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__ka__250",
+   "tokens": "ka",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__ka__500",
+   "tokens": "ka",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__ko_ro_ko_ro__125",
+   "tokens": "ko ro ko ro",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__ko_ro_ko_ro__250",
+   "tokens": "ko ro ko ro",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__ko_ro_ko_ro__500",
+   "tokens": "ko ro ko ro",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__pi_ka_pi_ka__125",
+   "tokens": "pi ka pi ka",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__pi_ka_pi_ka__250",
+   "tokens": "pi ka pi ka",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__pi_ka_pi_ka__500",
+   "tokens": "pi ka pi ka",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__fu_wa_fu_wa__125",
+   "tokens": "fu wa fu wa",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__fu_wa_fu_wa__250",
+   "tokens": "fu wa fu wa",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__fu_wa_fu_wa__500",
+   "tokens": "fu wa fu wa",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__gi_za_gi_za__125",
+   "tokens": "gi za gi za",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__gi_za_gi_za__250",
+   "tokens": "gi za gi za",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__gi_za_gi_za__500",
+   "tokens": "gi za gi za",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__sa_ra_sa_ra__125",
+   "tokens": "sa ra sa ra",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__sa_ra_sa_ra__250",
+   "tokens": "sa ra sa ra",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__sa_ra_sa_ra__500",
+   "tokens": "sa ra sa ra",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__mo_gu_mo_gu__125",
+   "tokens": "mo gu mo gu",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__mo_gu_mo_gu__250",
+   "tokens": "mo gu mo gu",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__mo_gu_mo_gu__500",
+   "tokens": "mo gu mo gu",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__shi_to_shi_to__125",
+   "tokens": "shi to shi to",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__shi_to_shi_to__250",
+   "tokens": "shi to shi to",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__shi_to_shi_to__500",
+   "tokens": "shi to shi to",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__chi_ku_chi_ku__125",
+   "tokens": "chi ku chi ku",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__chi_ku_chi_ku__250",
+   "tokens": "chi ku chi ku",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__chi_ku_chi_ku__500",
+   "tokens": "chi ku chi ku",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__tsu_ru_tsu_ru__125",
+   "tokens": "tsu ru tsu ru",
+   "moraMs": 125,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__tsu_ru_tsu_ru__250",
+   "tokens": "tsu ru tsu ru",
+   "moraMs": 250,
+   "cat": "plain"
+  },
+  {
+   "id": "plain__tsu_ru_tsu_ru__500",
+   "tokens": "tsu ru tsu ru",
+   "moraMs": 500,
+   "cat": "plain"
+  },
+  {
+   "id": "long__ka_a__125",
+   "tokens": "ka a",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__ka_a__250",
+   "tokens": "ka a",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__ka_a__500",
+   "tokens": "ka a",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__za_a_za_a__125",
+   "tokens": "za a za a",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__za_a_za_a__250",
+   "tokens": "za a za a",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__za_a_za_a__500",
+   "tokens": "za a za a",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__go_o_go_o__125",
+   "tokens": "go o go o",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__go_o_go_o__250",
+   "tokens": "go o go o",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__go_o_go_o__500",
+   "tokens": "go o go o",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__ki_i__125",
+   "tokens": "ki i",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__ki_i__250",
+   "tokens": "ki i",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__ki_i__500",
+   "tokens": "ki i",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__su_u__125",
+   "tokens": "su u",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__su_u__250",
+   "tokens": "su u",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__su_u__500",
+   "tokens": "su u",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__ne_e__125",
+   "tokens": "ne e",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__ne_e__250",
+   "tokens": "ne e",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__ne_e__500",
+   "tokens": "ne e",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__bu_u_n__125",
+   "tokens": "bu u n",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__bu_u_n__250",
+   "tokens": "bu u n",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__bu_u_n__500",
+   "tokens": "bu u n",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__do_o_n__125",
+   "tokens": "do o n",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__do_o_n__250",
+   "tokens": "do o n",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__do_o_n__500",
+   "tokens": "do o n",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "long__ga_a_n__125",
+   "tokens": "ga a n",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__ga_a_n__250",
+   "tokens": "ga a n",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__ga_a_n__500",
+   "tokens": "ga a n",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
+   "id": "cvdiph__ka_i__125",
+   "tokens": "ka i",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ka_i__250",
+   "tokens": "ka i",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ka_i__500",
+   "tokens": "ka i",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_u__125",
+   "tokens": "ko u",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_u__250",
+   "tokens": "ko u",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_u__500",
+   "tokens": "ko u",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__se_i__125",
+   "tokens": "se i",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__se_i__250",
+   "tokens": "se i",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__se_i__500",
+   "tokens": "se i",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_i__125",
+   "tokens": "ku i",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_i__250",
+   "tokens": "ku i",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_i__500",
+   "tokens": "ku i",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ta_u__125",
+   "tokens": "ta u",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ta_u__250",
+   "tokens": "ta u",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ta_u__500",
+   "tokens": "ta u",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ne_a__125",
+   "tokens": "ne a",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ne_a__250",
+   "tokens": "ne a",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ne_a__500",
+   "tokens": "ne a",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ke_o__125",
+   "tokens": "ke o",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ke_o__250",
+   "tokens": "ke o",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ke_o__500",
+   "tokens": "ke o",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_a__125",
+   "tokens": "ko a",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_a__250",
+   "tokens": "ko a",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ko_a__500",
+   "tokens": "ko a",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_a__125",
+   "tokens": "ku a",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_a__250",
+   "tokens": "ku a",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ku_a__500",
+   "tokens": "ku a",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__nu_o__125",
+   "tokens": "nu o",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__nu_o__250",
+   "tokens": "nu o",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__nu_o__500",
+   "tokens": "nu o",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "vv__a_i__125",
+   "tokens": "a i",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_i__250",
+   "tokens": "a i",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_i__500",
+   "tokens": "a i",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_u__125",
+   "tokens": "a u",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_u__250",
+   "tokens": "a u",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_u__500",
+   "tokens": "a u",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__o_i__125",
+   "tokens": "o i",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__o_i__250",
+   "tokens": "o i",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__o_i__500",
+   "tokens": "o i",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__u_i__125",
+   "tokens": "u i",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__u_i__250",
+   "tokens": "u i",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__u_i__500",
+   "tokens": "u i",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__e_i__125",
+   "tokens": "e i",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__e_i__250",
+   "tokens": "e i",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__e_i__500",
+   "tokens": "e i",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "extrun__ka_a_i_i__125",
+   "tokens": "ka a i i",
+   "moraMs": 125,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ka_a_i_i__250",
+   "tokens": "ka a i i",
+   "moraMs": 250,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ka_a_i_i__500",
+   "tokens": "ka a i i",
+   "moraMs": 500,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ka_a_u_u__125",
+   "tokens": "ka a u u",
+   "moraMs": 125,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ka_a_u_u__250",
+   "tokens": "ka a u u",
+   "moraMs": 250,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ka_a_u_u__500",
+   "tokens": "ka a u u",
+   "moraMs": 500,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_i_i__125",
+   "tokens": "ko o i i",
+   "moraMs": 125,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_i_i__250",
+   "tokens": "ko o i i",
+   "moraMs": 250,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_i_i__500",
+   "tokens": "ko o i i",
+   "moraMs": 500,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ke_e_i_i__125",
+   "tokens": "ke e i i",
+   "moraMs": 125,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ke_e_i_i__250",
+   "tokens": "ke e i i",
+   "moraMs": 250,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ke_e_i_i__500",
+   "tokens": "ke e i i",
+   "moraMs": 500,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_u_u__125",
+   "tokens": "ko o u u",
+   "moraMs": 125,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_u_u__250",
+   "tokens": "ko o u u",
+   "moraMs": 250,
+   "cat": "extrun"
+  },
+  {
+   "id": "extrun__ko_o_u_u__500",
+   "tokens": "ko o u u",
+   "moraMs": 500,
+   "cat": "extrun"
+  },
+  {
+   "id": "contn__ka_n__125",
+   "tokens": "ka n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__ka_n__250",
+   "tokens": "ka n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__ka_n__500",
+   "tokens": "ka n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__do_n__125",
+   "tokens": "do n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__do_n__250",
+   "tokens": "do n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__do_n__500",
+   "tokens": "do n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__fu_n_wa_ri__125",
+   "tokens": "fu n wa ri",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__fu_n_wa_ri__250",
+   "tokens": "fu n wa ri",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__fu_n_wa_ri__500",
+   "tokens": "fu n wa ri",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__ko_n_ko_n__125",
+   "tokens": "ko n ko n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__ko_n_ko_n__250",
+   "tokens": "ko n ko n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__ko_n_ko_n__500",
+   "tokens": "ko n ko n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__po_n__125",
+   "tokens": "po n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__po_n__250",
+   "tokens": "po n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__po_n__500",
+   "tokens": "po n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_n__125",
+   "tokens": "a n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_n__250",
+   "tokens": "a n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_n__500",
+   "tokens": "a n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__o_o_n__125",
+   "tokens": "o o n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__o_o_n__250",
+   "tokens": "o o n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__o_o_n__500",
+   "tokens": "o o n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_o_o_n__125",
+   "tokens": "a o o n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_o_o_n__250",
+   "tokens": "a o o n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_o_o_n__500",
+   "tokens": "a o o n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_a_a_a_n__125",
+   "tokens": "a a a a n",
+   "moraMs": 125,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_a_a_a_n__250",
+   "tokens": "a a a a n",
+   "moraMs": 250,
+   "cat": "contn"
+  },
+  {
+   "id": "contn__a_a_a_a_n__500",
+   "tokens": "a a a a n",
+   "moraMs": 500,
+   "cat": "contn"
+  },
+  {
+   "id": "q__pi_ka_q__125",
+   "tokens": "pi ka q",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__pi_ka_q__250",
+   "tokens": "pi ka q",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__pi_ka_q__500",
+   "tokens": "pi ka q",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__do_ki_q__125",
+   "tokens": "do ki q",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__do_ki_q__250",
+   "tokens": "do ki q",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__do_ki_q__500",
+   "tokens": "do ki q",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__ka_q_ta__125",
+   "tokens": "ka q ta",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__ka_q_ta__250",
+   "tokens": "ka q ta",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__ka_q_ta__500",
+   "tokens": "ka q ta",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__ba_q_sa_ri__125",
+   "tokens": "ba q sa ri",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__ba_q_sa_ri__250",
+   "tokens": "ba q sa ri",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__ba_q_sa_ri__500",
+   "tokens": "ba q sa ri",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__ki_q_chi_ri__125",
+   "tokens": "ki q chi ri",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__ki_q_chi_ri__250",
+   "tokens": "ki q chi ri",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__ki_q_chi_ri__500",
+   "tokens": "ki q chi ri",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__sa_q__125",
+   "tokens": "sa q",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__sa_q__250",
+   "tokens": "sa q",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__sa_q__500",
+   "tokens": "sa q",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "expr__twi__125",
+   "tokens": "twi",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__twi__250",
+   "tokens": "twi",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__twi__500",
+   "tokens": "twi",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__swe__125",
+   "tokens": "swe",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__swe__250",
+   "tokens": "swe",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__swe__500",
+   "tokens": "swe",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__kwa__125",
+   "tokens": "kwa",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__kwa__250",
+   "tokens": "kwa",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__kwa__500",
+   "tokens": "kwa",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__hya__125",
+   "tokens": "hya",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__hya__250",
+   "tokens": "hya",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__hya__500",
+   "tokens": "hya",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__pyo_n__125",
+   "tokens": "pyo n",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__pyo_n__250",
+   "tokens": "pyo n",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__pyo_n__500",
+   "tokens": "pyo n",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__nye__125",
+   "tokens": "nye",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__nye__250",
+   "tokens": "nye",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__nye__500",
+   "tokens": "nye",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__mya__125",
+   "tokens": "mya",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__mya__250",
+   "tokens": "mya",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__mya__500",
+   "tokens": "mya",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__ryu__125",
+   "tokens": "ryu",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__ryu__250",
+   "tokens": "ryu",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__ryu__500",
+   "tokens": "ryu",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
+   "id": "chain__ka_i_o_u__125",
+   "tokens": "ka i o u",
+   "moraMs": 125,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__ka_i_o_u__250",
+   "tokens": "ka i o u",
+   "moraMs": 250,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__ka_i_o_u__500",
+   "tokens": "ka i o u",
+   "moraMs": 500,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__a_i_u_e_o__125",
+   "tokens": "a i u e o",
+   "moraMs": 125,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__a_i_u_e_o__250",
+   "tokens": "a i u e o",
+   "moraMs": 250,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__a_i_u_e_o__500",
+   "tokens": "a i u e o",
+   "moraMs": 500,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__se_i_ka_i__125",
+   "tokens": "se i ka i",
+   "moraMs": 125,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__se_i_ka_i__250",
+   "tokens": "se i ka i",
+   "moraMs": 250,
+   "cat": "chain"
+  },
+  {
+   "id": "chain__se_i_ka_i__500",
+   "tokens": "se i ka i",
+   "moraMs": 500,
+   "cat": "chain"
+  },
+  {
+   "id": "vowel__a__125",
+   "tokens": "a",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__a__250",
+   "tokens": "a",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__a__500",
+   "tokens": "a",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__i__125",
+   "tokens": "i",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__i__250",
+   "tokens": "i",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__i__500",
+   "tokens": "i",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__u__125",
+   "tokens": "u",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__u__250",
+   "tokens": "u",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__u__500",
+   "tokens": "u",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__e__125",
+   "tokens": "e",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__e__250",
+   "tokens": "e",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__e__500",
+   "tokens": "e",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o__125",
+   "tokens": "o",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o__250",
+   "tokens": "o",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o__500",
+   "tokens": "o",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__a_a_a_a__125",
+   "tokens": "a a a a",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__a_a_a_a__250",
+   "tokens": "a a a a",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__a_a_a_a__500",
+   "tokens": "a a a a",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o_o_o__125",
+   "tokens": "o o o",
+   "moraMs": 125,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o_o_o__250",
+   "tokens": "o o o",
+   "moraMs": 250,
+   "cat": "vowel"
+  },
+  {
+   "id": "vowel__o_o_o__500",
+   "tokens": "o o o",
+   "moraMs": 500,
+   "cat": "vowel"
+  },
+  {
+   "id": "kou__gya_gyo_o_n__125",
+   "tokens": "gya gyo o n",
+   "moraMs": 125,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__gya_gyo_o_n__250",
+   "tokens": "gya gyo o n",
+   "moraMs": 250,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__gya_gyo_o_n__500",
+   "tokens": "gya gyo o n",
+   "moraMs": 500,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__te_to_o_n__125",
+   "tokens": "te to o n",
+   "moraMs": 125,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__te_to_o_n__250",
+   "tokens": "te to o n",
+   "moraMs": 250,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__te_to_o_n__500",
+   "tokens": "te to o n",
+   "moraMs": 500,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__tsu_ko_o_n__125",
+   "tokens": "tsu ko o n",
+   "moraMs": 125,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__tsu_ko_o_n__250",
+   "tokens": "tsu ko o n",
+   "moraMs": 250,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__tsu_ko_o_n__500",
+   "tokens": "tsu ko o n",
+   "moraMs": 500,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__a_ya_no_pa_ru__125",
+   "tokens": "a ya no pa ru",
+   "moraMs": 125,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__a_ya_no_pa_ru__250",
+   "tokens": "a ya no pa ru",
+   "moraMs": 250,
+   "cat": "kou"
+  },
+  {
+   "id": "kou__a_ya_no_pa_ru__500",
+   "tokens": "a ya no pa ru",
+   "moraMs": 500,
+   "cat": "kou"
+  }
+ ]
+}
