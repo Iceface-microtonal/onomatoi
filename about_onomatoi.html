@@ -6,17 +6,19 @@
 <title>About — Onomatoi / おのまとい</title>
 <style>
   :root {
-    --pink: #e8488a;
-    --pink-bg: rgba(232, 72, 138, 0.10);
+    --pink: #a65a78;
+    --pink-bg: #fae6ed;
+    --pink-fill: #f6dce6;
     --aqua: #1899c2;
     --aqua-bg: rgba(77, 191, 242, 0.13);
     --gray: #888;
     --border: rgba(0,0,0,0.10);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #fafaf7; }
   body {
     font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-    background: #fff; color: #222;
+    background: #fafaf7; color: #222;
     padding: 16px; max-width: 760px; margin: 0 auto;
     line-height: 1.85; font-size: 13px;
   }
@@ -27,20 +29,30 @@
   a.button {
     font-size: 11px; font-weight: 700; text-decoration: none;
     border-radius: 5px; padding: 6px 12px;
-    background: var(--pink); color: #fff;
+    background: var(--pink-fill); color: #2b2b30;
   }
   .lang-toggle button {
     font-family: inherit; font-size: 10px; font-weight: 700;
     border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;
     background: var(--pink-bg); color: var(--pink);
   }
-  .lang-toggle button.active { background: var(--pink); color: #fff; }
+  .lang-toggle button.active { background: var(--pink-fill); color: #2b2b30; }
   h1 { font-size: 20px; margin: 18px 0 4px; color: #111; }
   h2 { font-size: 14px; margin: 26px 0 8px; color: var(--pink); }
   p { margin: 8px 0; }
   .lead { color: #444; }
   .voice { color: var(--aqua); background: var(--aqua-bg); border-radius: 6px;
            padding: 6px 10px; display: inline-block; margin-top: 4px; font-size: 12px; }
+  .line-illustration, .shape-illustration {
+    display: grid; place-items: center; margin: 18px auto 22px;
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .line-illustration { width: min(100%, 410px); height: 145px; background: #fffefa; }
+  .line-illustration svg { width: min(82%, 310px); height: auto; }
+  .line-illustration path { fill: none; stroke: #aaa7a2; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+  .line-illustration .echo { stroke: #d88da8; stroke-width: 2; }
+  .shape-illustration { width: min(100%, 300px); height: 92px; background: #eaf1f8; }
+  .shape-illustration svg { width: 220px; height: 75px; fill: none; stroke: #7295b1; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   table { border-collapse: collapse; margin: 10px 0; width: 100%; font-size: 12px; }
   th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
   th { background: var(--pink-bg); color: var(--pink); font-size: 11px; }
@@ -71,10 +83,16 @@
   <h1>かたちが、しゃべる。</h1>
   <p class="lead">
     <strong>PuppeTwin Onomatoi</strong> は、描いた「かたち」から
-    まだ意味を持たない言葉 —— シニフィアン —— を生み出して発声する楽器です。
+    まだ意味の決まっていないことば —— シニフィアン —— を生み出して発声する楽器です。
     丸くて大きな絵はぼってりと低く、尖って細かい絵はちくちくと鋭く喋ります。
   </p>
   <p class="voice">Voice(声): PuppeTwin</p>
+  <figure class="line-illustration" role="img" aria-label="丸い線から尖った線へ続く一筆と、声を表す曲線">
+    <svg viewBox="0 0 330 185" aria-hidden="true">
+      <path d="M27 124 C10 66 69 29 93 61 C118 96 76 137 58 126 C46 119 54 88 77 77 C106 61 142 92 167 96 L191 61 L206 124 L230 78 L247 117 L279 85"/>
+      <path class="echo" d="M280 62 Q292 82 282 102 M295 54 Q311 81 299 109"/>
+    </svg>
+  </figure>
 
   <h2>音象徴 (サウンド・シンボリズム) について</h2>
   <p>
@@ -87,6 +105,13 @@
     この対応を日常的に使いこなしています。Onomatoi はこの現象を逆向きに使い、
     「かたち」から「それらしく聞こえる語」を合成します。
   </p>
+  <figure class="shape-illustration" role="img" aria-label="丸、波線、三角形の図">
+    <svg viewBox="0 0 220 75" aria-hidden="true">
+      <circle cx="46" cy="46" r="15"/>
+      <path d="M94 31 Q101 23 108 31 T122 31"/>
+      <path d="M164 51 L180 24 L196 51 Z"/>
+    </svg>
+  </figure>
 
   <h2>しくみ — かたちを「意味」と「口」の両方として読む</h2>
   <p class="lead" style="font-size:15px;">
@@ -114,15 +139,19 @@
   <p>
     前者は「この形は、大きいか小さいか・丸いか鋭いか・滑らかか反復的か・明るいか暗いか」を読む。
     後者は「この形を口にするなら、唇は横に開くかすぼむか・口は大きく開くか閉じるか」を読む。
-    丸→あ、横棒→い、小円→う、斜めに伸びた楕円→え (傾きの向きは問いません)、
-    少し縦長の丸→お —— <strong>母音は口の形が決めます</strong>。
+    6軸からことばを組み立てるとき、丸→あ、横棒→い、小円→う、斜めに伸びた楕円→え
+    (傾きの向きは問いません)、少し縦長の丸→お、という口の読みが働きます。
+    <strong>母音は口の形から選ばれます</strong>。完成した円など、形ごとの語がある場合はその語を優先します。
   </p>
   <p>
-    開いた弧 (<code>⊃⊂∩∪</code> のような形) は向きと大きさに応じた語、開いた一角
-    (<code>＜＞∧∨</code> のような形) は語末「ん」のない短い角度語になります。
+    開いた弧 (<code>⊃⊂∩∪</code> のような形) は向きと大きさに応じた語になります。
+    円が閉じるまで語末の「ん」は付きません。開いた一角 (<code>＜＞∧∨</code> のような形) は
+    角度と大きさに応じた、語末「ん」のない短い語になります。
   </p>
   <p>
-    初期プリセットでは、完成したハートを認識度1〜3で読み、崩れた形と通常形は
+    完成した円は小・中・大で <span class="word">oon / aoon / aaaan</span>。
+    三角形・逆三角形、正方形・長方形にも、それぞれ形に応じた語があります。
+    ハートは認識度1〜3で読み、崩れた形と通常形は
     <span class="word">myuun (みゅーん)</span>、最も整った認識度3は
     <span class="word">kuun (くぅん)</span>、
     輪郭星は <span class="word">chigyaan (ちぎゃーん)</span>、自己交差する一筆五芒星は
@@ -130,50 +159,44 @@
     （あやのはる／あやのふぁる／あやのぱる）になります。葉・三日月・雲・花・しずく・
     稲妻にも「その形らしさ」の三段階があり、中心形はそれぞれ
     <span class="word">keen / heen / hohoon / haraan / kuoon / suchiQ</span>、少し離れた形には
-    別の近傍語が現れます。これは描画の優劣ではなく、典型形からの距離です。どの固定形にも
-    十分当てはまらない描画は、従来どおり6軸からことばを生成します。
+    別の近傍語が現れます。これは描画の優劣ではなく、典型形からの距離です。
+    形の語彙に当てはまらない描画は、6軸からことばを生成します。
   </p>
   <p>
-    この 6 軸が、各子音・母音に与えられた音象徴バイアス表と照合され、
+    通常の生成では、この 6 軸が各子音・母音に与えられた音象徴バイアス表と照合され、
     日本語的なモーラ列 (子音+母音、母音単独、促音 <code>Q</code>、撥音 <code>N</code>) が
-    選ばれます。<strong>同じ描写からは必ず同じ語</strong>が生まれます (決定的生成) ——
+    選ばれます。<strong>同じ一筆からは同じ語</strong>が生まれます (決定的生成) ——
     あなたの描いたかたちに、その語が「名付け」られるのです。
   </p>
 
   <h2>つかいかた</h2>
   <ul>
-    <li><strong>描く</strong> — キャンバスに 1 ストローク描くと即発声。✕ 消しゴムでリセット</li>
-    <li><strong>PLAY</strong> — 最後の発声をそのまま何度でもリピート</li>
-    <li><strong>TUNE スライダー</strong> — 開発画面 (<code>?dev=1</code>) で 6 軸を直接動かして実験</li>
-    <li><strong>プリセット</strong> — bouba/kiki/maluma/takete (音象徴研究の古典) +
-        日本語オノマトペ 6 種。初回タップは正確な発音、2 回目以降は変奏</li>
-    <li><strong>LOG</strong> — 過去の語をタップでそのまま再生</li>
+    <li><strong>描く</strong> — 指やマウスでひと筆描き、離すと声になります。↺ 消しゴムでキャンバスを消せます</li>
+    <li><strong>もう一度、聴く</strong> — いま選ばれている声をもう一度再生します。「ひとつ前」では直前に描いた声を聴けます</li>
+    <li><strong>声の見本</strong> — bouba/kiki/maluma/takete と日本語のオノマトペ 6 種。各見本の初回はその語を発声し、2 回目以降は変奏します</li>
+    <li><strong>これまでの声</strong> — このページで描いて生まれた声を選んで聴けます。ページを再読み込みすると履歴は消えます</li>
   </ul>
 
   <h2>この Web 版について</h2>
   <p>
-    Onomatoi は iPad/Mac アプリ <em>Onomatoi (旧 PTS, Phonosymbolic Topology Synthesizer)</em>
-    の簡易 Web 版です。本体にはピッチ変化・旋律 (わらべうた) モード・
-    複数ストロークの作曲モードなどがあります。
-    声は収録サンプル <strong>PuppeTwin</strong> (171 MP3 + 接合精度用25 WAV) を使用しています。
+    ブラウザでひと筆から遊べる Onomatoi です。声には、PuppeTwin が収録した
+    iOS 版 Onomatoi の基礎音源を Web 用に変換して使っています。
+    iPhone・iPad 版は現在準備中です。
   </p>
   <p>
-    本体コアからの移植 (実在オノマトペ型への整形/長母音サステイン/継続撥音/
-    連続母音かい・こう・うぃ/2モーラごとの再アタック規則)
-    に加え、口の形から母音を選ぶしくみ (斜めの楕円→え、少し縦長の丸→お を含む)・
-    開いた弧や開いた一角が「母音+ん」「子音+ん」になるしくみ・拗音や隣り合うモーラの
-    言いやすさの調整などを、この Web 版にも継続して反映しています。
-    2026-06-22 までの旧バージョンは <a href="./iceface_onomatopian.html">こちら</a> に保存してあります。
+    日本語に似た語の組み立て、伸びる母音や「ん」、続く母音のつなぎ方などは、
+    Onomatoi の音声エンジンを Web に移して実現しています。
+    生まれた語が既存のオノマトペと偶然重なったときは「よく使われる日本語」と表示します。
+    もうひとつの遊び、<a href="./yama/">おのまといの山</a>では、浮かぶことばと音の印象を探せます。
   </p>
 
   <h2>フィードバックとデータの利用について</h2>
   <p>
-    👍👎 の投票と理由の記述は、<strong>お使いのブラウザ内 (localStorage) にのみ保存され、
-    自動では送信されません</strong>。FEEDBACK パネルの COPY で書き出したデータを
-    共有していただいた場合、その内容 (軸の値・生成語・評価・理由・タグ・
-    描いた線の形 = 粗い筆の頂点列 [低解像度の折れ線座標]) は
-    <strong>Onomatoi の生成モデル (音象徴バイアス表) の改善・調整に利用します</strong>。
-    個人を特定する情報は含まれません。
+    「研究へのフィードバック」で「研究に参加する」をオンにすると、👍👎 と理由の入力欄が現れます。
+    投票した内容は<strong>お使いのブラウザ内 (localStorage) に保存され、自動では送信されません</strong>。
+    COPY で書き出したデータを共有していただいた場合、軸の値・生成語・評価・理由・タグ・
+    描いた線の低解像度の頂点列を、<strong>Onomatoi の生成モデルの改善・調整に利用します</strong>。
+    理由は自由入力です。氏名や連絡先などの個人情報は入力しないでください。
   </p>
 </div>
 
@@ -182,10 +205,16 @@
   <h1>Shapes that speak.</h1>
   <p class="lead">
     <strong>PuppeTwin Onomatoi</strong> is an instrument that turns the shapes you draw
-    into spoken words that mean nothing yet — pure signifiers.
+    into spoken words whose meanings have yet to be decided — signifiers waiting for meaning.
     A big round blob speaks low and soft; a small spiky scribble chatters bright and sharp.
   </p>
   <p class="voice">Voice: PuppeTwin</p>
+  <figure class="line-illustration" role="img" aria-label="One line moving from a round curve to sharp angles, followed by a voice mark">
+    <svg viewBox="0 0 330 185" aria-hidden="true">
+      <path d="M27 124 C10 66 69 29 93 61 C118 96 76 137 58 126 C46 119 54 88 77 77 C106 61 142 92 167 96 L191 61 L206 124 L230 78 L247 117 L279 85"/>
+      <path class="echo" d="M280 62 Q292 82 282 102 M295 54 Q311 81 299 109"/>
+    </svg>
+  </figure>
 
   <h2>About sound symbolism</h2>
   <p>
@@ -199,6 +228,13 @@
     <em>kira-kira</em> sparkling…). Onomatoi runs the phenomenon in reverse:
     it synthesizes a word that <em>sounds like</em> your shape.
   </p>
+  <figure class="shape-illustration" role="img" aria-label="A circle, a wavy line, and a triangle">
+    <svg viewBox="0 0 220 75" aria-hidden="true">
+      <circle cx="46" cy="46" r="15"/>
+      <path d="M94 31 Q101 23 108 31 T122 31"/>
+      <path d="M164 51 L180 24 L196 51 Z"/>
+    </svg>
+  </figure>
 
   <h2>How it works — reading a shape as both meaning and mouth</h2>
   <p class="lead" style="font-size:15px;">
@@ -225,72 +261,67 @@
   </table>
   <p>
     The first four read what the shape <em>means</em>; the last two read what mouth it
-    <em>would take to say it</em>. A circle → <em>a</em>, a horizontal bar → <em>i</em>,
-    a small circle → <em>u</em>, a tilted ellipse → <em>e</em> (either direction of tilt),
-    a slightly tall circle → <em>o</em> —
-    <strong>vowels are chosen by the mouth</strong>.
+    <em>would take to say it</em>. In ordinary six-axis generation, a circle suggests <em>a</em>,
+    a horizontal bar <em>i</em>, a small circle <em>u</em>, a tilted ellipse <em>e</em>
+    (either direction of tilt), and a slightly tall circle <em>o</em>.
+    <strong>Vowels are chosen from the shape of the mouth</strong>. A recognized completed
+    shape, such as a closed circle, uses its own shape vocabulary first.
   </p>
   <p>
-    Draw an open arc (shapes like <code>⊃⊂∩∪</code>) and it becomes a minimal
-    "vowel + ん" word; draw an open angle (shapes like <code>＜＞∧∨</code>) and it
-    becomes a minimal "consonant + ん" word — either way, regardless of orientation.
+    An open arc (like <code>⊃⊂∩∪</code>) gets a word according to its direction and size.
+    It has no final <em>n</em> until the circle closes. An open angle (like
+    <code>＜＞∧∨</code>) gets a short word according to its angle and size, also without a final <em>n</em>.
   </p>
   <p>
-    In the default preset, a completed heart is graded at recognition levels 1–3.
+    A completed circle has three sizes: <span class="word">oon / aoon / aaaan</span>.
+    Triangles, inverted triangles, squares and rectangles also have shape vocabulary.
+    A completed heart is graded at recognition levels 1–3.
     Loose and regular hearts receive <span class="word">myuun</span>, while the cleanest
     level-3 hearts receive <span class="word">kuun</span>. An outline star receives
     <span class="word">chigyaan</span>, while a one-stroke pentagram receives
     <span class="word">ayanoharu / ayanofaru / ayanoparu</span> from outer to central recognition.
-    This completed-shape match is kept separate from the
-    six axes. Ambiguous shapes and smooth flowers fall back to the ordinary six-axis generator.
+    Leaves, crescents, clouds, flowers, droplets and lightning each have three recognition levels.
+    These matches are separate from the six axes. Drawings that do not match a shape vocabulary
+    fall back to six-axis generation.
   </p>
   <p>
-    These six axes are matched against sound-symbolic bias tables for every consonant and
+    In ordinary generation, these six axes are matched against sound-symbolic bias tables for every consonant and
     vowel, and a Japanese-style mora sequence (CV, bare vowel, geminate <code>Q</code>,
     moraic nasal <code>N</code>) is selected.
-    <strong>The same drawing always yields the same word</strong> (deterministic generation) —
+    <strong>The same stroke yields the same word</strong> (deterministic generation) —
     your shape gets, in effect, named.
   </p>
 
   <h2>How to use</h2>
   <ul>
-    <li><strong>Draw</strong> — one stroke on the canvas speaks immediately. ✕ Eraser resets</li>
-    <li><strong>PLAY</strong> — repeats the last utterance exactly, as many times as you like</li>
-    <li><strong>TUNE sliders</strong> — drive the six axes directly in the developer view
-        (<code>?dev=1</code>)</li>
-    <li><strong>Presets</strong> — bouba/kiki/maluma/takete (the classics of sound-symbolism
-        research) plus six Japanese onomatopoeia. First tap speaks the canonical word;
-        later taps improvise variations</li>
-    <li><strong>LOG</strong> — tap any past word to replay it exactly</li>
+    <li><strong>Draw</strong> — make a stroke with your finger or mouse, then lift to hear it. The ↺ Eraser clears the canvas</li>
+    <li><strong>Hear it again</strong> — replay the selected voice. “Previous” lets you hear the preceding drawing</li>
+    <li><strong>Voice samples</strong> — try bouba/kiki/maluma/takete and six Japanese onomatopoeia. The first tap speaks each named word; later taps make variations</li>
+    <li><strong>Your voices</strong> — revisit voices born from your drawings on this page. The list clears when you reload</li>
   </ul>
 
   <h2>About this web version</h2>
   <p>
-    Onomatoi is the simplified web edition of the iPad/Mac app
-    <em>Onomatoi (formerly PTS, Phonosymbolic Topology Synthesizer)</em>, which adds
-    pitch contours, melody (warabe-uta) modes and a multi-stroke composing mode.
-    The voice is <strong>PuppeTwin</strong>, a bank of 171 MP3 samples plus 25 WAV files
-    used for precise joins.
+    This is Onomatoi for the browser: draw a stroke and hear it speak.
+    Its recorded PuppeTwin voice uses web-ready versions of the iOS Onomatoi base samples.
+    The iPhone and iPad app is in development.
   </p>
   <p>
-    Alongside the port from the core engine (shaping into real-sounding onomatopoeia forms,
-    sustained long vowels, continuation-ん, vowel glides like <em>kai/kou/ui</em>,
-    and two-mora reattack laws), this web
-    version keeps in step with ongoing refinements to the core: choosing vowels from the shape
-    of the mouth (including tilted ellipses → <em>e</em> and slightly-tall circles → <em>o</em>),
-    open arcs/angles becoming minimal "vowel/consonant + ん" words, and adjustments to glides
-    and to how neighboring morae stay easy to say.
-    The version through 2026-06-22 is preserved <a href="./iceface_onomatopian.html">here</a>.
+    The web engine carries over the way Onomatoi builds Japanese-like words and joins
+    sustained vowels, nasal sounds and vowel sequences. If a generated word happens to match
+    a familiar Japanese onomatopoeia, a small “よく使われる日本語” (“common Japanese”) label appears.
+    You can also visit <a href="./yama/">Onomatoi Mountain</a> to explore floating words
+    and the impressions of their sounds.
   </p>
 
   <h2>Feedback &amp; data use</h2>
   <p>
-    👍👎 votes and written reasons are <strong>stored only in your browser (localStorage)
-    and are never sent automatically</strong>. If you export them with COPY and share them
-    with us, the contents (axis values, generated word, vote, reason, tags, and the
-    drawn stroke as a low-resolution vertex polyline) are
-    <strong>used to improve and tune Onomatoi's generative model</strong> (its
-    sound-symbolic bias tables). No personally identifying information is included.
+    Turn on “Participate in research” under “Research feedback” to show 👍👎 and the reason field.
+    Votes you make are <strong>stored in your browser (localStorage) and are not sent automatically</strong>.
+    If you export the data with COPY and share it with us, axis values, generated words,
+    votes, reasons, tags and low-resolution stroke vertices may be
+    <strong>used to improve and tune Onomatoi's generative model</strong>.
+    Reasons are free text. Please do not enter your name, contact details or other personal information.
   </p>
 </div>
 
