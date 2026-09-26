@@ -129,6 +129,8 @@
   <p data-copy="intro">丸くても、ギザギザでも。ひと筆、どうぞ。</p>
 </section>
 
+<div class="experience-layout">
+<div class="experience-center">
 <section class="play-space" aria-label="描いて遊ぶ">
 <div class="canvas-tools"><span class="workspace-label"><i></i><span data-copy="workspace">あなたの一筆</span></span><button id="btn-clear" class="quiet-button" title="キャンバスを消去 / Clear the canvas"><span aria-hidden="true">↺</span> <span id="t-eraser">消しゴム</span></button></div>
 <!-- Loading banner (サンプル読込中の案内、完了後に Voice 表示へ) -->
@@ -191,6 +193,39 @@
   <button class="dock-button" id="dock-history" aria-expanded="false" aria-controls="history-panel"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M8 5h16v17H8ZM4 9v17h16M12 10h8M12 15h5"/></svg><span data-copy="history">これまでの声</span></button>
 </nav>
 <p id="discovery-note" class="discovery-note" data-copy="discovery">ひとつ描いて、もうひとつ。声の違いを聴いてみて。</p>
+</div>
+
+<aside class="portal-rail portal-rail-left" aria-label="おのまといの案内">
+  <a class="portal-card yama-card" href="./yama/">
+    <span class="portal-kicker" data-copy="yamaKicker">もうひとつの遊び</span>
+    <span class="yama-art" aria-hidden="true"><span>ぽ</span><span>こ</span><span>ん</span></span>
+    <strong data-copy="yamaTitle">オノマトペの山</strong>
+    <span class="portal-description" data-copy="yamaDescription">ことばが浮かぶ山で、音の印象を探してみよう。</span>
+    <span class="portal-cta" data-copy="yamaOpen">山へ行く ↗</span>
+  </a>
+  <section class="portal-card about-card" aria-labelledby="about-card-title">
+    <span class="portal-kicker">Onomatoi</span>
+    <h2 id="about-card-title" data-copy="aboutCardTitle">かたちから、声へ。</h2>
+    <p data-copy="aboutCardDescription">描いた線を、口のかたちと音の印象として読みます。</p>
+    <a href="./about_onomatoi.html" data-copy="aboutCardLink">おのまといについて ↗</a>
+  </section>
+</aside>
+
+<aside class="portal-rail portal-rail-right" aria-label="更新情報と言語">
+  <section class="portal-card updates-card" aria-labelledby="updates-title">
+    <span class="portal-kicker" data-copy="updatesKicker">おのまといのいま</span>
+    <h2 id="updates-title" data-copy="updatesTitle">新しいこと</h2>
+    <ol class="updates-list">
+      <li><time datetime="2026-09-25">09.25</time><span data-copy="updateVoice">Web の声を更新しました。</span></li>
+      <li><time datetime="2026-09-24">09.24</time><a href="./yama/" data-copy="updateYama">オノマトペの山が加わりました ↗</a></li>
+    </ol>
+  </section>
+  <section class="portal-card language-card" aria-label="言語の切り替え">
+    <span class="portal-kicker">Language</span>
+    <button id="language-toggle-rail" class="language-button" type="button">English</button>
+  </section>
+</aside>
+</div>
 
 <section id="guide-panel" class="guide-panel" hidden aria-labelledby="guide-title">
   <div class="surface-heading"><h2 id="guide-title" data-copy="guideTitle">まず、ふたつ描いてみよう。</h2><button data-close-panel aria-label="閉じる">×</button></div>

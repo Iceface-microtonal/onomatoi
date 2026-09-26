@@ -23,7 +23,13 @@
     melodyTitle:'Give it a melody', melodyDescription:'The same word, a different expression.',
     poemTitle:'A gathering of songs', poemDescription:'Your words, woven into five–seven–five.',
     footer:'Created and voiced by PuppeTwin', about:'About Onomatoi',
-    shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking'
+    shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking',
+    yamaKicker:'Another place to play', yamaTitle:'Onomatopoeia Mountain',
+    yamaDescription:'Explore a mountain of floating words and the impressions they evoke.',
+    yamaOpen:'Explore the mountain ↗', aboutCardTitle:'From shape to voice.',
+    aboutCardDescription:'Onomatoi reads a line as a mouth shape and a sound impression.',
+    aboutCardLink:'About Onomatoi ↗', updatesKicker:'Onomatoi today', updatesTitle:'What’s new',
+    updateVoice:'The Web voices have been updated.', updateYama:'Onomatopoeia Mountain has arrived ↗'
   };
   if (!ja) document.querySelectorAll('[data-copy]').forEach(el => {
     const text = en[el.dataset.copy];
@@ -36,17 +42,22 @@
     document.querySelector('.site-header nav').setAttribute('aria-label', 'Main navigation');
     document.querySelector('.play-space').setAttribute('aria-label', 'Draw and play');
     document.querySelector('.play-dock').setAttribute('aria-label', 'Play menu');
+    document.querySelector('.portal-rail-left').setAttribute('aria-label', 'Explore Onomatoi');
+    document.querySelector('.portal-rail-right').setAttribute('aria-label', 'Updates and language');
+    document.querySelector('.language-card').setAttribute('aria-label', 'Choose language');
     document.querySelector('[data-close-panel]').setAttribute('aria-label', 'Close');
     $('mouth-icon').setAttribute('aria-label', 'Mouth opening and rounding inferred from the shape');
     $('mouth-timeline').setAttribute('aria-label', 'Mouth shapes along the utterance');
     document.querySelector('.mouth-explanation').title = 'Simplified diagrams of mouth opening and lip rounding.';
   }
-  $('language-toggle').textContent = ja ? 'English' : '日本語';
-  $('language-toggle').setAttribute('aria-label', ja ? 'Switch to English' : '日本語に切り替える');
-  $('language-toggle').onclick = () => {
-    try { localStorage.setItem('onomatoi.lang', ja ? 'en' : 'ja'); } catch (_) { return; }
-    location.reload();
-  };
+  ['language-toggle', 'language-toggle-rail'].forEach(id => {
+    $(id).textContent = ja ? 'English' : '日本語';
+    $(id).setAttribute('aria-label', ja ? 'Switch to English' : '日本語に切り替える');
+    $(id).onclick = () => {
+      try { localStorage.setItem('onomatoi.lang', ja ? 'en' : 'ja'); } catch (_) { return; }
+      location.reload();
+    };
+  });
   $('play-stop').setAttribute('aria-label', ja ? '音を止める' : 'Stop sound');
   $('play-stop').title = ja ? '音を止める' : 'Stop sound';
   $('canvas').setAttribute('aria-label', ja ? '指やマウスで一筆描くキャンバス' : 'Draw a line with your finger or mouse');

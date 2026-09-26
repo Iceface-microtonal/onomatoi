@@ -56,6 +56,33 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .dock-button[aria-pressed="true"],.dock-button[aria-expanded="true"] { background:var(--soft-pink); color:var(--ink); }
 .discovery-note { text-align:center; font-size:11px; color:var(--muted); min-height:22px; margin:18px 0 22px; }
 .discovery-note a { border-bottom:1px solid #dab0bf; }
+.experience-layout { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; max-width:860px; margin:0 auto; }
+.experience-center { grid-column:1 / -1; min-width:0; }
+.portal-rail { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.portal-card { display:block; min-width:0; padding:21px; border:1px solid #e9e6e0; border-radius:22px; background:#fffefa; }
+.portal-card h2,.portal-card strong { display:block; font-size:17px; font-weight:550; line-height:1.5; }
+.portal-kicker { display:block; color:var(--muted); font-size:10px; letter-spacing:.08em; }
+.portal-description,.about-card p { display:block; margin-top:10px; color:var(--muted); font-size:12px; line-height:1.8; }
+.portal-cta,.about-card>a { display:inline-block; margin-top:17px; color:#72566b; font-size:12px; font-weight:600; }
+.yama-card { background:linear-gradient(155deg,#f5f8fb,#fffefa 72%); transition:transform .18s,box-shadow .18s; }
+.yama-card:hover { text-decoration:none; transform:translateY(-3px); box-shadow:0 10px 26px #3930260c; }
+.yama-card:hover .portal-cta { text-decoration:underline; text-underline-offset:4px; }
+.yama-art { display:flex; align-items:flex-end; justify-content:center; height:96px; gap:5px; margin:2px 0 13px; }
+.yama-art span { display:grid; place-items:center; width:37px; height:37px; border:1px solid #cdd8e2; border-radius:11px; background:white; color:#6386a3; font-size:17px; box-shadow:0 4px 12px #39567512; }
+.yama-art span:nth-child(1) { transform:translateY(-4px) rotate(-9deg); }
+.yama-art span:nth-child(2) { transform:translateY(-31px) rotate(5deg); }
+.yama-art span:nth-child(3) { transform:translateY(-11px) rotate(11deg); }
+.about-card { background:#fffdfc; }
+.about-card h2 { margin-top:8px; }
+.updates-card h2 { margin-top:8px; }
+.updates-list { list-style:none; margin-top:18px; }
+.updates-list li { display:grid; grid-template-columns:43px minmax(0,1fr); gap:10px; padding:12px 0; border-top:1px solid #ece9e5; align-items:start; }
+.updates-list time { color:#a1647d; font-size:11px; font-variant-numeric:tabular-nums; }
+.updates-list span,.updates-list a { font-size:12px; line-height:1.7; }
+.updates-list a { color:#416680; }
+.language-card { display:none; background:#f7f4f1; }
+.language-button { width:100%; margin-top:12px; border:1px solid #e0dcd7; border-radius:12px; background:white; text-align:left; padding:10px 13px; }
+.language-button:hover { background:var(--soft-pink); }
 .drawer-panel,.guide-panel { max-width:860px; margin:0 auto 24px; padding:24px; background:white; border:1px solid #e9e6e0; border-radius:22px; }
 .panel-title { color:var(--ink); font-size:13px; font-weight:550; letter-spacing:.5px; }
 .surface-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -107,6 +134,16 @@ body.is-dev #log { display:block; }
 .footer-brand { font-size:15px; font-weight:600; color:var(--ink); }
 .site-footer>a:nth-last-child(2) { margin-left:auto; }
 .site-footer button { font-size:10px; }
+@media(min-width:1360px) {
+  body { max-width:1560px; padding:0 32px; }
+  .site-header,.ios-section,.site-footer { max-width:1180px; margin-left:auto; margin-right:auto; }
+  .experience-layout { max-width:1500px; grid-template-columns:minmax(0,1fr) minmax(0,860px) minmax(0,1fr); gap:24px; align-items:start; }
+  .experience-center { grid-column:2; grid-row:1; }
+  .portal-rail-left { grid-column:1; grid-row:1; }
+  .portal-rail-right { grid-column:3; grid-row:1; }
+  .language-card { display:block; }
+  .site-footer #language-toggle { display:none; }
+}
 @media(max-width:700px) {
   body { padding:0 18px; }
   .site-header { height:70px; }
@@ -133,6 +170,10 @@ body.is-dev #log { display:block; }
   .play-dock { gap:4px; margin:12px auto 0; }
   .dock-button { min-height:66px; padding:9px 12px; }
   .discovery-note { font-size:10px; margin:13px 0 20px; }
+  .experience-layout { grid-template-columns:1fr; gap:14px; }
+  .experience-center { grid-column:1; }
+  .portal-card { padding:18px; }
+  .yama-art { height:70px; }
   .drawer-panel,.guide-panel { padding:18px; }
   .ios-section { margin:32px 0; padding:28px 22px; grid-template-columns:1fr; gap:26px; }
   .ios-copy h2 { font-size:25px; }
