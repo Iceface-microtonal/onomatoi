@@ -427,14 +427,16 @@ console.log("── 6. 現行Core入力正規化・NG語 ──");
   check("NG語にババを含む", api.NAMING_NG_WORDS.includes("ババ"));
 }
 
-console.log("── 6.2. 長音符は発声が続く所だけ (言い直すモーラは母音で書く・Core KanaReattackMarkTests と同じ) ──");
+console.log("── 6.2. 言い直す母音を明記し、長音符は連続させない (Core KanaReattackMarkTests と同じ) ──");
 {
-  const want = { reeeyuuuu: "れーえゆーうー", aaaa: "あーあー", kaaa: "かーあ", nyoooo: "にょーおー",
-                 kaii: "かいい", uii: "ういい", gaa: "がー", zaazaa: "ざーざー", aaan: "あーーん",
-                 aiin: "あいーん", aaaaa: "あーあーー", piuuuu: "ぴうーうー" };
+  const want = { aaa: "あーあ", aaaeee: "あーあえーえ", reeeyuuuu: "れーえゆーうー",
+                 aaaa: "あーあー", kaaa: "かーあ", nyoooo: "にょーおー",
+                 kaii: "かいい", uii: "ういい", gaa: "がー", zaazaa: "ざーざー", aaan: "あーあん",
+                 aiin: "あいーん", aaaaa: "あーあーあ", piuuuu: "ぴうーうー" };
   for (const [w, kana] of Object.entries(want)) {
     const got = api.namingKanaOf(api.segmentWord(w));
     check(`${w} → ${kana}`, got === kana, `got ${got}`);
+    check(`${w} に連続長音符なし`, !got.includes("ーー"), `got ${got}`);
   }
 }
 

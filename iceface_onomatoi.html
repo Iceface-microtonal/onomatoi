@@ -2779,8 +2779,8 @@ const NAMING_KANA_ROWS = {
 };
 const NAMING_VOWEL_INDEX = { a: 0, i: 1, u: 2, e: 3, o: 4 };
 // 長音符「ー」は発声が続く所だけ。発声で言い直すモーラ (同母音 run の2モーラごと・diph 直後) は
-// 母音の仮名で書く (reeeyuuuu = れーえゆーうー / kaii = かいい)。判定は合成と同じ再アタック3法
-// (PhonosymbolicEvent.kanaMarks → isSpokenVowelReattack と同一)。
+// 母音の仮名で書く (reeeyuuuu = れーえゆーうー / kaii = かいい)。表記の「ーー」は避け、
+// 持続する発声でも2つ目の長音符は母音で書く (aaa = あーあ)。母音表記は再アタックを保証しない。
 function nvIsSpokenVowelReattack(idx, moras) {
   return nvDiphReattackBreaks(idx, moras) || nvExtendedRunBoundaryReattacks(idx, moras)
     || nvSameVowelRunReattacks(idx, moras);
@@ -2794,7 +2794,7 @@ function namingKanaOf(sourceMoras) {
     if (m.isN) { out += "ん"; prevVowel = null; continue; }
     if (m.isQ) { out += "っ"; prevVowel = null; continue; }
     if (m.onset === null && prevVowel !== null && prevVowel === m.nucleus &&
-        !nvIsSpokenVowelReattack(i, moras)) {
+        !nvIsSpokenVowelReattack(i, moras) && !out.endsWith("ー")) {
       out += "ー";   // 長音符 (直前母音を伸ばす)。prevVowel は据え置き。
     } else {
       const row = NAMING_KANA_ROWS[m.onset ?? ""] ?? NAMING_KANA_ROWS[""];
@@ -5322,7 +5322,7 @@ function whyFormReason(ax, moras, ja) {
   const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
   const loops = moras.filter(m => !m.isN);
   if (loops.length >= 2 && loops.slice(1).every(m => m.onset === null && m.nucleus === loops[0].nucleus))
-    return ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーーー型）"
+    return ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）"
               : "one held stroke → sustained vowel (aaaa-type)";
   if (loops.length >= 2 && loops.length % 2 === 0) {
     const h = loops.length / 2;
