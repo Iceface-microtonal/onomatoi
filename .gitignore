@@ -3,3 +3,5 @@
 # 比較用の治具のビルド物
 test/native_render/.build/
 test/parity_out/
+reaction-worker/node_modules/
+reaction-worker/.wrangler/

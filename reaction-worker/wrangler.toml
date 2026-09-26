@@ -1,0 +1,16 @@
+name = "onomatoi-reaction"
+main = "src/index.js"
+compatibility_date = "2026-09-22"
+
+[vars]
+ALLOWED_ORIGINS = "https://onomatoi.com,https://www.onomatoi.com"
+DAILY_IP_LIMIT = "20"
+DAILY_GLOBAL_LIMIT = "300"
+
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+
+[exports.Quota]
+type = "durable-object"
+storage = "sqlite"

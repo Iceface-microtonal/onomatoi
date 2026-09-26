@@ -1,0 +1,22 @@
+.reaction-card {
+  max-width: 590px;
+  margin: 0 auto 22px;
+  padding: 16px 20px 15px;
+  border: 1px solid #f0e5e6;
+  border-radius: 18px;
+  background: linear-gradient(125deg, #fff7f9, #fffefa 70%);
+  box-shadow: 0 4px 16px #6b455008;
+}
+.reaction-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.reaction-kicker { color: #a46c83; font-size: 10px; letter-spacing: .1em; }
+.reaction-mode { color: #8d8785; font-size: 10px; white-space: nowrap; }
+.reaction-main { min-height: 58px; display: flex; align-items: center; justify-content: center; text-align: center; }
+.reaction-ask { padding: 9px 16px; border: 1px solid #edceda; border-radius: 24px; background: #fae6ed; font-size: 12px; }
+.reaction-ask:hover:not(:disabled) { background: #f6d5e2; }
+.reaction-text { margin: 10px 0 3px; font-size: 14px; line-height: 1.7; letter-spacing: .02em; }
+.reaction-note { margin: 0; color: #8d8785; font-size: 10px; text-align: center; }
+@media (max-width: 700px) {
+  .reaction-card { margin: 0 12px 17px; padding: 14px 15px; }
+  .reaction-heading { align-items: flex-start; }
+  .reaction-text { font-size: 13px; }
+}
