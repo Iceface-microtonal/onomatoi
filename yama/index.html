@@ -95,8 +95,8 @@
 </div>
 <div class="corner">
   <div class="sets" role="group" aria-label="語彙">
-    <button data-set="ja" aria-pressed="false">日本<span class="long">のオノマトペ</span></button>
     <button data-set="onomatoi" aria-pressed="false">Onomatoi<span class="long"> のことば</span></button>
+    <button data-set="ja" aria-pressed="false">日本<span class="long">のオノマトペ</span></button>
   </div>
   <button id="sound" aria-pressed="false">🔈 音を出す</button>
 </div>
@@ -129,7 +129,7 @@ function css(name) { return getComputedStyle(document.documentElement).getProper
 
 // ─── データ ───
 // 組: ja = 日本語の代表的なオノマトペ / onomatoi = Onomatoi が生成した辞書にない語
-const SET = new URLSearchParams(location.search).get("set") === "onomatoi" ? "onomatoi" : "ja";
+const SET = new URLSearchParams(location.search).get("set") === "ja" ? "ja" : "onomatoi";
 for (const b of document.querySelectorAll(".sets button")) {
   b.setAttribute("aria-pressed", String(b.dataset.set === SET));
   b.addEventListener("click", () => {

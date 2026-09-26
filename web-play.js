@@ -24,12 +24,12 @@
     poemTitle:'A gathering of songs', poemDescription:'Your words, woven into five–seven–five.',
     footer:'Created and voiced by PuppeTwin', about:'About Onomatoi',
     shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking',
-    yamaKicker:'Another place to play', yamaTitle:'Onomatopoeia Mountain',
+    yamaKicker:'Another place to play', yamaTitle:'Onomatoi Mountain',
     yamaDescription:'Explore a mountain of floating words and the impressions they evoke.',
     yamaOpen:'Explore the mountain ↗', aboutCardTitle:'From shape to voice.',
     aboutCardDescription:'Onomatoi reads a line as a mouth shape and a sound impression.',
     aboutCardLink:'About Onomatoi ↗', updatesKicker:'Onomatoi today', updatesTitle:'What’s new',
-    updateVoice:'The Web voices have been updated.', updateYama:'Onomatopoeia Mountain has arrived ↗'
+    updateVoice:'The Web voices have been updated.', updateYama:'Onomatoi Mountain has arrived ↗'
   };
   if (!ja) document.querySelectorAll('[data-copy]').forEach(el => {
     const text = en[el.dataset.copy];

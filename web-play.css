@@ -67,11 +67,12 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .yama-card { background:linear-gradient(155deg,#f5f8fb,#fffefa 72%); transition:transform .18s,box-shadow .18s; }
 .yama-card:hover { text-decoration:none; transform:translateY(-3px); box-shadow:0 10px 26px #3930260c; }
 .yama-card:hover .portal-cta { text-decoration:underline; text-underline-offset:4px; }
-.yama-art { display:flex; align-items:flex-end; justify-content:center; height:96px; gap:5px; margin:2px 0 13px; }
-.yama-art span { display:grid; place-items:center; width:37px; height:37px; border:1px solid #cdd8e2; border-radius:11px; background:white; color:#6386a3; font-size:17px; box-shadow:0 4px 12px #39567512; }
+.yama-art { display:flex; align-items:flex-end; justify-content:center; height:96px; gap:4px; margin:2px 0 13px; }
+.yama-art span { display:grid; place-items:center; width:33px; height:33px; border:1px solid #cdd8e2; border-radius:11px; background:white; color:#6386a3; font-size:17px; box-shadow:0 4px 12px #39567512; }
 .yama-art span:nth-child(1) { transform:translateY(-4px) rotate(-9deg); }
 .yama-art span:nth-child(2) { transform:translateY(-31px) rotate(5deg); }
 .yama-art span:nth-child(3) { transform:translateY(-11px) rotate(11deg); }
+.yama-art span:nth-child(4) { transform:translateY(-4px) rotate(-6deg); }
 .about-card { background:#fffdfc; }
 .about-card h2 { margin-top:8px; }
 .updates-card h2 { margin-top:8px; }
