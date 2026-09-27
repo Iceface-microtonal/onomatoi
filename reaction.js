@@ -11,7 +11,7 @@
       <span class="reaction-kicker">${ja ? 'ONE LINE / 一筆へのひとこと' : 'ONE LINE / A LITTLE RESPONSE'}</span>
       <span class="reaction-mode"></span>
     </div>
-    <label class="reaction-lens"><input type="checkbox" class="reaction-map-toggle"> ${ja ? '音の地図の視点を加える' : 'Add the sound map perspective'}</label>
+    <label class="reaction-lens"><input type="checkbox" class="reaction-map-toggle" checked> ${ja ? '音の地図の視点を加える' : 'Add the sound map perspective'}</label>
     <div class="reaction-main">
       <button type="button" class="reaction-ask">${ja ? 'この一筆へのひとことを聞く ↗' : 'A thought on this line ↗'}</button>
       <p class="reaction-text" role="status" aria-live="polite"></p>
