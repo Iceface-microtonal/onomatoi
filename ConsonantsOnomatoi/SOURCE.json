@@ -1278,11 +1278,11 @@
   },
   "diph_ooii.wav": {
    "source": "Onomatoi/Resources/Consonants/diph_ooii.wav",
-   "sha256": "d876cc283ecd757bf2eeed023ed8a80b9d8e21a15eb08257234a85868f8a37b8",
+   "sha256": "a1bfa27238bedbe254d6ad4111762096c268faa4cd1751e951e257f94d808449",
    "frames": 37039,
-   "trimStart": 30,
+   "trimStart": 33,
    "encoding": "pcm_s16le",
-   "outputSha256": "bf1250002021682f91c8b0694d5d7c5b211f3ea1009a941826faf492f2861267"
+   "outputSha256": "7ebbfa4024c3bf121f85d387d3315a9369199dbcbbc5c8973d877418012cd365"
   },
   "diph_oouu.wav": {
    "source": "Onomatoi/Resources/Consonants/diph_oouu.wav",
