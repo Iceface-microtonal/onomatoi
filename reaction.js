@@ -11,15 +11,19 @@
       <span class="reaction-kicker">${ja ? 'ONE LINE / 一筆へのひとこと' : 'ONE LINE / A LITTLE RESPONSE'}</span>
       <span class="reaction-mode"></span>
     </div>
+    <label class="reaction-lens"><input type="checkbox" class="reaction-map-toggle"> ${ja ? '音の地図の視点を加える' : 'Add the sound map perspective'}</label>
     <div class="reaction-main">
       <button type="button" class="reaction-ask">${ja ? 'この一筆へのひとことを聞く ↗' : 'A thought on this line ↗'}</button>
       <p class="reaction-text" role="status" aria-live="polite"></p>
     </div>
+    <p class="reaction-map-source" hidden></p>
     <p class="reaction-note">${ja ? '線の特徴と生まれたことばからの連想です。音声は聴いていません。' : 'An impression from the line and its word. The voice is not heard by the model.'}</p>`;
   document.querySelector('.listening-bar').after(card);
 
   const ask = card.querySelector('.reaction-ask');
   const text = card.querySelector('.reaction-text');
+  const lensToggle = card.querySelector('.reaction-map-toggle');
+  const source = card.querySelector('.reaction-map-source');
   const mode = card.querySelector('.reaction-mode');
   let current = null;
   let version = 0;
@@ -50,6 +54,7 @@
       shape: {corners: shape.corners ?? 0, loops: shape.loops ?? 0, isClosed: shape.isClosed === true}
     };
     text.textContent = '';
+    source.hidden = true;
     ask.hidden = false;
     ask.disabled = false;
     card.hidden = false;
@@ -62,6 +67,16 @@
     card.hidden = true;
   });
 
+  lensToggle.addEventListener('change', () => {
+    controller?.abort();
+    version += 1;
+    if (!current) return;
+    text.textContent = '';
+    source.hidden = true;
+    ask.hidden = false;
+    ask.disabled = false;
+  });
+
   ask.addEventListener('click', async () => {
     if (!current) return;
     const thisVersion = version;
@@ -72,7 +87,7 @@
       const response = await fetch(API_BASE + '/api/reaction', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(current),
+        body: JSON.stringify({...current, lens: lensToggle.checked ? 'sound_map' : 'simple'}),
         signal: controller.signal
       });
       const data = await response.json();
@@ -82,12 +97,22 @@
           ? (ja ? '今日はここまで。また明日どうぞ。' : 'That is all for today. Please come back tomorrow.')
           : data.code === 'invalid_api_key'
           ? (ja ? 'APIキーが認証されませんでした。キーを確認してください。' : 'The API key was rejected. Please check it.')
+          : data.code === 'sound_map_unavailable'
+          ? (ja ? '音の地図を読み取れませんでした。' : 'The sound map could not be read.')
           : (ja ? 'いまは反応を返せません。もう一度お試しください。' : 'No response right now. Please try again.');
         ask.disabled = response.status === 429;
         return;
       }
       setMode(data.mode);
       text.textContent = data.text;
+      if (data.lens === 'sound_map') {
+        source.textContent = (ja ? '資料からの手がかり：' : 'Sound map clues: ') +
+          data.soundMapClues.map(clue => `${clue.kana}＝${clue.image}`).join(' · ');
+        source.hidden = false;
+      } else if (lensToggle.checked && data.mode === 'luna') {
+        source.textContent = ja ? 'この語に対応する音は資料にないため、素朴版で返しました。' : 'No matching sound map entry; the simple response was used.';
+        source.hidden = false;
+      }
       ask.hidden = true;
     } catch (error) {
       if (thisVersion !== version || error.name === 'AbortError') return;

@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { SOUND_MAP_INSTRUCTIONS, soundMapClues } from './sound-map.mjs';
 
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const MODEL = 'gpt-6-luna';
@@ -103,12 +104,25 @@ export default {
     }
 
     let payload;
+    let raw;
     try {
       const text = await request.text();
       if (text.length > 2048) return json(413, { error: 'too large' });
-      payload = cleanPayload(JSON.parse(text));
+      raw = JSON.parse(text);
+      payload = cleanPayload(raw);
     } catch {
       return json(400, { error: 'invalid drawing data' });
+    }
+
+    let clues = [];
+    if (raw.lens === 'sound_map') {
+      try {
+        const notes = JSON.parse(env.SOUND_MAP_JSON);
+        if (!notes || typeof notes !== 'object' || Array.isArray(notes)) throw new Error('invalid sound map');
+        clues = soundMapClues(payload.word, notes);
+      } catch {
+        return json(503, { error: 'sound map unavailable', code: 'sound_map_unavailable' });
+      }
     }
 
     const day = new Date().toISOString().slice(0, 10);
@@ -130,8 +144,8 @@ export default {
           reasoning: { effort: 'none' },
           max_output_tokens: 100,
           store: false,
-          instructions: INSTRUCTIONS,
-          input: JSON.stringify(payload),
+          instructions: clues.length ? INSTRUCTIONS + SOUND_MAP_INSTRUCTIONS : INSTRUCTIONS,
+          input: JSON.stringify(clues.length ? { ...payload, soundMapClues: clues } : payload),
         }),
         signal: AbortSignal.timeout(20000),
       });
@@ -140,7 +154,8 @@ export default {
       const text = (data.output || []).flatMap(item => item.type === 'message' ? item.content || [] : [])
         .filter(part => part.type === 'output_text').map(part => part.text || '').join(' ').trim();
       if (!text) return json(502, { error: 'reaction unavailable' });
-      return json(200, { mode: 'luna', text: Array.from(text).slice(0, 240).join('') });
+      return json(200, { mode: 'luna', text: Array.from(text).slice(0, 240).join(''),
+        lens: clues.length ? 'sound_map' : 'simple', soundMapClues: clues });
     } catch {
       return json(502, { error: 'reaction unavailable' });
     }
