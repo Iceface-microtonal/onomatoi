@@ -5,6 +5,7 @@
 
     python3 scripts/sync_ios_base_voice.py            # 作り直す
     python3 scripts/sync_ios_base_voice.py --check    # 差分だけ表示 (書かない)
+    python3 scripts/sync_ios_base_voice.py --only v_uuuu  # 指定した base 音源だけ同期
 
 - 元   = /Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants/*.wav のうち base の録音
          (予備 *.orig1.wav と高さ違い *_m300.wav / *_p200.wav / *_m300b.wav などは使わない)
@@ -17,6 +18,7 @@
    CV/diph/撥音は頭の無音が 3500 サンプル超なら閉鎖期として残す・母音だけの録音は常に切る)
 """
 import array
+import argparse
 import hashlib
 import json
 import re
@@ -48,12 +50,20 @@ def sha(p):
 
 
 def main():
-    check = "--check" in sys.argv
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="差分だけ表示する")
+    parser.add_argument("--only", metavar="STEM", help="指定した base 音源だけ同期する (例: v_uuuu)")
+    args = parser.parse_args()
+    check = args.check
     base = sorted(p for p in SRC.glob("*.wav") if not NOT_BASE.search(p.stem))
+    if args.only:
+        base = [p for p in base if p.stem == args.only]
+        if not base:
+            parser.error(f"base 音源が見つかりません: {args.only}")
     old_manifest = {}
     if (DST / "SOURCE.json").exists():
         old_manifest = json.loads((DST / "SOURCE.json").read_text(encoding="utf-8")).get("files", {})
-    want, manifest, made, kept = set(), {}, [], 0
+    want, manifest, made, kept = set(), dict(old_manifest) if args.only else {}, [], 0
     for src in base:
         key = src.stem
         ext = "wav" if KEEP_WAV.match(key) else "mp3"
@@ -75,7 +85,8 @@ def main():
         else:
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "48000",
                             "-c:a", "libmp3lame", "-b:a", "96k", str(out)], check=True)
-    stale = sorted(p.name for p in DST.iterdir() if p.is_file() and p.name != "SOURCE.json" and p.name not in want)
+    stale = [] if args.only else sorted(p.name for p in DST.iterdir()
+                                        if p.is_file() and p.name != "SOURCE.json" and p.name not in want)
     print(f"base {len(base)} 本 / 作り直し {len(made)} / そのまま {kept} / 消す {len(stale)}")
     if stale:
         print("  消す: " + " ".join(stale))

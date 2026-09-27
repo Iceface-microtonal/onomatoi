@@ -1053,9 +1053,9 @@
   },
   "v_uuuu.wav": {
    "source": "Onomatoi/Resources/Consonants/v_uuuu.wav",
-   "sha256": "e3199cd0002d63439bdcbd43b3cc8f1d47a91a2128d142f12f59c4d14374391a",
-   "frames": 51718,
-   "trimStart": 1
+   "sha256": "087f2edac32f091085ccd69c87bc071f70bae29bfef00c6c5ed34c4610d0df08",
+   "frames": 51532,
+   "trimStart": 27
   }
  }
 }
