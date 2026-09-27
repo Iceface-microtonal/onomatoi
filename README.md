@@ -29,7 +29,7 @@ Phonosymbolic Topology Synthesizer の簡易 Web 版。このフォルダ単体�
 - `iceface_onomatoi.html` — 現行版 (詳細は下記「現行版が旧版から変わった点」)
 - `reaction.js` / `reaction.css` / `reaction-worker/` — 一筆へのひとこと (表示と公開API)
 - `about_onomatoi.html` — 現行版の解説ページ (日英対応)
-- `ConsonantsOnomatoi/` — 現行版の音声サンプル 171 mp3 + 接合精度用 25 wav
+- `ConsonantsOnomatoi/` — 現行版の音声サンプル (通常音声は 80kbps mp3、接合用 25 本は wav)
   (`cv_*`/`v_*`/`n_N`/`v_*_nn`/`diph_*`)
 - `iceface_onomatopian.html` — 旧版 (2026-06-22 時点でアーカイブ、以後更新なし)
 - `about.html` — 旧版の解説ページ

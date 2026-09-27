@@ -9,8 +9,8 @@
 
 - 元   = /Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants/*.wav のうち base の録音
          (予備 *.orig1.wav と高さ違い *_m300.wav / *_p200.wav / *_m300b.wav などは使わない)
-- wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音。mp3 の頭の余白とフレーム区切りを避ける)
-- mp3  = それ以外。48kHz・モノラル・96kbps (旧版は 22.05kHz・48kbps だった)
+- wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音)
+- mp3  = それ以外。48kHz・モノラル・80kbps
 - base に無いファイルは Web 側から消す。どの録音から作ったかは SOURCE.json (sha256) に残す
 - SOURCE.json には元 wav の長さ (frames) と、iOS のロード時と同じ判定で求めた頭の無音トリム位置
   (trimStart) も書く。mp3 は立ち上がり直前に符号化の雑音が出て、Web でその場判定すると数ms早く切れるため
@@ -68,23 +68,28 @@ def main():
         key = src.stem
         ext = "wav" if KEEP_WAV.match(key) else "mp3"
         out = DST / f"{key}.{ext}"
+        encoding = "pcm_s16le" if ext == "wav" else "mp3_80k"
         want.add(out.name)
         digest = sha(src)
         frames, start = trim_start(src, key)
         manifest[out.name] = {"source": f"Onomatoi/Resources/Consonants/{src.name}", "sha256": digest,
-                              "frames": frames, "trimStart": start}
-        if old_manifest.get(out.name, {}).get("sha256") == digest and out.exists():
+                              "frames": frames, "trimStart": start, "encoding": encoding}
+        previous = old_manifest.get(out.name, {})
+        if (previous.get("sha256") == digest and previous.get("encoding") == encoding
+                and out.exists() and (not previous.get("outputSha256")
+                                      or previous["outputSha256"] == sha(out))):
+            manifest[out.name]["outputSha256"] = sha(out)
+            if previous.get("conversionInputSha256"):
+                manifest[out.name]["conversionInputSha256"] = previous["conversionInputSha256"]
             kept += 1
             continue                                   # 元が変わっていなければ作り直さない (repo を膨らませない)
         made.append(out.name)
         if check:
             continue
-        if ext == "wav":
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "48000",
-                            "-c:a", "pcm_s16le", str(out)], check=True)
-        else:
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "48000",
-                            "-c:a", "libmp3lame", "-b:a", "96k", str(out)], check=True)
+        codec = ["-c:a", "pcm_s16le"] if ext == "wav" else ["-c:a", "libmp3lame", "-b:a", "80k"]
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-ac", "1", "-ar", "48000",
+                        *codec, str(out)], check=True)
+        manifest[out.name]["outputSha256"] = sha(out)
     stale = [] if args.only else sorted(p.name for p in DST.iterdir()
                                         if p.is_file() and p.name != "SOURCE.json" and p.name not in want)
     print(f"base {len(base)} 本 / 作り直し {len(made)} / そのまま {kept} / 消す {len(stale)}")

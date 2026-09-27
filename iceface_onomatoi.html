@@ -373,8 +373,8 @@
  *    V+V 生 diph / 拡張 run の長尺録音 [core v8] / 語末ん・語末 diph のリリース) を
  *    JS へ移植し、語全体を 1 バッファに描いてから 1 ノードで再生する。
  *    モーラ個別再アタック (v12) は ?voice=legacy でいつでも戻せる (フォールバックも自動)。
- *    diph_* は非圧縮 .wav を優先ロード (mp3 は継ぎ足し読みに弱い — フレーム量子化で
- *    定常部が揺れる/先頭パディングで位置がずれる)。warabe 音程バリアントは移植しない。
+ *    diph_* と伸ばし録音は非圧縮 .wav を優先ロード (継ぎ足し読みに使う)。
+ *    ほかの配布音声は 80kbps mp3。warabe 音程バリアントは移植しない。
  * 2026-07-20 命名モード (配置層) v19: 完成形を解体し特徴の強度序列を語内配置 (頭=最強特徴/
  *    中=第二特徴/末=終止モード) へ変換する第2の生成経路 (namingDecompose/namingSlots/
  *    namingGenerate/namingGenerateClean, P4 対照モード込み)。実況 (generate/legalize,
@@ -383,7 +383,7 @@
  *    diph接合−3dB、CV→V先行40ms/20%、ローマ字平音化、NG語「ババ」を移植。
  * ============================================================ */
 
-const SAMPLE_BASE = "./ConsonantsOnomatoi/";   // wav の場所 (開発用: プロジェクト内参照)
+const SAMPLE_BASE = "./ConsonantsOnomatoi/";   // 配布音声の場所
 
 // ─── 日英 UI テキスト (ブラウザ言語で自動判定、about.html とトグル選択を共有) ───
 let uiLang = null;
@@ -3404,7 +3404,7 @@ const PRESETS = [
 ];
 
 // ─── Audio: サンプル bank (base サンプルのみ、音程変化なし) ───
-// 高速化 (v1.1): mp3 (48kbps mono, 約 900KB) + 並列ロード + ページロード直後に
+// 高速化: 通常音声は mp3 (48kHz mono, 80kbps) + 並列ロード + ページロード直後に
 // fetch 開始 (fetch は user gesture 不要)。decode は AudioContext 取得後。
 const SAMPLE_EXT = ".mp3";
 let audioCtx = null;
@@ -3467,13 +3467,10 @@ function sampleKeys() {
   return keys;
 }
 // key に対応する実ファイル名の候補列 (**拡張子込み**・先頭から順に fetch を試す)。
-// v13: diph_* と持続母音テイク (v_aaaa 等) は非圧縮 .wav を最優先 — 1テイク継続読み
-// (任意オフセット・クロスフェード・sustainWrap) は mp3 のフレーム量子化/先頭パディングに
-// 弱いため、これらだけ非圧縮で配る (repo へ直接アップロード)。無ければ mp3。
+// diph_* と伸ばし録音は WAV を優先し、録音ごとの頭の無音トリム位置は SOURCE.json から読む。
 function sampleUrlCandidates(key) {
   const names = [];
-  const wavFirst = key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key);
-  if (wavFirst) names.push(key + ".wav");
+  if (key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key)) names.push(key + ".wav");
   names.push(key + SAMPLE_EXT);
   if (key.startsWith("v_") && key.endsWith("_nn")) {
     const vowel = key.slice(2, -3);   // "v_a_nn" → "a"
@@ -3504,7 +3501,7 @@ async function fetchSample(key) {
   if (rawCache.has(key)) return;
   for (const name of sampleUrlCandidates(key)) {
     try {
-      const sha = voiceSource?.[name]?.sha256;
+      const sha = voiceSource?.[name]?.outputSha256 || voiceSource?.[name]?.sha256;
       const revision = sha ? "?v=" + sha.slice(0, 12)
         : /^v_[aiueo]\.mp3$/.test(name) ? "?v=20260917-short-vowels" : "";
       const res = await fetch(SAMPLE_BASE + name + revision);

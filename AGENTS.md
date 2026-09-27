@@ -38,7 +38,7 @@ node test/kou_properties.mjs       # 幾何 + regression が green であるこ�
 
 ## 4. 音声資産の規則
 
-- 読出し先は `ConsonantsOnomatoi/` (現行版・mp3 171 + 接合精度用 wav 25)。`Consonants/` は旧版 (2026-06-22 アーカイブ) で触らない。
+- 読出し先は `ConsonantsOnomatoi/` (現行版・通常音声は 80kbps mp3、接合に使う diph と伸ばしは wav)。`Consonants/` は旧版 (2026-06-22 アーカイブ) で触らない。
 - マスターはネイティブ側 (`../Onomatoi/Resources/Consonants*`・mono/48k/16bit wav)。Web へは**変換して持ち込む**:
   継続撥音 `v_<v>_nn` は必ず `scripts/bake_contn.py` を通す (末尾トリムだけでは母音ダブりが鳴る)。
 - ファイル名がローダのキー。`のコピー` / 連番付き / 別拡張子は読まれない。
