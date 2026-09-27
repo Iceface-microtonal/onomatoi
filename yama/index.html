@@ -151,6 +151,38 @@ async function loadData() {
 // ─── 音 ───
 let actx = null, soundOn = false;
 const buffers = new Map(), raw = new Map();
+// 探索中だけ鳴る小さなガラス音。録音素材を増やさず、各音を自然に減衰させる。
+let searchSoundTimer = null, searchSoundStep = 0;
+function playSearchPulse() {
+  if (!actx) return;
+  const t = actx.currentTime + 0.02;
+  const base = [349.2, 415.3, 392.0, 466.2][searchSoundStep++ % 4];
+  for (const [ratio, peak] of [[1, 0.07], [1.503, 0.022]]) {
+    const osc = actx.createOscillator(), gain = actx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(base * ratio, t);
+    osc.frequency.exponentialRampToValueAtTime(base * ratio * 1.035, t + 0.38);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.44);
+    gain.gain.linearRampToValueAtTime(0, t + 0.48);
+    osc.connect(gain).connect(actx.destination);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    osc.start(t); osc.stop(t + 0.5);
+  }
+}
+function stopSearchSound() {
+  clearInterval(searchSoundTimer); searchSoundTimer = null;
+  // 鳴りかけの音を途中で止めると波形が切れてクリック音になる。
+  // 新しい音だけ止め、再生中の音は 0.48 秒の包絡でゼロまで下げる。
+}
+function startSearchSound() {
+  stopSearchSound();
+  if (!actx || !soundOn) return;
+  searchSoundStep = 0;
+  playSearchPulse();
+  searchSoundTimer = setInterval(playSearchPulse, 520);
+}
 // 声の順番待ち: 1つずつ、前の語が鳴り終わってから次を鳴らす。
 // voiceChain で「準備 (decode) → 予約」を直列にするので、準備の速さが語ごとに違っても順番は崩れない。
 let voiceGen = 0, voiceChain = Promise.resolve(), voiceEnd = 0, voicesPending = 0;
@@ -173,8 +205,10 @@ async function enableSound() {
   await actx.resume();
   soundOn = true;
   $sound.textContent = "🔊 音あり"; $sound.setAttribute("aria-pressed", "true");
+  if (thinking && searchSoundTimer === null) startSearchSound();
 }
 function disableSound() {
+  stopSearchSound();
   soundOn = false;
   $sound.textContent = "🔈 音を出す"; $sound.setAttribute("aria-pressed", "false");
 }
@@ -396,6 +430,14 @@ function dropAll() {
     t.state = "pile"; t.arrived = false; t.vx += (Math.random() - 0.5) * 240; t.vy = -80 - Math.random() * 160;
   }
 }
+function beginSearch() {
+  thinking = true;
+  stopVoices(); dropAll(); startSearchSound();
+}
+function endSearch() {
+  thinking = false;
+  stopSearchSound();
+}
 function layoutTargets(sel) {
   const top = document.querySelector(".status").getBoundingClientRect().bottom + 28;
   const bottom = Math.max(top + 120, H * 0.56);
@@ -426,6 +468,8 @@ function onArrive(t) {
   speak(t, (t.x / W) * 2 - 1, 0.75 + 0.25 * t.p);
 }
 function select(cond) {
+  clearTimeout(typing); typing = null;
+  endSearch();
   current = cond;
   stopVoices();
   for (const b of $chips.querySelectorAll(".chip[data-id]")) b.setAttribute("aria-pressed", String(b.dataset.id === cond.id));
@@ -446,18 +490,21 @@ function select(cond) {
     : "当てはまる音が見つかりませんでした";
 }
 function typeAndSelect(cond) {
-  clearTimeout(typing);
-  $status.textContent = "";
+  clearTimeout(typing); typing = null;
+  const seq = ++searchSeq;
+  beginSearch();
+  $status.textContent = "山を探しています…";
   const s = cond.query; let i = 0;
   const tick = () => {
+    if (seq !== searchSeq) return;
     setQueryText(s.slice(0, i));
     if (i < s.length) { i++; typing = setTimeout(tick, TYPE_MS + Math.random() * 40); }
-    else typing = setTimeout(() => select(cond), 260);
+    else typing = setTimeout(() => { if (seq === searchSeq) select(cond); }, 260);
   };
   tick();
 }
 function clearAll() {
-  clearTimeout(typing); stopAuto(); stopVoices(); current = null; searchSeq++; thinking = false;
+  clearTimeout(typing); typing = null; stopAuto(); stopVoices(); current = null; searchSeq++; endSearch();
   dropAll(); setQueryText(""); $status.textContent = "";
   for (const b of $chips.querySelectorAll(".chip")) b.setAttribute("aria-pressed", "false");
 }
@@ -511,19 +558,25 @@ async function submitQuery(raw) {
   const q = normalizeQuery(raw);
   if (!q) return;
   if (!soundOn) enableSound();
-  stopAuto(); clearTimeout(typing);
+  stopAuto(); clearTimeout(typing); typing = null; searchSeq++; endSearch();
   if (isBlockedQuery(q)) { stopVoices(); $status.textContent = "その言葉では探せません"; return; }
   const preset = conditions.find(c => c.query === q);
-  if (preset) return select(preset);
-  if (liveConds.has(q)) return select(liveConds.get(q));
+  const known = preset || liveConds.get(q);
+  if (known) {
+    const seq = searchSeq;
+    beginSearch();
+    $status.textContent = "山を探しています…";
+    typing = setTimeout(() => { if (seq === searchSeq) select(known); }, 480);
+    return;
+  }
   if (!liveOn) {
     $status.textContent = LOCAL
       ? "自由入力は、手元の中継 (tools/relay.py) を起動したときだけ使えます"
       : "自由入力は準備中です。下の条件から選んでください";
     return;
   }
-  const seq = ++searchSeq;
-  thinking = true; stopVoices(); dropAll();
+  const seq = searchSeq;
+  beginSearch();
   $status.textContent = `Jev が ${words.length} 語を考え中…`;
   try {
     const res = await fetch(API_BASE + "/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -533,18 +586,20 @@ async function submitQuery(raw) {
     if (!res.ok) throw new Error(j.error || res.status);
     const cond = { id: "live:" + j.q, query: j.q, table: j.scores, live: true };
     liveConds.set(q, cond); liveConds.set(j.q, cond);
-    thinking = false;
     addLiveChip(cond); select(cond);
   } catch (e) {
     if (seq !== searchSeq) return;
-    thinking = false;
+    endSearch();
     $status.textContent = `うまく聞けませんでした (${e.message})`;
   }
 }
 $q.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitQuery($q.value); $q.blur(); }
 });
-$q.addEventListener("focus", () => { stopAuto(); clearTimeout(typing); });
+$q.addEventListener("focus", () => {
+  stopAuto();
+  if (typing !== null) { clearTimeout(typing); typing = null; searchSeq++; endSearch(); }
+});
 
 function buildChips() {
   const auto = document.createElement("button");
@@ -612,7 +667,7 @@ window.addEventListener("resize", () => {
     if (!Number.isFinite(t.y)) { t.y = -60; t.vy = 0; }
   }
   wakeAll();
-  if (current) select(current);
+  if (current && !thinking) select(current);
 });
 
 (async () => {
