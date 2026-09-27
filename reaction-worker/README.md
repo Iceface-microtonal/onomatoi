@@ -17,3 +17,5 @@ npx wrangler secret put SOUND_MAP_JSON < /path/to/private-sound-map.json
 ```
 
 返答画面には使った音の説明を表示するため、選ばれた説明は閲覧者にも見える。未定義の音は解釈せず、対応する音がないときは素朴版で返す。Secret がないときは音の地図モードだけ 503 になる。PDF 全文、描線の座標、音声は送らず、Luna の返答ログは保存しない。
+
+Onomatoi / Onomatoi Play の iOS アプリは、Origin を送らない `URLSession` から `X-Onomatoi-Client: onomatoi-ios` / `onomatoi-play-ios` を付けて同じ API を使う。このヘッダーは認証ではなく、公開Webとネイティブ要求の区別に使う。両アプリも同じ 1 IP 20回/日・全体300回/日の上限を共有する。Web の CORS 許可先は広げない。

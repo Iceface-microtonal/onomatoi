@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { SOUND_MAP_INSTRUCTIONS, soundMapClues } from './sound-map.mjs';
+import { requestAccess } from './native-client.mjs';
 
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const MODEL = 'gpt-6-luna';
@@ -75,8 +76,8 @@ export class Quota extends DurableObject {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
-    const allowed = (env.ALLOWED_ORIGINS || '').split(',').includes(origin);
-    const cors = allowed ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
+    const access = requestAccess(origin, request.headers.get('X-Onomatoi-Client') || '', env.ALLOWED_ORIGINS || '');
+    const cors = access.webAllowed ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
     const json = (status, body) => new Response(JSON.stringify(body), {
       status,
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors },
@@ -84,14 +85,14 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: allowed ? 204 : 403, headers: {
+      return new Response(null, { status: access.webAllowed ? 204 : 403, headers: {
         ...cors,
         'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Max-Age': '86400',
       } });
     }
-    if (!allowed) return json(403, { error: 'forbidden' });
+    if (!access.allowed) return json(403, { error: 'forbidden' });
     if (url.pathname === '/api/reaction/status' && request.method === 'GET') {
       return json(200, { mode: env.OPENAI_API_KEY ? 'configured' : 'unavailable' });
     }
