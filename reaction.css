@@ -23,3 +23,29 @@
   .reaction-heading { align-items: flex-start; }
   .reaction-text { font-size: 13px; }
 }
+
+.luna-play { max-width: 780px; padding: 20px; border-color: #e9e6e0; background: #fffefa; box-shadow: 0 4px 20px #39302604; }
+.luna-play .reaction-kicker { color: #416680; }
+.luna-play .reaction-intro { margin: 12px 0 16px; color: #416680; font-size: 13px; text-align: center; }
+.luna-play .reaction-word { color: #a44e73; font-size: 18px; font-weight: 600; }
+.reaction-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reaction-choice { display: flex; flex-direction: column; gap: 7px; padding: 15px 12px; border: 1px solid #cdd8e2; border-radius: 14px; background: #ffffffc9; color: #416680; text-align: left; font: inherit; cursor: pointer; }
+.reaction-choice span { font-size: 13px; font-weight: 600; }
+.reaction-choice small { font-size: 11px; line-height: 1.6; }
+.reaction-choice[aria-pressed="true"] { border-color: #6386a3; background: #cde2f3; box-shadow: inset 0 0 0 1px #6386a3; color: #304f68; }
+.reaction-choice:hover:not([aria-pressed="true"]) { background: #f5f8fb; border-color: #98c0e4; }
+.reaction-choice:focus-visible, .luna-play .reaction-ask:focus-visible { outline: 2px solid #416680; outline-offset: 3px; }
+.luna-play .reaction-lens { margin: 16px auto 8px; color: #416680; }
+.luna-play .reaction-lens input { accent-color: #6386a3; }
+.reaction-answer { text-align: center; padding: 5px 12px 12px; }
+.luna-play .reaction-text { min-height: 48px; margin: 8px 0 15px; font-size: 15px; line-height: 1.9; overflow-wrap: anywhere; }
+.luna-play .is-placeholder { color: #8e8388; font-size: 12px; }
+.luna-play .reaction-note { color: #79666f; }
+.reaction-footnote { margin: 10px 0 0; text-align: center; font-size: 10px; line-height: 1.7; color: #8d8785; }
+.luna-play .reaction-ask:disabled { opacity: .5; cursor: wait; }
+@media (max-width: 600px) {
+  .luna-play { padding: 16px 12px; }
+  .reaction-choices { grid-template-columns: 1fr; gap: 6px; }
+  .reaction-choice { padding: 11px 13px; gap: 3px; }
+  .reaction-answer { padding-inline: 0; }
+}
