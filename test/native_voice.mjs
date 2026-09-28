@@ -92,7 +92,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
   "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample",
-  "nvUsesStandaloneVowel", "nvReadRootVowelSample",
+  "nvUsesStandaloneVowel", "nvReadRootVowelSample", "nvStandaloneVowelReleaseTailMs",
   "nvContinuousMoraGain", "nvReadMoraicNSample"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`,
@@ -207,6 +207,35 @@ console.log("── Base単音母音: 短音 / 長音 / 接続の分離 ──")
   check("遅い単音: ファイル終端を越えて持続音に接続", slow.every(Number.isFinite) && slow[22000] < -0.19);
   check("遅い単音: 接続点で段差が生じない", slow.every((x, i) => i === 0 || Math.abs(x - slow[i - 1]) < 0.001));
   check("短音欠落時: 従来の持続素材で発音", api.nvReadRootVowelSample(oldBank, "a", 0.1, 250, true) < -0.19);
+}
+
+console.log("── 語末の言い直し短母音: 長音に聞こえる余韻を抑える ──");
+{
+  const bank = makeBank();
+  for (const v of "aiueo") {
+    bank.shortV.set(v, sine(0.6, 240, 0.15));
+    bank.v.set(v, sine(1.2, 240, 0.15));
+    bank.cv.set("n|" + v, sine(0.5, 240, 0.15));
+    // feedback mukfgx5x-2: giQnuuu の最後が「うー」に聞こえる。全5母音で確認。
+    const word = "giQn" + v.repeat(3);
+    for (const ms of [125, 250, 500]) {
+      const raw = api.segmentWord(word);
+      const moras = api.nvQuantizeMoras(raw, ms);
+      const nominalMs = moras.reduce((sum, m) => sum + m.durationMs + m.gapMs, 0);
+      const result = api.nvRenderEvent(raw, bank, SR, ms).data;
+      let end = result.length - 1;
+      while (end >= 0 && Math.abs(result[end]) < 1e-5) end--;
+      const extraMs = (end + 1) / SR * 1000 - nominalMs;
+      check(`${word}/${ms}ms: 最後の短音は50ms以内の余韻で閉じる`, extraMs > 0 && extraMs <= 50,
+        `extra ${extraMs.toFixed(2)}ms`);
+    }
+    check(`${v}: 母音一文字の自然な余韻は維持`, api.nvStandaloneVowelReleaseTailMs(q(v), bank) === 350);
+    for (const n of [2, 4, 5])
+      check(`${v.repeat(n)}: つながる長音の長さは維持`, api.nvStandaloneVowelReleaseTailMs(q(v.repeat(n)), bank) === 0);
+  }
+  for (const word of ["aii", "aai"])
+    check(`${word}: 二重母音の後・長母音の後の言い直しも短く閉じる`,
+      api.nvStandaloneVowelReleaseTailMs(q(word), bank) > 0 && api.nvStandaloneVowelReleaseTailMs(q(word), bank) <= 50);
 }
 
 console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末尾孤立例外) ──");
