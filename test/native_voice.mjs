@@ -91,7 +91,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
-  "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample",
+  "nvLongVowelCVJoinRoot", "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample", "nvEndsRecordedAttackNaturally",
   "nvUsesStandaloneVowel", "nvReadRootVowelSample", "nvStandaloneVowelReleaseTailMs",
   "nvContinuousMoraGain", "nvReadMoraicNSample"];
 const ctx = vm.createContext({ console });
@@ -626,6 +626,69 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
       check(`${word}: 全サンプル有限`, result.data.every(Number.isFinite));
     }
   }
+}
+
+// Final myi ends with its own take; explicit myii must still sustain.
+{
+  const bank = makeBank();
+  bank.cv.set("my|i", new Float32Array(Math.round(SR * 0.30)).fill(0.25));
+  bank.cvHandoff.set("my|i", 0.20);
+  bank.v.set("i", new Float32Array(SR).fill(-0.25));
+  const single = api.segmentWord("myi");
+  check("myi natural end applies only at word end", api.nvEndsRecordedAttackNaturally(0, single));
+  for (const word of ["myii", "myia", "myin", "myiki"])
+    check(`${word} retains its connection`, !api.nvEndsRecordedAttackNaturally(0, api.segmentWord(word)));
+  const short = api.nvRenderEvent(single, bank, SR, 500).data;
+  check("myi onset remains recorded", short[Math.round(SR * 0.1)] > 0.1);
+  check("myi EOF does not add another vowel", short.slice(Math.round(SR*.35),Math.round(SR*.49)).every(v=>v===0));
+  const long = api.nvRenderEvent(api.segmentWord("myii"), bank, SR, 500).data;
+  check("myii still reads the held vowel", long[Math.round(SR*.75)] < -0.1);
+}
+
+// Final short recordings must not acquire another vowel at slow tempo.
+{
+  const bank = makeBank();
+  for (const v of "aiueo") {
+    bank.cv.set("k|"+v, new Float32Array(SR*.30).fill(.25));
+    bank.cvHandoff.set("k|"+v, .20);
+    bank.shortV.set(v, new Float32Array(SR*.30).fill(.25));
+    bank.v.set(v, new Float32Array(SR).fill(-.25));
+    for (const word of [v, "k"+v]) {
+      const out = api.nvRenderEvent(api.segmentWord(word),bank,SR,500).data;
+      check(`${word}: own attack remains`,out[Math.round(SR*.1)]>.1);
+      check(`${word}: natural EOF without replacement`,out.slice(Math.round(SR*.35),Math.round(SR*.49)).every(x=>x===0));
+    }
+    for (const ending of [v,"n","ki"]) {
+      const word="k"+v+ending;
+      check(`${word}: connection retained`,!api.nvEndsRecordedAttackNaturally(0,api.segmentWord(word)));
+    }
+    const out=api.nvRenderEvent(api.segmentWord("k"+v+v),bank,SR,500).data;
+    check(`${v}: explicit long vowel retained`,out[Math.round(SR*.75)]<-.1);
+  }
+}
+
+// Third held mora must retain the CV join offset for every vowel and tempo.
+{
+  const bank = makeBank();
+  for (const v of "aiueo") {
+    bank.cv.set("k|"+v, new Float32Array(SR).fill(.1));
+    bank.v.set(v, Float32Array.from({length:SR*2},(_,i)=>.2+.03*i/SR));
+    for (const bpm of [60,90,120]) {
+      const moras = api.segmentWord("yuu"+"k"+v+v+v);
+      check(`third vowel CV root ${v}/${bpm}`, api.nvLongVowelCVJoinRoot(4,moras,bank)===2);
+      const out = api.nvRenderEvent(moras,bank,SR,30000/bpm).data;
+      const f = Math.round(4*30000/bpm/1000*SR);
+      check(`no third-vowel clock jump ${v}/${bpm}`,Math.abs(out[f]-out[f-1])<.0001);
+    }
+    check(`reattack remains ${v}`,api.nvLongVowelCVJoinRoot(2,api.segmentWord("k"+v+v+v),bank)===null);
+  }
+}
+
+{
+  const bank=makeBank();
+  for(const [word,index,expected] of [["yuukaaa",4,2],["kaaan",2,0],["yuukaaaa",4,null],
+      ["yuukaaaa",5,null],["yuukaii",4,null],["aauuu",4,null]])
+    check(`CV clock boundary ${word}/${index}`,api.nvLongVowelCVJoinRoot(index,api.segmentWord(word),bank)===expected);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

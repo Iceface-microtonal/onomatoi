@@ -4103,12 +4103,22 @@ function nvCvResolvedKey(bank, onset, nucleus) {
 // 単独CVが長いモーラを満たせない場合、定常部終端から同じ母音の持続テイクへ渡す — readRootCVSample。
 // earlierDiphHandoff: BPM90 より遅い CV→V diph の前だけ、CV の減衰が谷を作る前 (定常部終端の 80ms 前・
 // 最低 60ms) から受け渡す (2026-09-22 作者選定の B 案)。
-function nvReadRootCVSample(bank, onset, nucleus, timeMs, moraDurationMs, earlierDiphHandoff = false) {
+function nvEndsRecordedAttackNaturally(index, moras) {
+  const m = moras[index];
+  return !!m && !m.isN && !m.isQ && !m.isSilentRest
+    && (index + 1 === moras.length || moras[index + 1].isSilentRest === true);
+}
+// 2026-09-30: final recorded attacks keep their own decay, without a second vowel take.
+function nvReadRootCVSample(bank, onset, nucleus, timeMs, moraDurationMs, earlierDiphHandoff = false, naturalEnd = false) {
   const key = nvCvResolvedKey(bank, onset, nucleus);
   if (!key) return null;
   const arr = bank.cv.get(key), t = timeMs / 1000;
   const duration = nvDur(arr, bank.sr);
   const value = nvInterp(arr, bank.sr, t);
+  if (naturalEnd) {
+    if (!(t < duration) || value === null) return 0;
+    return value * Math.min(1, Math.max(0, (duration - t) / 0.015));
+  }
   const handoff = bank.cvHandoff.get(key) ?? duration;
   const moraDuration = moraDurationMs / 1000;
   const xfade = Math.min(0.045, Math.max(0.012, duration * 0.15));
@@ -4146,6 +4156,15 @@ function nvUsesLongVowelCVJoin(idx, moras, bank) {
   if (cur.onset === null || next.onset !== null || cur.nucleus !== next.nucleus) return false;
   if (nvDur(bank.v.get(cur.nucleus), bank.sr) < 0.6) return false;
   return nvNextUsesLongVowelExtension(idx, moras) && !nvNextTakenByVVDiph(idx, moras, bank);
+}
+// Keep the CV join clock through every continuation mora, including a third vowel.
+function nvLongVowelCVJoinRoot(idx, moras, bank) {
+  const ext = nvLongVowelExtension(idx, moras);
+  if (!ext || ext.sourceOnset === null || ext.sourceSwitched || ext.sourceNucleus !== moras[idx].nucleus) return null;
+  let root = idx;
+  while (root > 0 && moras[root].onset === null && !moras[root].isN && !moras[root].isSilentRest &&
+         moras[root - 1].nucleus === moras[idx].nucleus) root--;
+  return nvUsesLongVowelCVJoin(root, moras, bank) ? root : null;
 }
 // readLongVowelCVJoinSample: runTimeMs は根 CV の頭から数えた時刻 (境界をまたいで一続き)
 function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs) {
@@ -4190,10 +4209,11 @@ function nvUsesStandaloneVowel(idx, moras, bank) {
     && !nvNextUsesCVtoVDiph(idx, moras, bank)
     && !nvNextTakenByVVDiph(idx, moras, bank);
 }
-function nvReadRootVowelSample(bank, vowel, timeSec, durationMs, standalone) {
+function nvReadRootVowelSample(bank, vowel, timeSec, durationMs, standalone, naturalEnd = false) {
   const arr = bank.shortV?.get(vowel), duration = nvDur(arr, bank.sr);
   if (!standalone || !arr || duration <= 0) return nvReadSustainedVowelSample(bank, vowel, timeSec);
   const short = nvInterp(arr, bank.sr, timeSec);
+  if (naturalEnd) return (short ?? 0) * Math.min(1, Math.max(0, (duration - timeSec) / 0.015));
   if (durationMs / 1000 <= duration) return short ?? 0;
   const fade = Math.min(0.045, Math.max(0.005, duration * 0.15));
   const start = Math.min(bank.shortVHandoff?.get(vowel) ?? duration, Math.max(0, duration - fade));
@@ -4571,6 +4591,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       if (!nvCvResolvedKey(bank, m.onset, m.nucleus)) return plan;
       return { ...plan, kind: "cv",
                join: nvUsesLongVowelCVJoin(i, moras, bank),
+               naturalEnd: nvEndsRecordedAttackNaturally(i, moras),
                earlierDiphHandoff: m.durationMs > 30000 / 90 && nvNextUsesCVtoVDiph(i, moras, bank),
                suppressTail: (nvNextUsesLongVowelExtension(i, moras) && !nvNextTakenByVVDiph(i, moras, bank))
                  || nvNextUsesCVtoVDiph(i, moras, bank) };
@@ -4596,10 +4617,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     }
     const ext = nvLongVowelExtension(i, moras);
     const extSuppressTail = nvNextUsesCVtoVDiph(i, moras, bank);
-    if (ext && i > 0 && moras[i - 1].onset !== null && nvUsesLongVowelCVJoin(i - 1, moras, bank)) {
+    const joinRoot = ext ? nvLongVowelCVJoinRoot(i, moras, bank) : null;
+    if (joinRoot !== null) {
       // 子音+同母音の長音: 根 CV と伸ばし録音の2本の時間軸とフェードを境界の後もそのまま続ける
-      return { ...plan, kind: "cvJoinExt", ext, joinOnset: moras[i - 1].onset,
-               rootDurMs: moras[i - 1].durationMs, suppressTail: extSuppressTail };
+      return { ...plan, kind: "cvJoinExt", ext, joinOnset: moras[joinRoot].onset,
+               rootDurMs: moras[joinRoot].durationMs, suppressTail: extSuppressTail };
     }
     if (ext) {
       const cvXfade = ext.sourceOnset !== null && moras[i - 1].onset !== null &&
@@ -4612,6 +4634,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         || nvNextUsesCVtoVDiph(i, moras, bank);
       return { ...plan, kind: "v", suppressTail,
                standalone: nvUsesStandaloneVowel(i, moras, bank),
+               naturalEnd: nvEndsRecordedAttackNaturally(i, moras),
                releaseMs: i === lastIndex ? finalReleaseMs : 0 };
     }
     return plan;
@@ -4700,7 +4723,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     } else if (plan.kind === "cv") {
       const value = plan.join
         ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs)
-        : nvReadRootCVSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, plan.earlierDiphHandoff);
+        : nvReadRootCVSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, plan.earlierDiphHandoff, plan.naturalEnd);
       const envTotal = plan.suppressTail
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
       val = (value === null ? 0 : value) * amp * nvSampleEnvelope(cvPhoneT, envTotal) * eventFade;
@@ -4779,7 +4802,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = value * nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs)
           * env * eventFade;
     } else if (plan.kind === "v") {
-      const value = nvReadRootVowelSample(bank, m.nucleus, phoneT / 1000, m.durationMs, plan.standalone);
+      const value = nvReadRootVowelSample(bank, m.nucleus, phoneT / 1000, m.durationMs, plan.standalone, plan.naturalEnd);
       const envTotal = plan.suppressTail
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs + plan.releaseMs;
       const env = plan.releaseMs > 0
