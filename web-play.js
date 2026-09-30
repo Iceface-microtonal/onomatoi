@@ -206,10 +206,10 @@
   });
   $('btn-log-clear').addEventListener('click', () => { voices.length = 0; renderVoices(); refresh(); });
   $('loading-note').addEventListener('click', () => {
-    if (audioCtx?.state === 'running') $('loading-note').dataset.started = 'true';
+    if (audioPlaybackRequested && audioCtx?.state === 'running') $('loading-note').dataset.started = 'true';
   });
   if (audioCtx) audioCtx.addEventListener('statechange', () => {
-    if (audioCtx.state === 'running') $('loading-note').dataset.started = 'true';
+    if (audioPlaybackRequested && audioCtx.state === 'running') $('loading-note').dataset.started = 'true';
   });
   refresh(); renderVoices();
   if (dev) openPanel('preset-panel');

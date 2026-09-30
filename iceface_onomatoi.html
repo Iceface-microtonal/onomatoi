@@ -135,9 +135,10 @@
 <section class="play-space" aria-label="描いて遊ぶ">
 <div class="canvas-tools"><span class="workspace-label"><i></i><span data-copy="workspace">あなたの一筆</span></span><button id="btn-clear" class="quiet-button" title="キャンバスを消去 / Clear the canvas"><span aria-hidden="true">↺</span> <span id="t-eraser">消しゴム</span></button></div>
 <!-- Loading banner (サンプル読込中の案内、完了後に Voice 表示へ) -->
-<button type="button" id="loading-note" aria-live="polite">
+<button type="button" id="loading-note" aria-live="polite" aria-describedby="sound-help">
   ♪ 音声サンプル読込中… — 音が出るまでしばらく時間がかかります
 </button>
+<p id="sound-help">音が鳴らないときは、マナーモードを解除し、端末の音量をご確認ください。</p>
 
 <!-- Sketch canvas -->
 <div class="canvas-wrap">
@@ -406,6 +407,7 @@ const T = uiLang === "ja" ? {
   fbSaved: (n) => `✓ 記録しました（計${n}件）`,
   fbReasonPH: "理由 (任意): どこがイメージ通り/違う?",
   start: "▶ 音をオンにして、描く",
+  soundHelp: "音が鳴らないときは、マナーモードを解除し、端末の音量をご確認ください。",
 } : {
   eraser: "Eraser",
   about: "About",
@@ -421,12 +423,14 @@ const T = uiLang === "ja" ? {
   fbSaved: (n) => `✓ saved (${n} total)`,
   fbReasonPH: "why? (optional): what matched / didn't",
   start: "▶ Turn sound on and draw",
+  soundHelp: "If you cannot hear sound, turn off Silent Mode and check your device volume.",
 };
 function applyLangTexts() {
   document.getElementById("t-eraser").textContent = T.eraser;
   document.getElementById("t-about").textContent = T.about;
   document.getElementById("t-fb-hint").textContent = T.fbHint;
   document.getElementById("loading-note").textContent = T.loadingInitial;
+  document.getElementById("sound-help").textContent = T.soundHelp;
   const reasonEl = document.getElementById("fb-reason");
   if (reasonEl) reasonEl.placeholder = T.fbReasonPH;
   const rt = document.getElementById("t-romaji-title");
@@ -3408,13 +3412,30 @@ const PRESETS = [
 // fetch 開始 (fetch は user gesture 不要)。decode は AudioContext 取得後。
 const SAMPLE_EXT = ".mp3";
 let audioCtx = null;
+let audioPlaybackRequested = false;
 const sampleBank = new Map();   // key: "cv_ka" / "v_a" / "n_N" → AudioBuffer
 const rawCache = new Map();     // key → ArrayBuffer (fetch 済み・decode 前)
 let samplesLoaded = 0, samplesTotal = 0;
 
-function ensureCtx() {
+// Request media playback only on sound/drawing actions, not preload or unrelated taps.
+// Supported iOS browsers can then play even while the Ring/Silent switch is silent.
+function requestPlaybackAudioSession() {
+  try {
+    if (typeof navigator !== "undefined" && navigator.audioSession &&
+        navigator.audioSession.type !== "playback") {
+      navigator.audioSession.type = "playback";
+    }
+  } catch (e) { /* Unsupported/restricted browsers retain their normal audio behavior. */ }
+}
+function ensureCtx(requestPlayback = true) {
+  if (requestPlayback) {
+    audioPlaybackRequested = true;
+    requestPlaybackAudioSession();
+  }
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (audioCtx.state === "suspended" || audioCtx.state === "interrupted") {
+    audioCtx.resume().catch(() => {});
+  }
   return audioCtx;
 }
 // leading silence trim (ConsonantSampleBank.loadWavFloats の trimLeadingSilence の移植・判定は
@@ -6215,6 +6236,7 @@ function showStartButton() {
   const note = document.getElementById("loading-note");
   if (!note) return;
   note.textContent = T.start;
+  note.dataset.ready = "true";
   // インライン style が CSS class より優先されるので、目立つボタン見た目を inline で設定
   Object.assign(note.style, { background: "var(--pink)", color: "#fff", cursor: "pointer",
     textAlign: "center", fontWeight: "800", fontSize: "15px", padding: "13px 10px" });
@@ -6229,6 +6251,10 @@ function startApp() {
   } catch (e) {}
   const finish = () => {
     if (!note) return;
+    if (ctx.state !== "running") {
+      showStartButton();   // A rejected/interrupted start must remain retryable.
+      return;
+    }
     note.onclick = null;
     // 開始後は声のクレジット表示 (元の控えめな見た目に戻す)
     Object.assign(note.style, { background: "rgba(152, 192, 228, 0.20)", color: "#2b2b30",
@@ -6244,7 +6270,7 @@ function startApp() {
 // アンロック手法) も行う — resume 単独では解除されない環境への保険。
 const UNLOCK_EVENTS = ["pointerdown", "pointerup", "touchstart", "touchend", "mousedown", "click", "keydown"];
 function unlockAudio() {
-  const ctx = ensureCtx();   // gesture 内で resume
+  const ctx = ensureCtx(false);   // Generic gestures unlock without claiming media playback.
   try {
     // 1 サンプルの無音を即時再生 → WebKit がこのコンテキストを「許可済み」にする
     const b = ctx.createBuffer(1, 1, 22050);
@@ -6254,7 +6280,7 @@ function unlockAudio() {
     s.start(0);
   } catch (e) {}
   preloadAll();              // 万一 decode 失敗が残っていれば再試行
-  if (ctx.state === "running") {
+  if (audioPlaybackRequested && ctx.state === "running") {
     document.getElementById("loading-note").dataset.started = "true";
     for (const ev of UNLOCK_EVENTS) document.removeEventListener(ev, unlockAudio);
   }
