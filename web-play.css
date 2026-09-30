@@ -31,8 +31,6 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .quiet-button>span:first-child { font-size:18px; margin-right:5px; }
 #loading-note { position:absolute; z-index:2; left:50%; top:72px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 32px); min-height:40px; font-size:12px !important; font-weight:500 !important; border-radius:24px; padding:9px 20px !important; background:var(--soft-pink) !important; color:var(--ink) !important; box-shadow:0 2px 8px #39302606; }
 #loading-note[data-started] { display:none; }
-#sound-help { display:none; position:absolute; z-index:2; top:120px; left:50%; transform:translateX(-50%); width:340px; max-width:calc(100% - 40px); margin:0; color:var(--muted); font-size:11px; line-height:1.6; text-align:center; pointer-events:none; }
-#loading-note[data-ready]:not([data-started]) + #sound-help { display:block; }
 .canvas-wrap { position:relative; }
 #canvas { height:clamp(225px,34svh,318px); border:0; border-radius:0; background-color:#faf9f5; background-image:linear-gradient(#fafaf7c9,#fafaf7c9),url("paper_texture.webp"); background-size:627px 627px; }
 #canvas-invitation { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; pointer-events:none; color:#89857f; }
@@ -163,7 +161,6 @@ body.is-dev #log { display:block; }
   .canvas-tools { padding:6px 16px; height:45px; }
   #canvas { height:clamp(235px,34svh,310px); }
   #loading-note { top:55px; font-size:10px !important; }
-  #sound-help { top:103px; font-size:10px; }
   #canvas-invitation svg { width:148px; }
   .result-panel.panel { padding:15px 16px 0; min-height:85px; }
   .result-word { font-size:28px; min-height:42px; }
