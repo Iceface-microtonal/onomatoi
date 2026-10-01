@@ -3875,7 +3875,7 @@ function nvDiphReattackBreaks(idx, moras) {
 }
 
 // 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの run は持続を保つ。
-// 5モーラ以上では、最後の言い直しが末尾1モーラだけを孤立させる場合に限って抑止する。
+// 5モーラ以上も根から数え、3・5・7…モーラ目で新しく開始する（2026-10-01）。
 function nvSameVowelRunReattacks(idx, moras) {
   if (idx < 2 || idx >= moras.length) return false;
   const cur = moras[idx];
@@ -3895,14 +3895,7 @@ function nvSameVowelRunReattacks(idx, moras) {
     start--;
   }
   const pos = idx - start;
-  const isScheduledReattack = pos >= 2 && pos % 2 === 0;
-  if (!isScheduledReattack) return false;
-  const wordEndsAfterRun = end + 1 >= moras.length || !!moras[end + 1].isSilentRest;
-  let wordStart = end;
-  while (wordStart > 0 && !moras[wordStart - 1].isSilentRest) wordStart--;
-  const wordMoraCount = end - wordStart + 1;
-  const wouldIsolateFinalMora = idx === end && wordEndsAfterRun;
-  return !(wouldIsolateFinalMora && wordMoraCount >= 5);
+  return pos >= 2 && pos % 2 === 0;
 }
 
 // 語中の ん の継続撥音キー (直前が母音モーラならその母音) — continuationNVowel

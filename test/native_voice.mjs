@@ -3,7 +3,7 @@
 // 方式: kou_properties.mjs と同じ「<script> から純粋宣言を抽出して vm 評価」。
 // 音声は合成波形 (サイン波の疑似テイク) で駆動し、以下を固定する:
 //   1. 振り分け: 現行Coreの再アタック3法 (kaii / aaii / iiii) と撥音直前例外、
-//      Webの5モーラ以上における末尾1モーラ孤立の抑止
+//      5モーラ以上も同母音runの根から2モーラ周期で言い直す
 //      単独ペア (ai) は生 diph、単独CV→V (sai) は cvDiph のまま
 //   2. nvPrepareCvDiph: 整形後のレベル (頭 -12dBFS 付近) と第2母音の復元
 //   3. nvRenderEvent: aauu / an / ai の語中に無音級の谷 (テイク境界の途切れ) が無い
@@ -230,7 +230,7 @@ console.log("── 語末の言い直し短母音: 長音に聞こえる余韻�
         `extra ${extraMs.toFixed(2)}ms`);
     }
     check(`${v}: 母音一文字の自然な余韻は維持`, api.nvStandaloneVowelReleaseTailMs(q(v), bank) === 350);
-    for (const n of [2, 4, 5])
+    for (const n of [2, 4, 6])
       check(`${v.repeat(n)}: つながる長音の長さは維持`, api.nvStandaloneVowelReleaseTailMs(q(v.repeat(n)), bank) === 0);
   }
   for (const word of ["aii", "aai"])
@@ -293,17 +293,25 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
         !!i4tail && i4tail.baseMs === MORA_MS && i4tail.totalMs === 2 * MORA_MS,
         JSON.stringify(i4tail));
   const i5 = q("iiiii");
-  check("iiiii: ii|iii とし、5モーラ目を孤立させない",
-        api.nvSameVowelRunReattacks(2, i5) && !api.nvSameVowelRunReattacks(4, i5));
-  const i5tail = api.nvLongVowelExtension(4, i5);
-  check("iiiii: 末尾3モーラは一続き",
-        !!i5tail && i5tail.baseMs === 2 * MORA_MS
-          && i5tail.totalMs === 3 * MORA_MS,
-        JSON.stringify(i5tail));
+  check("iiiii: ii|ii|i とし、5モーラ目を新しく開始",
+        api.nvSameVowelRunReattacks(2, i5) && api.nvSameVowelRunReattacks(4, i5));
+  check("iiiii: 最後の母音は延長しない", api.nvLongVowelExtension(4, i5) === null);
   const i7 = q("iiiiiii");
-  check("iiiiiii: ii|ii|iii とし、7モーラ目を孤立させない",
+  check("iiiiiii: ii|ii|ii|i の周期を維持",
         api.nvSameVowelRunReattacks(2, i7) && api.nvSameVowelRunReattacks(4, i7)
-          && !api.nvSameVowelRunReattacks(6, i7));
+          && api.nvSameVowelRunReattacks(6, i7));
+  for (const vowel of "aiueo") for (let count = 3; count <= 9; count++) {
+    for (const prefix of ["", "r"]) {
+      const word = prefix + vowel.repeat(count), ms = q(word);
+      for (let i = 1; i < count; i++) {
+        check(`${word}/${i+1}: 根から2モーラ周期`,
+          api.nvSameVowelRunReattacks(i, ms) === (i % 2 === 0)
+          && (api.nvLongVowelExtension(i, ms) === null) === (i % 2 === 0));
+      }
+    }
+  }
+  check("rooooo: 最後のおは新しい発音", api.nvLongVowelExtension(4, q("rooooo")) === null);
+  check("rooooon: ん直前の持続は維持", !api.nvSameVowelRunReattacks(4, q("rooooon")));
   check("iii: 5モーラ未満は従来どおり ii|i",
         api.nvSameVowelRunReattacks(2, q("iii")));
   const piuuuu = q("piuuuu");
@@ -317,18 +325,14 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
           && piuuuuTail.totalMs === 2 * MORA_MS,
         JSON.stringify(piuuuuTail));
   const bouuuu = q("bouuuu");
-  check("bouuuu: diph後の区切りは維持し、末尾だけ孤立させない",
+  check("bouuuu: diph後も bou|uu|u と言い直す",
         bouuuu.length === 5 && api.nvDiphReattackBreaks(2, bouuuu)
-          && !api.nvSameVowelRunReattacks(4, bouuuu));
-  const bouuuuTail = api.nvLongVowelExtension(4, bouuuu);
-  check("bouuuu: bou|uuu の末尾3モーラは一続き",
-        !!bouuuuTail && bouuuuTail.baseMs === 2 * MORA_MS
-          && bouuuuTail.totalMs === 3 * MORA_MS,
-        JSON.stringify(bouuuuTail));
+          && api.nvSameVowelRunReattacks(4, bouuuu));
+  check("bouuuu: 最後は延長しない", api.nvLongVowelExtension(4, bouuuu) === null);
   const rest = { onset: null, nucleus: "a", durationMs: MORA_MS, gapMs: 0,
                  amplitude: 0, isN: false, isSilentRest: true };
-  check("bouuuu+休符: COMPOSE内でも語末1モーラを孤立させない",
-        !api.nvSameVowelRunReattacks(4, [...bouuuu, rest]));
+  check("bouuuu+休符: COMPOSE内でも最後を言い直す",
+        api.nvSameVowelRunReattacks(4, [...bouuuu, rest]));
   check("iiiin: 直後がんのrunは第3法の例外", !api.nvSameVowelRunReattacks(2, q("iiiin")));
   check("kooon: 子音接頭でもん例外", !api.nvSameVowelRunReattacks(2, q("kooon")));
 
@@ -667,14 +671,14 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
   }
 }
 
-// Third held mora must retain the CV join offset for every vowel and tempo.
+// Before N, a third held mora must retain the CV join offset for every vowel and tempo.
 {
   const bank = makeBank();
   for (const v of "aiueo") {
     bank.cv.set("k|"+v, new Float32Array(SR).fill(.1));
     bank.v.set(v, Float32Array.from({length:SR*2},(_,i)=>.2+.03*i/SR));
     for (const bpm of [60,90,120]) {
-      const moras = api.segmentWord("yuu"+"k"+v+v+v);
+      const moras = api.segmentWord("yuu"+"k"+v+v+v+"n");
       check(`third vowel CV root ${v}/${bpm}`, api.nvLongVowelCVJoinRoot(4,moras,bank)===2);
       const out = api.nvRenderEvent(moras,bank,SR,30000/bpm).data;
       const f = Math.round(4*30000/bpm/1000*SR);
@@ -686,9 +690,23 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
 
 {
   const bank=makeBank();
-  for(const [word,index,expected] of [["yuukaaa",4,2],["kaaan",2,0],["yuukaaaa",4,null],
+  for(const [word,index,expected] of [["yuukaaa",4,null],["yuukaaaan",4,2],["kaaan",2,0],["yuukaaaa",4,null],
       ["yuukaaaa",5,null],["yuukaii",4,null],["aauuu",4,null]])
     check(`CV clock boundary ${word}/${index}`,api.nvLongVowelCVJoinRoot(index,api.segmentWord(word),bank)===expected);
+}
+
+// Final odd mora must audibly use the short take, not the held take.
+{
+  const bank = makeBank();
+  bank.cv.set("r|o", new Float32Array(SR).fill(0.2));
+  bank.v.set("o", new Float32Array(SR * 2).fill(0.2));
+  bank.shortV.set("o", new Float32Array(SR).fill(-0.2));
+  for (const count of [5, 7, 9]) for (const bpm of [60, 90, 120]) {
+    const ms = 30000 / bpm, word = "r" + "o".repeat(count);
+    const out = api.nvRenderEvent(api.segmentWord(word), bank, SR, ms).data;
+    const body = Math.round(((count - 1) * ms + ms * 0.4) / 1000 * SR);
+    check(`${word}/${bpm}: 最後は単独母音素材を先頭から読む`, out[body] < -0.05);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
