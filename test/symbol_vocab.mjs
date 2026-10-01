@@ -15,6 +15,7 @@ import vm from "node:vm";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { checkPentagramRotations } from "./pentagram_rotation_checks.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML_PATH = path.resolve(__dirname, "../iceface_onomatoi.html");
@@ -76,7 +77,7 @@ function extractEngine(html) {
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["interpretStroke", "selectStrokeVocabulary", "SHARPNESS_VOCAB", "romajiOf", "namingKanaOf", "segmentWord",
   "strokeComplexity", "extractAxes", "applyHandCorrection", "bucketedAxes",
-  "densified", "distanceFiltered", "splineDensified", "circleVocabSignal", "openArcSignal",
+  "densified", "distanceFiltered", "splineDensified", "coreSplineSmoothed", "circleVocabSignal", "openArcSignal",
   "sharpnessStage", "sharpnessAxisValue", "prototypeRecognitionLevelFor", "fixedShapeRecognition",
   "prototypeVocabWord", "oneStrokePentagramVocabWord", "vocabEvent", "STAR_VOCAB",
   "ONE_STROKE_PENTAGRAM_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB_LEVELS"];
@@ -554,5 +555,6 @@ console.log("── 星語彙分離: 輪郭星 / 一筆五芒星 ──");
     check(`current CV spelling ${word} → ${kana}`,api.namingKanaOf(api.segmentWord(word))===kana);
 }
 
+checkPentagramRotations(api, check);
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
