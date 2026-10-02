@@ -3251,8 +3251,10 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
 
 // ─── StrokeSegmenter (構造単位分割: ループ=音節, つなぎ線=ー/ん/っ/直結) ───
 const LOOP_WINDING = 2 * Math.PI * 0.75;
-function segmentStroke(points) {
-  if (points.length < 8) return { units: [], loopCount: 0 };
+function segmentStroke(rawPoints) {
+  if (rawPoints.length < 8) return { units: [], loopCount: 0 };
+  // Core StrokeSegmenter.segment と同じく、移動平均した点列で巻きを数えて分ける (移植漏れの修正)
+  const points = coreSmoothed(rawPoints);
   const n = points.length;
   const T = new Array(n).fill(0);
   for (let i = 1; i < n - 1; i++) {
