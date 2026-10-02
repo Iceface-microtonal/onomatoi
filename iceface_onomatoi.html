@@ -490,30 +490,37 @@ const VOWEL_BIAS = {   // round=円唇(横引き−↔すぼめ+) open=開口 (�
 // nil-onset (単独母音) スコア v0.4
 const NIL_BASE = -0.68, NIL_SHARP_PENALTY = 1.45, NIL_DULL_BONUS = 0.0;
 
-// ─── 決定的 RNG (同じ描写 = 同じシニフィアン) ───
-function axesSeed(ax, salt) {
-  // 1e-4 量子化 + FNV-1a 32bit (Swift 版 deterministicSeed の 32bit 簡易版)
-  let h = 0x811c9dc5 ^ (salt >>> 0);
-  const qs = [ax.size, ax.sharp, ax.tex, ax.bright].map(v => Math.round(v * 10000) | 0);
-  const qr = Math.round((ax.round || 0) * 10000) | 0;
-  const qo = Math.round((ax.open || 0) * 10000) | 0;
-  if (qr !== 0) qs.push(qr);
-  if (qo !== 0) qs.push((0x9e3779b9 ^ qo) | 0);
-  for (const q of qs) {
-    h ^= (q >>> 0);
-    h = Math.imul(h, 0x01000193);
-    h ^= h >>> 13;
+// ─── 決定的 RNG (同じ描写 = 同じシニフィアン) — Core と同一 ───
+// Core の PhonosymbolicAxes.deterministicSeed + SeededGenerator (SplitMix64) の移植。64bit は BigInt。
+// 種・乱数・0..<1 の作り方 (Swift Double.random(in: 0..<1) = 下位53bit × 2⁻⁵³) まで合わせ、
+// 同じ描写から iOS 版と同じ語が出るようにする (test/stroke_parity.mjs で突き合わせる)。
+const U64_MASK = (1n << 64n) - 1n;
+const GOLDEN_GAMMA = 0x9e3779b97f4a7c15n;
+// Swift の Double.rounded() (0.5 は 0 から遠い側)。Math.round は負の 0.5 を 0 側へ寄せるので使わない。
+function swiftRounded(x) { return x < 0 ? -Math.round(-x) : Math.round(x); }
+function u64(v) { return BigInt.asUintN(64, typeof v === "bigint" ? v : BigInt(v)); }
+function axesSeed(ax, salt = 0n) {
+  const q = v => u64(swiftRounded((v || 0) * 10000));   // 1e-4 刻みの整数の bit pattern
+  let h = 0xcbf29ce484222325n ^ u64(salt);
+  const qs = [q(ax.size), q(ax.sharp), q(ax.tex), q(ax.bright)];
+  const qr = q(ax.round), qo = q(ax.open);
+  if (qr !== 0n) qs.push(qr);
+  if (qo !== 0n) qs.push(0x9e3779b9n ^ qo);
+  for (const v of qs) {
+    h = ((h ^ v) * 0x100000001b3n) & U64_MASK;
+    h ^= h >> 29n;
   }
-  return h >>> 0;
+  return h === 0n ? GOLDEN_GAMMA : h;
 }
-function mulberry32(seed) {
-  let s = seed >>> 0;
+function splitmix64(seed) {
+  let state = u64(seed);
   return function() {
-    s = (s + 0x6D2B79F5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    state = (state + GOLDEN_GAMMA) & U64_MASK;
+    let z = state;
+    z = ((z ^ (z >> 30n)) * 0xbf58476d1ce4e5b9n) & U64_MASK;
+    z = ((z ^ (z >> 27n)) * 0x94d049bb133111ebn) & U64_MASK;
+    z ^= z >> 31n;
+    return Number(z & 0x1fffffffffffffn) / 9007199254740992;
   };
 }
 
@@ -911,13 +918,13 @@ function expressiveOnset(parent, nucleus, axes, temperature, slot = 0) {
   const variant = expressiveVariantCandidate(parent, nucleus, axes);
   if (!variant) return parent;
   if (temperature <= 0) return variant.strength >= 0.70 ? variant.onset : parent;
-  const stableCode = text => Array.from(text).reduce((n, c) => (Math.imul(n, 131) + c.codePointAt(0)) >>> 0, 0);
-  const salt = (0x45585052 ^ Math.imul(Math.max(0, slot), 0x9E3779B9)
-    ^ Math.imul(stableCode(parent ?? "_"), 0x85EBCA6B) ^ stableCode(nucleus)) >>> 0;
-  const q = value => Math.round(value || 0);
+  const stableCode = text => Array.from(text).reduce((n, c) => u64(n * 131n + BigInt(c.codePointAt(0))), 0n);
+  const salt = 0x45585052n ^ u64(BigInt(Math.max(0, slot)) * 0x9E3779B9n)
+    ^ u64(stableCode(parent ?? "_") * 0x85EBCA6Bn) ^ stableCode(nucleus);
+  const q = value => swiftRounded(value || 0);
   const expressionAxes = { ...axes, size:q(axes.size), sharp:q(axes.sharp), tex:q(axes.tex),
                            bright:q(axes.bright), round:q(axes.round), open:q(axes.open) };
-  const roll = mulberry32(axesSeed(expressionAxes, salt))();
+  const roll = splitmix64(axesSeed(expressionAxes, salt))();
   return roll < 0.10 + 0.25 * variant.strength ? variant.onset : parent;
 }
 
@@ -2506,7 +2513,7 @@ function strokeComplexity(points, w, h, maxMora = 16, includeFinalRecognition = 
 // 実況 (generate/legalize) は「描線の時間構造 = 発話の時間構造」を写す。命名は
 // 完成形を解体し、特徴の強度序列を語内配置 (語頭=最強特徴/語中=第二特徴/語末=
 // 終止モード) へ変換する第2の生成経路 — 実況側の関数・挙動には一切触れない
-// (pickConsonant/pickVowel/geminateGapMs/mulberry32 を再利用するのみ)。
+// (pickConsonant/pickVowel/geminateGapMs/splitmix64 を再利用するのみ)。
 // dev トグル (?dev=1) が ON のときだけ pointerup から呼ばれる。既定 OFF では
 // このブロックは一切実行されない = 既存経路は 1 bit も変わらない。
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2867,7 +2874,7 @@ function namingGenerateClean(inventory, seed, contrast = 0, maxAttempts = 8, tem
   let last = null;
   const attempts = Math.max(maxAttempts, 1);
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const rand = mulberry32((seed + attempt * 0x9e3779b9) >>> 0);
+    const rand = splitmix64(u64(seed) + u64(BigInt(attempt) * GOLDEN_GAMMA));
     const event = namingGenerate(inventory, rand, contrast, temperature);
     if (namingIsClean(namingKanaOf(event.moras))) return event;
     last = event;
@@ -3354,7 +3361,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
                            disorder = null) {   // #4 乱雑度 (null=従来と厳密互換)
   const step = 0.0001 + 0.7 * 0.4;   // tuning.repetition 0.7: 同じループ = 同じ音節
   const quant = ax => {
-    const q = v => Math.round(v / step) * step;
+    const q = v => swiftRounded(v / step) * step;
     return { size: q(ax.size), sharp: q(ax.sharp), tex: q(ax.tex), bright: q(ax.bright),
              round: q(ax.round || 0), open: q(ax.open || 0) };
   };
@@ -3376,7 +3383,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         const mUnit = (manner !== null && ucx)
           ? mannerProfile(ax.sharp, ucx.corners, ucx.cornerSharpness, ax.tex, 1)
           : null;
-        const rand = mulberry32(axesSeed(ax, salt));
+        const rand = splitmix64(axesSeed(ax, salt));
         const primaryOnset = pickConsonant(ax, "", temperature, rand, kUnit, mUnit, false, disorder);
         let restrict = null;
         if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
@@ -5703,7 +5710,7 @@ function generateEvent(axes, salt = 0, opts = {}) {
     // 語レベル K 整合ゲート: 語の K が描画の K とズレたら salt を変えて再試行 (最大3案・決定的)
     let best = null, bestD = Infinity;
     for (let a = 0; a < 3; a++) {
-      const rand = mulberry32(axesSeed(axes, salt + a));
+      const rand = splitmix64(axesSeed(axes, u64(salt) + u64(a)));
       const ev = generate(axes, rand, 0.4, opts);
       const d = Math.abs(wordK(ev.moras) - opts.kiki);
       if (d < bestD) { best = ev; bestD = d; }
@@ -5711,7 +5718,7 @@ function generateEvent(axes, salt = 0, opts = {}) {
     }
     event = best;
   } else {
-    const rand = mulberry32(axesSeed(axes, salt));
+    const rand = splitmix64(axesSeed(axes, salt));
     event = generate(axes, rand, 0.4, opts);
   }
   return event;

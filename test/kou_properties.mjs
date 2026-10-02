@@ -101,7 +101,7 @@ function extractEngine(html) {
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["interpretStroke", "distanceFiltered", "extractAxes", "applyHandCorrection", "bucketedAxes", "densified",
   "splineDensified", "strokeComplexity", "drawK", "mannerProfile", "segmentStroke",
-  "unitEligible", "generateFromUnits", "generate", "axesSeed", "mulberry32",
+  "unitEligible", "generateFromUnits", "generate", "axesSeed", "splitmix64",
   "wordK", "romajiOf", "openArcSignal", "openChevronSignal",
   "arcBulgeDirection", "arcSizeClass", "vocabEvent", "ARC_VOCAB", "CIRCLE_VOCAB",
   "heartVocabSignal", "heartVocabWord", "HEART_VOCAB", "HEART_CLEAN_VOCAB",
@@ -138,7 +138,7 @@ function runGeneration(ax, kDraw, cor, cs, loops, moraCount, sustained) {
                  sustained, lengthHint: moraCount };
   let best = null, bestD = Infinity;
   for (let a = 0; a < 3; a++) {
-    const rand = api.mulberry32(api.axesSeed(ax, a));
+    const rand = api.splitmix64(api.axesSeed(ax, a));
     const ev = api.generate(ax, rand, 0.4, opts);
     const d = Math.abs(api.wordK(ev.moras) - opts.kiki);
     if (d < bestD) { best = ev; bestD = d; }
@@ -362,7 +362,7 @@ for (const [label, fn] of GEOM_CHECKS) {
 // restrict{a,u,o} が口の形から導いた い の証拠を握り潰していた。
 // 修正: y/ny の manner を "s" → "f"(wavy=tex 由来のうねり) へ繋ぎ替え、実際の
 // 曲がり運動がない直線では加点されないようにした (MANNER_CLASS 定義)。
-// 決定的 RNG (axesSeed/mulberry32) なので N 試行の内訳は再実行しても不変 — 閾値は
+// 決定的 RNG (axesSeed/splitmix64) なので N 試行の内訳は再実行しても不変 — 閾値は
 // 実測値 (修正前 453/1000, 修正後 149/1000 など) に安全マージンを取って固定。
 function tallyOnsets(pts, N) {
   const inkPts = api.densified(pts, 6);
@@ -374,7 +374,7 @@ function tallyOnsets(pts, N) {
   const manner = api.mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
   let ynyCount = 0, pureVowelCount = 0;
   for (let seed = 0; seed < N; seed++) {
-    const rand = api.mulberry32(api.axesSeed(ax, seed));
+    const rand = api.splitmix64(api.axesSeed(ax, seed));
     const ev = api.generate(ax, rand, 0.4, { kiki: kDraw, manner });
     if (ev.moras.some(m => m.onset === "y" || m.onset === "ny")) ynyCount++;
     if (ev.moras.every(m => m.onset === null)) pureVowelCount++;
@@ -436,7 +436,7 @@ function chevronTally(pts, N) {
   const openChevron = api.openChevronSignal(cx);
   let consOnsetFirst = 0, endsWithN = 0;
   for (let seed = 0; seed < N; seed++) {
-    const rand = api.mulberry32(api.axesSeed(ax, seed));
+    const rand = api.splitmix64(api.axesSeed(ax, seed));
     const ev = api.generate(ax, rand, 0.4, {
       moraCountOverride: openChevron ? 1 : cx.moraCount,
       kiki: kDraw, manner, lengthHint: cx.moraCount,
@@ -702,7 +702,7 @@ function p9eNucleusShare(pts, N) {
     && ax.tex < 0.3 && cx.moraCount >= 2;
   const tally = { a: 0, i: 0, u: 0, e: 0, o: 0 };
   for (let seed = 0; seed < N; seed++) {
-    const rand = api.mulberry32(api.axesSeed(ax, seed));
+    const rand = api.splitmix64(api.axesSeed(ax, seed));
     const ev = api.generate(ax, rand, 0.4, { moraCountOverride: cx.moraCount, kiki: kDraw,
                                              manner, sustained, lengthHint: cx.moraCount });
     for (const m of ev.moras) if (!m.isN) tally[m.nucleus]++;

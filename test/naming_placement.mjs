@@ -80,7 +80,7 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["extractAxes", "strokeComplexity", "splineDensified", "densified",
-  "mulberry32", "axesSeed", "pickConsonant", "pickVowel", "geminateGapMs",
+  "splitmix64", "axesSeed", "pickConsonant", "pickVowel", "geminateGapMs",
   "namingDecompose", "namingSlots", "namingGenerate", "namingGenerateClean",
   "namingIsClean", "namingKanaOf", "namingHeadPolarity",
   "NAMING_NG_WORDS", "NAMING_SALIENCE_FLOOR"];
@@ -199,8 +199,8 @@ console.log("── 5. 長い水平線→long / 短い線→open ──");
 console.log("── 6. namingGenerate の決定性 ──");
 {
   const inv = decomposeFromPoints(circlePoints());
-  const a = api.namingGenerate(inv, api.mulberry32(12345), 0, 0.4);
-  const b = api.namingGenerate(inv, api.mulberry32(12345), 0, 0.4);
+  const a = api.namingGenerate(inv, api.splitmix64(12345), 0, 0.4);
+  const b = api.namingGenerate(inv, api.splitmix64(12345), 0, 0.4);
   check("同一 seed で かな完全一致", api.namingKanaOf(a.moras) === api.namingKanaOf(b.moras),
         `${api.namingKanaOf(a.moras)} vs ${api.namingKanaOf(b.moras)}`);
 }
@@ -213,7 +213,7 @@ console.log("── 7. round 単独 → 語頭が共鳴音寄り ──");
   const target = new Set(["m", "n", "ny", "r", "w", "y"]);
   let hit = 0, total = 0;
   for (let seed = 0; seed < 40; seed++) {
-    const ev = api.namingGenerate(inv, api.mulberry32(seed), 0, 0.4);
+    const ev = api.namingGenerate(inv, api.splitmix64(seed), 0, 0.4);
     const onset = ev.moras[0]?.onset;
     if (onset === undefined) continue;
     total++;
@@ -229,7 +229,7 @@ console.log("── 8. spike 単独 → 語頭が鋭い子音寄り ──");
   const target = new Set(["k", "t", "ts", "ch", "ky", "p"]);
   let hit = 0, total = 0;
   for (let seed = 0; seed < 40; seed++) {
-    const ev = api.namingGenerate(inv, api.mulberry32(seed), 0, 0.4);
+    const ev = api.namingGenerate(inv, api.splitmix64(seed), 0, 0.4);
     const onset = ev.moras[0]?.onset;
     if (onset === undefined) continue;
     total++;
@@ -242,16 +242,16 @@ console.log("── 8. spike 単独 → 語頭が鋭い子音寄り ──");
 console.log("── 9. ClosureMode の適用 ──");
 {
   const invNasal = { features: [{ kind: "round", strength: 0.8 }], closure: "nasal", axes: ZERO_AXES };
-  const evNasal = api.namingGenerate(invNasal, api.mulberry32(1), 0, 0.4);
+  const evNasal = api.namingGenerate(invNasal, api.splitmix64(1), 0, 0.4);
   check("nasal 終止の語末に撥音ん", evNasal.moras[evNasal.moras.length - 1]?.isN === true);
 
   const invOpen = { features: [{ kind: "spike", strength: 0.8 }], closure: "open", axes: ZERO_AXES };
-  const evOpen = api.namingGenerate(invOpen, api.mulberry32(1), 0, 0.4);
+  const evOpen = api.namingGenerate(invOpen, api.splitmix64(1), 0, 0.4);
   check("open 終止に撥音んが無い", evOpen.moras[evOpen.moras.length - 1]?.isN !== true);
 
   const invCut = { features: [{ kind: "edge", strength: 0.8 }, { kind: "mass", strength: 0.6 }],
                    closure: "cut", axes: ZERO_AXES };
-  const evCut = api.namingGenerate(invCut, api.mulberry32(42), 0, 0.4);
+  const evCut = api.namingGenerate(invCut, api.splitmix64(42), 0, 0.4);
   const lastCut = evCut.moras[evCut.moras.length - 1];
   check("cut 終止 (2モーラ以上) は最終モーラに促音 gap", (lastCut?.gapMs ?? 0) > 0,
         JSON.stringify(lastCut));
@@ -259,7 +259,7 @@ console.log("── 9. ClosureMode の適用 ──");
   check("cut 終止が語末促音 (禁止表現) になっていない", lastCut?.isQ !== true);
 
   const invLong = { features: [{ kind: "flat", strength: 0.8 }], closure: "long", axes: ZERO_AXES };
-  const evLong = api.namingGenerate(invLong, api.mulberry32(7), 0, 0.4);
+  const evLong = api.namingGenerate(invLong, api.splitmix64(7), 0, 0.4);
   const lastLong = evLong.moras[evLong.moras.length - 1];
   const prevLong = evLong.moras[evLong.moras.length - 2];
   check("long 終止は2モーラ以上", evLong.moras.length >= 2, api.namingKanaOf(evLong.moras));
@@ -288,7 +288,7 @@ console.log("── 11. mass 頭 + contrast 1.0 → ドデカミン型 (頭>尾�
   const inv = { features: [{ kind: "mass", strength: 0.9 }], closure: "nasal", axes: ZERO_AXES };
   let positive = 0, total = 0;
   for (let seed = 0; seed < 40; seed++) {
-    const ev = api.namingGenerate(inv, api.mulberry32(seed), 1.0, 0.4);
+    const ev = api.namingGenerate(inv, api.splitmix64(seed), 1.0, 0.4);
     const cv = ev.moras.filter(m => !m.isN);
     if (cv.length < 2) continue;
     const head = cv[0], tail = cv[cv.length - 1];
@@ -303,12 +303,12 @@ console.log("── 11. mass 頭 + contrast 1.0 → ドデカミン型 (頭>尾�
 console.log("── 12. nasal 昇格は強い頭のみ ──");
 {
   const strong = { features: [{ kind: "mass", strength: 0.9 }], closure: "open", axes: ZERO_AXES };
-  const evStrong = api.namingGenerate(strong, api.mulberry32(3), 1.0, 0.4);
+  const evStrong = api.namingGenerate(strong, api.splitmix64(3), 1.0, 0.4);
   check("強い頭 (mass) × contrast1.0 の open が ん に昇格", evStrong.moras[evStrong.moras.length - 1]?.isN === true,
         api.namingKanaOf(evStrong.moras));
 
   const soft = { features: [{ kind: "round", strength: 0.9 }], closure: "open", axes: ZERO_AXES };
-  const evSoft = api.namingGenerate(soft, api.mulberry32(3), 1.0, 0.4);
+  const evSoft = api.namingGenerate(soft, api.splitmix64(3), 1.0, 0.4);
   check("丸い頭 (極性負) は nasal 昇格しない", evSoft.moras[evSoft.moras.length - 1]?.isN !== true,
         api.namingKanaOf(evSoft.moras));
 }

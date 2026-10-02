@@ -74,7 +74,7 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["strokeComplexity", "splineDensified", "densified", "extractAxes",
-  "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "mulberry32",
+  "applyHandCorrection", "bucketedAxes", "circleVocabSignal", "generate", "splitmix64",
   "heartRecognitionLevelFor", "heartVocabSignal", "heartVocabWord", "starVocabSignal",
   "oneStrokePentagramVocabSignal", "outlineStarVocabSignal",
   "oneStrokePentagramVocabWord", "vocabEvent", "romajiOf", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB",
@@ -609,7 +609,7 @@ console.log("── #4 乱雑度 (立法提案・kikiパラメータ方式=null 
   const messyRate = (dis) => {
     let m = 0, total = 0;
     for (let seed = 1; seed <= 200; seed++) {
-      const rand = api.mulberry32(seed * 7919);
+      const rand = api.splitmix64(seed * 7919);
       const ev = api.generate(ax0, rand, 0.4, { moraCountOverride: 6, kiki: 0.3, disorder: dis });
       for (const mo of ev.moras) {
         if (mo.isN || mo.isSilentRest || !mo.onset) continue;
@@ -620,7 +620,7 @@ console.log("── #4 乱雑度 (立法提案・kikiパラメータ方式=null 
     return m / Math.max(1, total);
   };
   const wordAt = (dis) => {
-    const rand = api.mulberry32(424242);
+    const rand = api.splitmix64(424242);
     return api.generate(ax0, rand, 0.4, { moraCountOverride: 6, kiki: 0.3, disorder: dis })
       .moras.map(m => (m.onset ?? "") + m.nucleus).join(",");
   };
