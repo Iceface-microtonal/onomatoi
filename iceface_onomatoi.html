@@ -1153,7 +1153,7 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
   for (let i = 0; i < uniqueCount; i++) {
     // P11/PF-02: 開いた弧は onset を消す。開いた一角は子音開始・語末ん無し。
     const primaryOnset = forceNilOnset ? null
-      : pickConsonant(axes, prevOnset === undefined ? "" : prevOnset, temperature, rand,
+      : pickConsonant(axes, prevOnset === undefined ? null : prevOnset, temperature, rand,
                       kiki, manner, forceConsonantOnset, disorder);
     let restrict = null;
     if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);

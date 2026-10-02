@@ -18,6 +18,8 @@
 //                     STRICT=1 で enforce (全 green 達成後に昇格させる)。
 //
 // 実行: node test/kou_properties.mjs [fixture.json]
+//       KOU_EVENTS=native_events.json で、拍数が記録された record の語を外から渡す (ネイティブ版の語を
+//       同じ性質で判定する。生成は Onomatoi Film の tools/strokeword の kouprobe)
 //
 // 注意: 描線は正規化座標で保存されているため、再生キャンバスは 360×360 固定とする。
 // 元端末のキャンバスが非正方の場合は縦横比が僅かに変わるが、性質判定には十分。
@@ -153,6 +155,11 @@ function sustainedOf(rec, moraCount) {
     && rec.axes.t < 0.3 && moraCount >= 2;
 }
 
+/// KOU_EVENTS: 外部 (ネイティブ版) の語。{ id: { romaji, moras: [{ onset, nucleus, isN, isQ, gapMs }] } }
+const EXTERNAL_EVENTS = process.env.KOU_EVENTS
+  ? JSON.parse(fs.readFileSync(process.env.KOU_EVENTS, "utf8")) : null;
+if (EXTERNAL_EVENTS) console.log(`語の出どころ: 外部 (${process.env.KOU_EVENTS}) — 拍数が記録された record のみ差し替え`);
+
 /// recorded モード: fixture の導出値を生成段へ。
 /// cx.moraCount だけは fbVersion 4 に未記録 → **rec.word をチェックサムに 1..16 を
 /// 探索して復元** (キャリブレーション)。エンジンが記録時から不変なら必ず一致する。
@@ -165,8 +172,9 @@ function replayRecorded(rec) {
   // これによりエンジンが記録時から変わっても「コウさん端末由来の正確な入力」で
   // 新エンジンを judged できる (キャンバス寸法差のある stroke 再導出より強い判定)。
   if (typeof rec.mc === "number") {
-    const ev = runGeneration(ax, rec.k, rec.cor, rec.cs, rec.lp, rec.mc,
-                             sustainedOf(rec, rec.mc));
+    const ext = EXTERNAL_EVENTS?.[rec.id];
+    const ev = ext ? { moras: ext.moras.map(m => ({ ...m, durationMs: 250, amplitude: 1 })), external: ext.romaji }
+      : runGeneration(ax, rec.k, rec.cor, rec.cs, rec.lp, rec.mc, sustainedOf(rec, rec.mc));
     return { event: ev, ax, mc: rec.mc, calibrated: true, pinned: true };
   }
   for (let mc = 1; mc <= 16; mc++) {
