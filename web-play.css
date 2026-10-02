@@ -75,6 +75,10 @@ svg { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; st
 .yama-art span:nth-child(4) { transform:translateY(-4px) rotate(-6deg); }
 .about-card { background:#fffdfc; }
 .about-card h2 { margin-top:8px; }
+.about-card .about-arrow { color:#a65a78; white-space:nowrap; }
+a.about-card { transition:background .18s,border-color .18s; }
+a.about-card:hover { background:#fae6ed; border-color:#e3bdcd; text-decoration:none; }
+a.about-card:hover h2 { text-decoration:underline; text-underline-offset:5px; }
 .updates-card h2 { margin-top:8px; }
 .updates-list { list-style:none; margin-top:18px; }
 .updates-list li { display:grid; grid-template-columns:43px minmax(0,1fr); gap:10px; padding:12px 0; border-top:1px solid #ece9e5; align-items:start; }
@@ -135,10 +139,10 @@ body.is-dev #log { display:block; }
 .footer-brand { font-size:15px; font-weight:600; color:var(--ink); }
 .site-footer>a:nth-last-child(2) { margin-left:auto; }
 .site-footer button { font-size:10px; }
-@media(min-width:1360px) {
+@media(min-width:1200px) {
   body { max-width:1560px; padding:0 32px; }
   .site-header,.ios-section,.site-footer { max-width:1180px; margin-left:auto; margin-right:auto; }
-  .experience-layout { max-width:1500px; grid-template-columns:minmax(0,1fr) minmax(0,860px) minmax(0,1fr); gap:24px; align-items:start; }
+  .experience-layout { max-width:1500px; grid-template-columns:minmax(180px,1fr) minmax(0,860px) minmax(230px,1fr); gap:24px; align-items:start; }
   .experience-center { grid-column:2; grid-row:1; }
   .portal-rail-left { grid-column:1; grid-row:1; }
   .portal-rail-right { grid-column:3; grid-row:1; }
@@ -174,6 +178,7 @@ body.is-dev #log { display:block; }
   .experience-layout { grid-template-columns:1fr; gap:14px; }
   .experience-center { grid-column:1; }
   .portal-card { padding:18px; }
+  .portal-rail-right { grid-row:2; }
   .yama-art { height:70px; }
   .drawer-panel,.guide-panel { padding:18px; }
   .ios-section { margin:32px 0; padding:28px 22px; grid-template-columns:1fr; gap:26px; }

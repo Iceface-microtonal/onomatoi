@@ -26,8 +26,8 @@
     shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking',
     yamaKicker:'Another place to play', yamaTitle:'Onomatoi Mountain',
     yamaDescription:'Explore a mountain of floating words and the impressions they evoke.',
-    yamaOpen:'Explore the mountain ↗', aboutCardTitle:'From shape to voice.',
-    aboutCardDescription:'Onomatoi reads a line as a mouth shape and a sound impression.',
+    yamaOpen:'Explore the mountain ↗', aboutCardTitle:'About Onomatoi',
+    aboutCardDescription:'A little guide to shapes and words. Discover how Onomatoi works.',
     aboutCardLink:'About Onomatoi ↗', updatesKicker:'Onomatoi today', updatesTitle:'What’s new',
     updateVoice:'The Web voices have been updated.', updateYama:'Onomatoi Mountain has arrived ↗'
   };
@@ -43,7 +43,7 @@
     document.querySelector('.play-space').setAttribute('aria-label', 'Draw and play');
     document.querySelector('.play-dock').setAttribute('aria-label', 'Play menu');
     document.querySelector('.portal-rail-left').setAttribute('aria-label', 'Explore Onomatoi');
-    document.querySelector('.portal-rail-right').setAttribute('aria-label', 'Updates and language');
+    document.querySelector('.portal-rail-right').setAttribute('aria-label', 'About Onomatoi, updates and language');
     document.querySelector('.language-card').setAttribute('aria-label', 'Choose language');
     document.querySelector('[data-close-panel]').setAttribute('aria-label', 'Close');
     $('mouth-icon').setAttribute('aria-label', 'Mouth opening and rounding inferred from the shape');
