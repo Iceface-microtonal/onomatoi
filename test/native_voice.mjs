@@ -82,7 +82,7 @@ function extractEngine(html) {
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "RECORDED_EXTENDED_CVS", "expressiveVariantCandidate", "expressiveOnset",
-  "enforceVowelAspectOrder",
+  "applyOCP",
   "DIPH_PAIRS", "sampleKeys", "sampleUrlCandidates", "buildNativeVoiceBank", "sampleBank",
   "nvApplyFollowingMoraAttenuation", "NV_FOLLOWING_MORA_ATTENUATION_DB", "nvPlaybackMoras",
   "nvQuantizeMoras", "nvVowelRunRootHasOnset", "parseMora", "namingKanaOf",
@@ -494,12 +494,13 @@ console.log("── 6.5. 表情CVと母音順序 ──");
     check(`${expected}は強い証拠で決定的に選択`,
           api.expressiveOnset(parent, vowel, axes, 0) === expected);
   }
-  const ordered = api.enforceVowelAspectOrder([
-    { onset:"k", nucleus:"o", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
-    { onset:"r", nucleus:"a", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+  // P11訂正 (2026-09-17・Core ec46a12): o→a を禁止せず並べ替えもしない。OCP は o を a へ開き直す
+  const reopened = api.applyOCP([
+    { onset:"d", nucleus:"o", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
+    { onset:"z", nucleus:"o", durationMs:180, gapMs:0, amplitude:1, isN:false, isQ:false },
   ]);
-  check("通常生成のo→aは母音を保ってa→oへ整列",
-        ordered[0].nucleus === "a" && ordered[1].nucleus === "o");
+  check("OCPはoをuへ迂回させずaへ開き直す (Core と同じ)",
+        reopened[0].nucleus === "o" && reopened[1].nucleus === "a");
   check("直接入力のgyogyaanは制定綴りを保持",
         api.romajiOf({ moras: api.segmentWord("gyogyaan") }) === "gyogyaan");
 }

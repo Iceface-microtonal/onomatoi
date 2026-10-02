@@ -610,7 +610,7 @@ function applyOCP(moras) {
   for (let i = 1; i < out.length; i++) {
     if (ocpViolates(out[i - 1], out[i])) {
       const ablaut = ablautVowel(out[i].nucleus);
-      out[i] = { ...out[i], nucleus: out[i - 1].nucleus === "o" && ablaut === "a" ? "u" : ablaut };
+      out[i] = { ...out[i], nucleus: ablaut };   // P11訂正 (2026-09-17): o→a へ開き直す (u へ迂回しない)
     }
   }
   return out;
@@ -928,47 +928,6 @@ function expressiveOnset(parent, nucleus, axes, temperature, slot = 0) {
   return roll < 0.10 + 0.25 * variant.strength ? variant.onset : parent;
 }
 
-// o→a は母音を捨てず a→o（開放→収束）へ並べ替える。
-// 反復周期・撥音・促音・休符は運動の再開境界なので跨がせない。
-function enforceVowelAspectOrder(moras) {
-  if (moras.length < 2) return moras.slice();
-  const out = moras.map(m => ({ ...m }));
-  const skeleton = m => `${m.onset ?? "_"}:${m.nucleus}:${m.isN ? 1 : 0}:${m.isQ ? 1 : 0}:${m.amplitude <= 0 ? 1 : 0}`;
-  let period = out.length;
-  for (let p = 1; p <= Math.floor(out.length / 2); p++) {
-    let matches = true;
-    for (let i = p; i < out.length; i++) {
-      if (skeleton(out[i]) !== skeleton(out[i % p])) { matches = false; break; }
-    }
-    if (matches) { period = p; break; }
-  }
-  let segmentStart = 0;
-  for (let i = 0; i < out.length; i++) {
-    if (i > 0 && i % period === 0) segmentStart = i;
-    if (out[i].isN || out[i].isQ || out[i].amplitude <= 0) { segmentStart = i + 1; continue; }
-    if (out[i].nucleus !== "a") continue;
-    let j = i;
-    while (j > segmentStart && out[j - 1].nucleus === "o"
-           && !out[j - 1].isN && !out[j - 1].isQ && out[j - 1].amplitude > 0) {
-      out[j - 1] = { ...out[j - 1], nucleus:"a" };
-      out[j] = { ...out[j], nucleus:"o" };
-      j--;
-    }
-  }
-  return out;
-}
-function applyOCPAndVowelOrder(moras) {
-  let out = moras;
-  for (let i = 0; i < 3; i++) {
-    const next = enforceVowelAspectOrder(applyOCP(out));
-    const same = next.length === out.length && next.every((m, j) =>
-      m.onset === out[j].onset && m.nucleus === out[j].nucleus
-      && !!m.isN === !!out[j].isN && !!m.isQ === !!out[j].isQ);
-    if (same) return out;
-    out = next;
-  }
-  return out;
-}
 // #3: 母音交替畳語 (がたごと/かさこそ) 判定。子音骨格が period 2 で繰り返すが母音が異なる。
 function detectAblaut(loops) {
   if (loops.length < 4 || loops.length % 2 !== 0) return false;
@@ -1120,7 +1079,7 @@ function legalize(moras, axes, lengthHint = null, sustained = false, kiki = null
   if (forbidMoraicN) out = out.filter(m => !m.isN);
   // P10 最終ガード: テンプレ再形成/タイルで生まれた隣接違反も左→右で解消 (kiki 経路のみ)
   if (kiki !== null) {
-    out = applyOCPAndVowelOrder(out);
+    out = applyOCP(out);
   }
   return out.map(nativize);
 }
@@ -1157,10 +1116,6 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
                       kiki, manner, forceConsonantOnset, disorder);
     let restrict = null;
     if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
-    if (prevNucleus === "o") {
-      const withoutA = new Set(["i","u","e","o"]);
-      restrict = restrict ? new Set([...restrict].filter(v => withoutA.has(v))) : withoutA;
-    }
     // ch は cha/chi/chu/cho/che 全て収録済 (2026-06 に che 追加) → 全母音可。
     // P10: 直前と同調音位置の別子音なら同母音を避ける (ソフト) + 決定的ガード。
     // ablaut の出力は a/o のみ = 拗音 restrict {a,u,o} に必ず適合。
@@ -1195,7 +1150,7 @@ function generate(axes, rand, temperature = 0.4, opts = {}) {
 
   // v7: 実在オノマトペ型への整形 (legalize が語末ん/連続母音(かい/こう)/促音っ/長音ー/畳語末尾
   // を音象徴 (axes) から一括で選ぶ。旧「ん を確率的に末尾付与するだけ」の簡易版を置き換え)。
-  const moras = legalize(enforceVowelAspectOrder(rawMoras), axes, lengthHint ?? moraCount, sustained, kiki,
+  const moras = legalize(rawMoras, axes, lengthHint ?? moraCount, sustained, kiki,
                          forceNilOnset, forceConsonantOnset);
   const finalRedup = moraPeriod(moras) < moras.length;
 
@@ -3351,7 +3306,7 @@ function polishUnits(moras, axes, kiki = null) {
   const fi = out.findIndex(m => m.onset !== null && !m.isN);
   if (fi >= 0) out[fi] = biasInitialP(out[fi], axes, kiki);
   if (kiki !== null) {
-    out = applyOCPAndVowelOrder(out);   // P10 + P11 (単位語経路は legalize を通らない)
+    out = applyOCP(out);   // P10 (単位語経路は legalize を通らない)
   }
   out = out.map(nativize);
   if (out.length > 16) out = out.slice(0, 16);
@@ -3384,13 +3339,9 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
           ? mannerProfile(ax.sharp, ucx.corners, ucx.cornerSharpness, ax.tex, 1)
           : null;
         const rand = splitmix64(axesSeed(ax, salt));
-        const primaryOnset = pickConsonant(ax, "", temperature, rand, kUnit, mUnit, false, disorder);
+        const primaryOnset = pickConsonant(ax, null, temperature, rand, kUnit, mUnit, false, disorder);
         let restrict = null;
         if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
-        if (prevVowel === "o") {
-          const withoutA = new Set(["i","u","e","o"]);
-          restrict = restrict ? new Set([...restrict].filter(v => withoutA.has(v))) : withoutA;
-        }
         const vowel = pickVowel(ax, null, temperature, restrict, rand);
         const onset = expressiveOnset(primaryOnset, vowel, ax, temperature, idx);
         out.push({ onset, nucleus: vowel, durationMs: 170 + ax.size * 20,
