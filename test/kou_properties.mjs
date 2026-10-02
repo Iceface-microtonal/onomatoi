@@ -9,6 +9,13 @@
 // strokeComplexity → drawK(0.125格子) → mannerProfile → sustained → segmentStroke →
 // generateFromUnits / K整合ゲート×3) で fixture の描線を再生する。
 //
+// 主判定 (2026-10-02〜) = **描線モード**: 記録された珠を 360×360 に置き、アプリと同じ経路
+// (6px 密化 → interpretStroke: 固有語 → 構造単位 → 大域生成) で再生して性質を判定する。
+// 再生結果が**固有語**なら「立法で置換」— その後のコウさんの立法 (円の大きさ・しずく・稲妻 等) が
+// 当時の語を置き換えたものとして、生成の性質判定から外す (語は表示する)。
+// recorded モード (当時の導出値を生成器へ直接) は参考表示。固有語の層を通らないため主判定にしない。
+// 元端末のキャンバス寸法は未記録なので、描線モードは近似 (1 バケット程度ずれ得る)。
+//
 // 判定は「語の完全一致」ではなく**性質** (破裂音を含む/歯茎硬口蓋を含まない等):
 // 調整のたびに語が変わっても、コウさんの理由が満たされていれば green。
 //
@@ -18,8 +25,8 @@
 //                     STRICT=1 で enforce (全 green 達成後に昇格させる)。
 //
 // 実行: node test/kou_properties.mjs [fixture.json]
-//       KOU_EVENTS=native_events.json で、拍数が記録された record の語を外から渡す (ネイティブ版の語を
-//       同じ性質で判定する。生成は Onomatoi Film の tools/strokeword の kouprobe)
+//       KOU_EVENTS=native_events.json で、ネイティブ版 (iOS) の語を外から渡して同じ性質で判定する
+//       (生成は Onomatoi Film の tools/strokeword の kouprobe: { id: { stroke: { route, romaji, moras }, recorded } })
 //
 // 注意: 描線は正規化座標で保存されているため、再生キャンバスは 360×360 固定とする。
 // 元端末のキャンバスが非正方の場合は縦横比が僅かに変わるが、性質判定には十分。
@@ -155,10 +162,12 @@ function sustainedOf(rec, moraCount) {
     && rec.axes.t < 0.3 && moraCount >= 2;
 }
 
-/// KOU_EVENTS: 外部 (ネイティブ版) の語。{ id: { romaji, moras: [{ onset, nucleus, isN, isQ, gapMs }] } }
+/// KOU_EVENTS: 外部 (ネイティブ版) の語。{ id: { stroke: { route, romaji, moras }, recorded: { romaji, moras } } }
 const EXTERNAL_EVENTS = process.env.KOU_EVENTS
   ? JSON.parse(fs.readFileSync(process.env.KOU_EVENTS, "utf8")) : null;
-if (EXTERNAL_EVENTS) console.log(`語の出どころ: 外部 (${process.env.KOU_EVENTS}) — 拍数が記録された record のみ差し替え`);
+if (EXTERNAL_EVENTS) console.log(`語の出どころ: 外部 (${process.env.KOU_EVENTS})`);
+// ネイティブの JSON は子音なしのとき onset を省く → 性質の式 (onset === null) に合わせて null にそろえる
+const externalEvent = ext => ext && { moras: ext.moras.map(m => ({ ...m, onset: m.onset ?? null, durationMs: 250, amplitude: 1 })) };
 
 /// recorded モード: fixture の導出値を生成段へ。
 /// cx.moraCount だけは fbVersion 4 に未記録 → **rec.word をチェックサムに 1..16 を
@@ -172,8 +181,8 @@ function replayRecorded(rec) {
   // これによりエンジンが記録時から変わっても「コウさん端末由来の正確な入力」で
   // 新エンジンを judged できる (キャンバス寸法差のある stroke 再導出より強い判定)。
   if (typeof rec.mc === "number") {
-    const ext = EXTERNAL_EVENTS?.[rec.id];
-    const ev = ext ? { moras: ext.moras.map(m => ({ ...m, durationMs: 250, amplitude: 1 })), external: ext.romaji }
+    const ext = EXTERNAL_EVENTS?.[rec.id]?.recorded;
+    const ev = ext ? externalEvent(ext)
       : runGeneration(ax, rec.k, rec.cor, rec.cs, rec.lp, rec.mc, sustainedOf(rec, rec.mc));
     return { event: ev, ax, mc: rec.mc, calibrated: true, pinned: true };
   }
@@ -188,6 +197,11 @@ function replayRecorded(rec) {
 
 /// stroke モード (参考): 描線から全段再導出。キャンバス寸法差で1バケットずれ得る。
 function replayFromStroke(rec) {
+  const ext = EXTERNAL_EVENTS?.[rec.id]?.stroke;
+  if (EXTERNAL_EVENTS) {
+    if (!ext) throw new Error("外部の描線再生が無い");
+    return { event: externalEvent(ext), route: ext.route };
+  }
   const beads = rec.stroke.map(([x, y]) => ({ x: x * W, y: y * H }));
   const inkPts = beads.length >= 2 ? api.densified(beads, 6) : beads;
   if (inkPts.length < 2) throw new Error("stroke too short");
@@ -758,32 +772,34 @@ for (const [label, fn] of P9E_CHECKS) {
 
 // ─── 5. fixture 性質テストの実行・レポート ─────────────────────────
 
-let regressFail = 0, targetFail = 0, targetPass = 0, errors = 0;
+let regressFail = 0, targetFail = 0, targetPass = 0, superseded = 0, errors = 0;
 const rows = [];
 for (const rec of fixture.records) {
   const prop = PROPERTIES[rec.id];
   const tier = rec.vote === 1 ? "regression" : "target";
   if (!prop) { rows.push([rec.id, tier, rec.word, "-", "⚠ 性質が未登録"]); continue; }
-  let word = "?", strokeWord = "-", ok = false, note = "", match = "";
+  let word = "?", recordedWord = "-", ok = false, note = "", match = "";
   try {
-    const rr = replayRecorded(rec);
-    let event = rr.event;
+    try { recordedWord = api.romajiOf(replayRecorded(rec).event); } catch { }
     let stroke = null;
-    try { stroke = replayFromStroke(rec); strokeWord = api.romajiOf(stroke.event); } catch { }
-    if (rr.pinned) {
-      match = ` (mc=${rr.mc} 固定・recorded判定)`;
-    } else if (rr.calibrated) {
-      match = ` (mc=${rr.mc} で当時と一致)`;
-    } else if (stroke) {
-      // recorded モードで復元不能 = 単位語経路 (generateFromUnits) か記録後のエンジン変化。
-      // stroke 再導出 (キャンバス寸法差あり) を判定に使う。
-      event = stroke.event;
-      match = " (⚠未較正→stroke再導出で判定: 単位語経路 or エンジン変化)";
+    try { stroke = rec.stroke?.length >= 2 ? replayFromStroke(rec) : null; } catch { }
+    if (stroke) {
+      word = api.romajiOf(stroke.event);
+      if (stroke.route === "vocabulary") {
+        // 主判定の描線再生が固有語 = その後の立法が当時の語を置き換えた。生成の性質判定から外す。
+        note = "📜 立法で置換"; superseded++;
+        match = " (描線から再生・固有語)";
+      } else {
+        match = " (描線から再生・アプリと同じ経路)";
+        ok = prop.check(stroke.event);
+      }
     } else {
-      match = ` (⚠未較正: mc=${rr.mc} 近似)`;
+      // 描線が無い record だけ recorded モードで判定する。
+      const rr = replayRecorded(rec);
+      word = api.romajiOf(rr.event);
+      match = rr.pinned ? ` (描線なし→recorded・mc=${rr.mc} 固定)` : ` (描線なし→recorded)`;
+      ok = prop.check(rr.event);
     }
-    word = api.romajiOf(event);
-    ok = prop.check(event);
   } catch (e) {
     note = `💥 ${e.message}`; errors++;
   }
@@ -797,7 +813,7 @@ for (const rec of fixture.records) {
     }
   }
   rows.push([rec.id, tier,
-    `${rec.word} → ${word}${match}  [stroke再導出: ${strokeWord}]`, prop.desc, note]);
+    `${rec.word} → ${word}${match}  [recorded 参考: ${recordedWord}]`, prop.desc, note]);
 }
 
 console.log(`\nコウさん性質テスト  (fixture: ${path.basename(fixturePath)}, engine: 再現パイプライン ${W}×${H})\n`);
@@ -806,7 +822,7 @@ for (const [id, tier, words, desc, note] of rows) {
   console.log(`      当時→今日: ${words}`);
   console.log(`      性質: ${desc}\n`);
 }
-console.log(`  幾何サニティ破れ: ${geomFail} / P6拗音ゲート破れ: ${p6Fail} / P11記号語彙破れ: ${p11Fail} / P9e斜め楕円破れ: ${p9eFail} / regression 破れ: ${regressFail} / target 既知FAIL: ${targetFail} / target 先行達成: ${targetPass} / エラー: ${errors}\n`);
+console.log(`  幾何サニティ破れ: ${geomFail} / P6拗音ゲート破れ: ${p6Fail} / P11記号語彙破れ: ${p11Fail} / P9e斜め楕円破れ: ${p9eFail} / regression 破れ: ${regressFail} / target 既知FAIL: ${targetFail} / target 先行達成: ${targetPass} / 立法で置換: ${superseded} / エラー: ${errors}\n`);
 
 if (geomFail > 0 || p6Fail > 0 || p11Fail > 0 || p9eFail > 0 || regressFail > 0 || errors > 0 || (strict && targetFail > 0)) process.exit(1);
 console.log(strict ? "STRICT: all green ✅" : "幾何+regression green ✅ (target は処方 P2〜P7 の進捗指標)");
