@@ -1,6 +1,8 @@
 // stroke_parity.mjs — 一筆 → 語 の Web 版とネイティブ版 (OnomatoiCore) の一致テスト
 //
 // 判定の正本はネイティブ版。fixture は生の点列とネイティブ版の出力 (語・固有語か・経路・K・6軸・構造・調音) を持つ。
+// 経路 "vocab?" = 表示語の付かない固有語 (弧・円・星・三角) と同じ綴りで、ネイティブ側の経路を区別できないもの。
+// 語が一致していれば経路も合格とし、件数は別に出す。
 // このテストは同じ生の点列を、アプリの pointerup と同じ段 (粗い筆: 対角の 2.2% で頂点確定 → 6px 密化)
 // で interpretStroke に通し、項目ごとに突き合わせる。
 //
@@ -107,7 +109,11 @@ const near = (a, b, tol) => (a == null && b == null) || (a != null && b != null 
 // 項目ごとの突き合わせ。順番 = 語に近い順 (語が合わない原因を上流から探せる)。
 const FIELDS = {
   "語": (r, e) => [api.romajiOf(r.event), e.romaji],
-  "経路": (r, e) => [ROUTE[r.route] ?? r.route, e.path],
+  "経路": (r, e) => {
+    const web = ROUTE[r.route] ?? r.route;
+    if (e.path === "vocab?") return [true, web === "vocab" || api.romajiOf(r.event) === e.romaji];
+    return [web, e.path];
+  },
   "K": (r, e) => [r.kDraw, e.kDraw, 1e-9],
   "formK": (r, e) => [r.cx.formK ?? null, e.formK ?? null, 1e-3],
   "角": (r, e) => [r.cx.corners, e.corners],
@@ -147,7 +153,8 @@ function fmt(v) { return typeof v === "number" ? (Number.isInteger(v) ? String(v
 
 const total = fixture.cases.length, scored = total - nullOk - nullBad;
 console.log(`stroke_parity — 正本: ${fixture.truth}`);
-console.log(`fixture: ${path.relative(process.cwd(), fixturePath)} (${total} 件・語にならない一致 ${nullOk}/${nullOk + nullBad})`);
+const ambiguous = fixture.cases.filter(c => c.expect?.path === "vocab?").length;
+console.log(`fixture: ${path.relative(process.cwd(), fixturePath)} (${total} 件・語にならない一致 ${nullOk}/${nullOk + nullBad}・経路を区別できない ${ambiguous} 件)`);
 console.log("");
 for (const [name, n] of Object.entries(tally)) {
   const pct = (100 * n / scored).toFixed(1).padStart(5);
