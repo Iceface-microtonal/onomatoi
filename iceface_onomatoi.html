@@ -3463,7 +3463,7 @@ function trimLeadingSilence(buf, key, meta) {
 // (FormantSynth の「v_N フォールバック」の移植)。
 const CONTN_VOWELS = VOWELS;
 const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同じキーで使う
-const VQ_VOWELS = ["a", "i", "u", "o"];
+const VQ_VOWELS = ["a", "i", "u", "e", "o"];   // 促音前の母音 v_<v>_Q (iOS base に e も揃った・2026-10-03)
 const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui", "uo",
                     "ea", "eo", "oa", "ua"];
 // 長尺録音 (diph_aaii 等) は legacy 経路 (?voice=legacy) の cvDiphExt だけが使う。native レンダラは

@@ -591,8 +591,8 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     check(`${p}: 接続素材が120ms超`, bank.cvDiph.get(p)?.length > SR * 0.12,
       `${bank.cvDiph.get(p)?.length / SR * 1000}ms`);
   }
-  check("促音テイクがバンクへ載る (v_<v>_Q 4本・摩擦延長 3本)",
-        bank.vQ.size === 4 && ["s", "sh", "ts"].every(c => bank.fricQ.has(c)));
+  check("促音テイクがバンクへ載る (v_<v>_Q 5本・摩擦延長 3本)",
+        bank.vQ.size === 5 && ["s", "sh", "ts"].every(c => bank.fricQ.has(c)));
   check("停止中の nye は鳴らさない", api.nvRenderEvent([{ onset: "ny", nucleus: "e", durationMs: 180,
         gapMs: 0, amplitude: 1, isN: false, isQ: false }], bank, SR, 250) === null);
   let patrolled = 0;
