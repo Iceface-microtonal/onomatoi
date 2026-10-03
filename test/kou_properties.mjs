@@ -520,13 +520,22 @@ function p13FixtureStroke(id) {
   const r = fixture.records.find(x => x.id === id);
   return r ? r.stroke.map(([nx, ny]) => ({ x: nx * W, y: ny * H })) : null;
 }
-/// 頂点列を辺ごとに20分割補間した閉ポリゴン (最後に始点近傍へ戻る = 手描きの閉じ)。
+/// 頂点列を手の速さで打った閉ポリゴン (最後に始点近傍へ戻る = 手描きの閉じ)。
+/// 各辺 minimum-jerk (角で速さ 0)・120Hz。旧: 辺ごとに 20 等分 — 角が必ず点に乗り、旧い粗い筆
+/// (step を超えた最初の点に珠) では珠が角に乗る偶然があった。実際の指の点は角に揃わない (2026-10-04)。
 function closedPolyPts(verts) {
-  const pts = [];
+  const pts = [{ x: verts[0][0], y: verts[0][1] }];
+  const dt = 1 / 120;
+  let carry = 0;
   for (let e = 0; e < verts.length; e++) {
     const a = verts[e], b = verts[(e + 1) % verts.length];
-    for (let t = 0; t < 20; t++)
-      pts.push({ x: a[0] + (b[0] - a[0]) * t / 20, y: a[1] + (b[1] - a[1]) * t / 20 });
+    const duration = 0.12 * Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])) / 3.5;
+    let t = carry;
+    for (; t < duration; t += dt) {
+      const u = t / duration, s = 10 * u ** 3 - 15 * u ** 4 + 6 * u ** 5;
+      pts.push({ x: a[0] + (b[0] - a[0]) * s, y: a[1] + (b[1] - a[1]) * s });
+    }
+    carry = t - duration;
   }
   pts.push({ x: verts[0][0] + 1, y: verts[0][1] + 2 });
   return pts;

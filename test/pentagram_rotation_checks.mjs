@@ -20,24 +20,52 @@ export function checkPentagramRotations(api, check) {
       vertices[((start + i * (reversed ? -2 : 2)) % 5 + 5) % 5]), steps);
   }
   const coarse = pts => api.densified(api.distanceFiltered(pts, Math.hypot(W, H) * 0.022), 6);
+  // 手の速さで打った星 (Core handSampledStar と同じ): 各辺 minimum-jerk (先端で速さ 0)・周期 dt。
+  // 等分の点列は先端が必ず点に乗り、旧い粗い筆では珠が先端に乗る偶然があった (2026-10-04)。
+  function handSampledStar(rotation, radius, aspect, distortion, start, reversed, dt, phase) {
+    const tips = star(rotation, radius, aspect, distortion, start, reversed, 1);
+    const points = [tips[0]];
+    let carry = phase * dt;
+    for (let e = 1; e < tips.length; e++) {
+      const a = tips[e - 1], b = tips[e];
+      const duration = 0.12 * Math.sqrt(Math.hypot(b.x - a.x, b.y - a.y)) / 3.5;
+      let t = carry;
+      for (; t < duration; t += dt) {
+        const u = t / duration, s = 10 * u ** 3 - 15 * u ** 4 + 6 * u ** 5;
+        points.push({ x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s });
+      }
+      carry = t - duration;
+    }
+    return points.concat(tips.slice(-1));
+  }
   const measure = pts => api.strokeComplexity(api.coreSplineSmoothed(pts), W, H, 16, true, pts);
   const words = new Set(["ayanoparu", "ayanofaru", "ayanoharu"]);
   const failures = [];
-  let count = 0;
+  let count = 0, coarseSameWord = 0;
+  const coarseRecognized = [0, 0];
   for (const radius of [70, 125]) for (const aspect of [1, 0.8, 0.65])
     for (const distortion of [0, 2]) for (let start = 0; start < 5; start++)
       for (const reversed of [false, true]) for (let degrees = 0; degrees < 360; degrees += 15) {
         const raw = star(degrees * Math.PI / 180, radius, aspect, distortion, start, reversed);
-        for (const points of [raw, coarse(raw)]) {
-          const result = api.interpretStroke(points, W, H);
-          count++;
-          if (!result.cx.isOneStrokePentagram || !words.has(api.romajiOf(result.event)))
-            failures.push({ radius, aspect, distortion, start, reversed, degrees,
-              fit: result.cx.pentagramTopologyFit, word: api.romajiOf(result.event) });
-        }
+        const result = api.interpretStroke(raw, W, H);
+        count++;
+        if (!result.cx.isOneStrokePentagram || !words.has(api.romajiOf(result.event)))
+          failures.push({ radius, aspect, distortion, start, reversed, degrees,
+            fit: result.cx.pentagramTopologyFit, word: api.romajiOf(result.event) });
+        // 粗い筆: 120Hz と 60Hz に打つ。珠は道筋 (と折り返しの先端) で決まる。
+        const coarseWords = [1 / 120, 1 / 60].map(dt => api.romajiOf(api.interpretStroke(coarse(
+          handSampledStar(degrees * Math.PI / 180, radius, aspect, distortion, start, reversed, dt,
+            ((degrees / 15 + start) % 7) / 7)), W, H).event));
+        if (coarseWords[0] === coarseWords[1]) coarseSameWord++;
+        coarseWords.forEach((w, i) => { if (words.has(w)) coarseRecognized[i]++; });
       }
-  check("pentagram: 5760 rotations / stretch / distortion / starts / directions / coarse ink", count === 5760 && !failures.length,
+  check("pentagram: 2880 rotations / stretch / distortion / starts / directions", count === 2880 && !failures.length,
     `${failures.length} failures: ${JSON.stringify(failures.slice(0, 3))}`);
+  // 珠を円の出口と角に置く規則 (coarseBeads) で 120Hz・60Hz とも 2880/2880 (旧規則は同じ入力で 2723・2758)。
+  // 打ち方で語が分かれるのは星の語彙の段 (ayanoparu ↔ ayanofaru) だけ (角の珠は指の点の上に乗る)。
+  check("pentagram: coarse ink recognized 2880 / 2880 at 120Hz and 60Hz",
+    coarseRecognized.every(n => n === 2880), JSON.stringify(coarseRecognized));
+  check("pentagram: coarse ink same word at 120Hz and 60Hz ≥ 2874 / 2880", coarseSameWord >= 2874, `${coarseSameWord}`);
 
   const thin = measure(star(Math.PI / 4, 125, 0.65));
   check("pentagram: thin star rescued without rewriting radial order", thin.trajectoryDescriptor.radialSymmetryOrder === 4

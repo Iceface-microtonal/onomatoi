@@ -645,14 +645,83 @@ function mannerProfile(sharp, corners, cornerSharpness, tex, loops) {
 // ─── 粗い筆 (2026-07-10): 距離フィルタ+密化+知覚バケット (AxisExtractor の移植) ───
 function distanceFiltered(points, step) {
   if (step <= 0 || points.length === 0) return points;
-  const out = [points[0]];
-  for (let i = 1; i < points.length; i++) {
-    const last = out[out.length - 1], p = points[i];
-    if (Math.hypot(p.x - last.x, p.y - last.y) >= step) out.push(p);
+  const beads = coarseBeads(points[0], step);
+  for (let i = 1; i < points.length; i++) beads.add(points[i]);
+  return beads.finished(points[points.length - 1]);
+}
+// 粗い筆の珠を、指の点を 1 つずつ受け取って置いていく (2026-10-04・AxisExtractor.CoarseBeads の移植)。
+// distanceFiltered と pointermove が共有する唯一の規則。
+// - 指の線分が「最後の珠から step の円」を出る点に次の珠 (描く速さ・点の取り方によらない)
+// - 円の内側の指の点が、最後の珠から出口までの弦 (線分) から step × 0.4 より外れていたら、先にいちばん外れた点
+//   (角・折り返しの先端) に珠を置き、続きを読み直す (出口だけだと角が削られ、V 字が ∪ の弧に化けた)
+const COARSE_CORNER_RATIO = 0.4;
+function coarseBeads(start, step) {
+  const beads = [start];
+  let inside = [], previous = start;
+  function add(point) {
+    const pending = [point];
+    while (pending.length > 0) {
+      const p = pending.shift();
+      let last = beads[beads.length - 1];
+      let reread = false;
+      while (Math.hypot(p.x - last.x, p.y - last.y) >= step) {
+        const exit = coarseCircleExit(last, step, previous, p);
+        const corner = coarseCorner(inside, last, exit, step);
+        if (corner !== null) {
+          beads.push(inside[corner]);   // 角に珠を置き、角より後の指の点と p を読み直す
+          pending.unshift(...inside.slice(corner + 1), p);
+          previous = inside[corner];
+          inside = [];
+          reread = true;
+          break;
+        }
+        beads.push(exit);
+        last = exit;
+        previous = exit;
+        inside = [];
+      }
+      if (!reread) {
+        inside.push(p);
+        previous = p;
+      }
+    }
   }
-  const last = points[points.length - 1], lastV = out[out.length - 1];
-  if (Math.hypot(last.x - lastV.x, last.y - lastV.y) > 2) out.push(last);   // 終端補完 (点タップ)
-  return out;
+  // 指離し: 終端の実ペン位置を、最後の珠から 2px より離れていれば足す (点タップ・端の形)。
+  // 円の内側に残った点には角の規則を掛けない (弦が短いので手ブレが角に見え、点タップが崩れる)
+  function finished(end) {
+    const out = beads.slice();
+    const last = out[out.length - 1];
+    if (Math.hypot(end.x - last.x, end.y - last.y) > 2) out.push(end);
+    return out;
+  }
+  return { beads, add, finished };
+}
+// 弦 a → b (線分) からいちばん外れた点の添字。外れが step × COARSE_CORNER_RATIO 以下なら null。
+// 線分への距離で測る (直線への距離だと、折り返しの先端が弦の延長上に乗って見逃される)。
+function coarseCorner(points, a, b, step) {
+  const vx = b.x - a.x, vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy;
+  let best = null, bestDistance = step * COARSE_CORNER_RATIO;
+  for (let i = 0; i < points.length; i++) {
+    const wx = points[i].x - a.x, wy = points[i].y - a.y;
+    const t = len2 > 1e-12 ? Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2)) : 0;
+    const distance = Math.hypot(wx - vx * t, wy - vy * t);
+    if (distance > bestDistance) {
+      best = i;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+// 線分 from → to が円 (center, radius) を出る点。from は円の内側 (0 < t ≤ 1)。
+function coarseCircleExit(center, radius, from, to) {
+  const ox = from.x - center.x, oy = from.y - center.y;
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const a = dx * dx + dy * dy;
+  const b = 2 * (ox * dx + oy * dy);
+  const c = ox * ox + oy * oy - radius * radius;
+  const t = a > 1e-12 ? Math.max(0, Math.min(1, (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a))) : 1;
+  return { x: from.x + dx * t, y: from.y + dy * t };
 }
 function densified(points, spacing) {
   if (points.length < 2 || spacing <= 0) return points;
@@ -5818,6 +5887,7 @@ function generateAndPlay(axes, salt = 0, log = true, src = "tune", opts = {}, ex
 const canvas = document.getElementById("canvas");
 const cctx = canvas.getContext("2d");
 let drawing = false, stroke = [], presetShapePts = null;
+let coarseInk = null;   // 粗い筆の珠の状態 (coarseBeads)。stroke はその珠の写し
 
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
@@ -5966,6 +6036,7 @@ canvas.addEventListener("pointerdown", ev => {
     updatePhraseLine();
   }
   stroke = [pointerPos(ev)];
+  coarseInk = null;
   canvas.setPointerCapture(ev.pointerId);
   ev.preventDefault();
 });
@@ -5989,15 +6060,14 @@ canvas.addEventListener("pointermove", ev => {
   }
   if (coarseInkOn() && stroke.length > 0) {
     // 粗い筆: 最後の頂点から step 以上動いたときだけ頂点を確定 (ステップ未満は未確定の糸)。
-    const rect = canvas.getBoundingClientRect();
-    const step = Math.hypot(rect.width, rect.height) * 0.022;
-    const last = stroke[stroke.length - 1];
-    if (Math.hypot(p.x - last.x, p.y - last.y) >= step) {
-      stroke.push(p);
-      pendingPt = null;
-    } else {
-      pendingPt = p;
+    // 頂点は指の線分が step の円を出る点・角はその角 (coarseBeads・distanceFiltered と同じ規則・10-04)。
+    if (!coarseInk) {
+      const rect = canvas.getBoundingClientRect();
+      coarseInk = coarseBeads(stroke[0], Math.hypot(rect.width, rect.height) * 0.022);
     }
+    coarseInk.add(p);
+    stroke = coarseInk.beads.slice();
+    pendingPt = p;
   } else {
     stroke.push(p);
   }
@@ -6009,12 +6079,10 @@ canvas.addEventListener("pointerup", ev => {
   drawing = false;
   const coarse = coarseInkOn();
   if (coarse) {
-    // 終端補完 (点タップ=1頂点が語にならないのを防ぐ + 端の形)
-    if (pendingPt && stroke.length > 0) {
-      const last = stroke[stroke.length - 1];
-      if (Math.hypot(pendingPt.x - last.x, pendingPt.y - last.y) > 2) stroke.push(pendingPt);
-    }
+    // 終端補完 (点タップ=1頂点が語にならないのを防ぐ + 端の形)・distanceFiltered と同じ coarseBeads.finished
+    if (pendingPt && coarseInk) stroke = coarseInk.finished(pendingPt);
     pendingPt = null;
+    coarseInk = null;
   }
   // 抽出・下流は密化版 (同じ折れ線の調律済み密度)。表示 (stroke) は珠のまま保つ。
   const inkPts = (coarse && stroke.length >= 2) ? densified(stroke, 6) : stroke;
