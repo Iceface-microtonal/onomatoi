@@ -523,6 +523,24 @@
    "cat": "cvdiph"
   },
   {
+   "id": "cvdiph__ka_o__125",
+   "tokens": "ka o",
+   "moraMs": 125,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ka_o__250",
+   "tokens": "ka o",
+   "moraMs": 250,
+   "cat": "cvdiph"
+  },
+  {
+   "id": "cvdiph__ka_o__500",
+   "tokens": "ka o",
+   "moraMs": 500,
+   "cat": "cvdiph"
+  },
+  {
    "id": "vv__a_i__125",
    "tokens": "a i",
    "moraMs": 125,
@@ -609,6 +627,24 @@
   {
    "id": "vv__e_i__500",
    "tokens": "e i",
+   "moraMs": 500,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_o__125",
+   "tokens": "a o",
+   "moraMs": 125,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_o__250",
+   "tokens": "a o",
+   "moraMs": 250,
+   "cat": "vv"
+  },
+  {
+   "id": "vv__a_o__500",
+   "tokens": "a o",
    "moraMs": 500,
    "cat": "vv"
   },

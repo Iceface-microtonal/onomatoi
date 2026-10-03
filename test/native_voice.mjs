@@ -507,9 +507,9 @@ console.log("── 6.5. 表情CVと母音順序 ──");
 
 console.log("── 7. Base追加音源と連続接続 ──");
 {
-  check("二重母音11種を登録",
+  check("二重母音12種を登録 (ao = 2026-10-03 Core と同期)",
         JSON.stringify(Array.from(api.DIPH_PAIRS)) === JSON.stringify([
-          "ai", "au", "ei", "oi", "ou", "ui", "uo", "ea", "eo", "oa", "ua"
+          "ai", "au", "ao", "ei", "oi", "ou", "ui", "uo", "ea", "eo", "oa", "ua"
         ]), JSON.stringify(Array.from(api.DIPH_PAIRS)));
 
   const constant = (durSec, value) => {

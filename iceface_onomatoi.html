@@ -3476,10 +3476,10 @@ function trimLeadingSilence(buf, key, meta) {
 const CONTN_VOWELS = VOWELS;
 const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同じキーで使う
 const VQ_VOWELS = ["a", "i", "u", "e", "o"];   // 促音前の母音 v_<v>_Q (iOS base に e も揃った・2026-10-03)
-const DIPH_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui", "uo",
-                    "ea", "eo", "oa", "ua"];
+const DIPH_PAIRS = ["ai", "au", "ao", "ei", "oi", "ou", "ui", "uo",
+                    "ea", "eo", "oa", "ua"];   // ao = 2026-10-01〜02 新録 (Core diphPairs と同期)
 // 長尺録音 (diph_aaii 等) は legacy 経路 (?voice=legacy) の cvDiphExt だけが使う。native レンダラは
-// iOS と同じく全11ペアで短尺録音を使い、語末専用 _fin も使わない (prefersShortCvDiphForCV) ので読まない。
+// iOS と同じく全12ペアで短尺録音を使い、語末専用 _fin も使わない (prefersShortCvDiphForCV) ので読まない。
 const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
 
 function sampleKeys() {
@@ -3754,6 +3754,9 @@ function nvCvDiphTiming(pair, durationMs) {
     ei: [190, 190, 100, 40, 150], oi: [172, 172, 67, 0, 47],
     au: [160, 160, 170, 5, 85], ai: [40, 40, 25, 10, 28],
     uo: [170, 170, 110, 80, 140], ui: [180, 180, 120, 90, 150],
+    // ao (Core cvDiphOverlapTiming base AO・作者 kao.jpg 2026-10-02): CV のフェード終わり (270) が
+    // 先行 (145) より長い = CV は拍の境目を越えて続く (cvDiph 側で直前 CV の尾を読む)
+    ao: [145, 145, 295, 85, 270],
   };
   const t = table[pair];
   if (!t) {
@@ -3774,7 +3777,7 @@ function nvCvDiphGains(timing, elapsedMs) {
            diph: clamp(elapsedMs / Math.max(1, timing.fade)) };
 }
 function nvCvDiphArr(bank, pair) {
-  // 現行Coreの短尺11ペアは旧長尺・finで上書きしない。
+  // 現行Coreの短尺12ペアは旧長尺・finで上書きしない。
   return bank.cvDiph.get(pair) || null;
 }
 
@@ -4399,7 +4402,7 @@ function nvDetectTransitionStart(arr, sr, dropDb, leadSec) {
 }
 
 // CV→V diphは一定ゲインで自然包絡を保持 (Core prepareShortCvDiph → prepareNaturalCvDiph)。
-// 現行Coreは全11ペアで短尺 diph を使い、長尺 diph_aaii 等・語末 _fin では上書きしない
+// 現行Coreは全12ペアで短尺 diph を使い、長尺 diph_aaii 等・語末 _fin では上書きしない
 // (prefersShortCvDiphForCV)。ai/ou のみ移行点の手前から、他は素材頭から。
 function nvPrepareCvDiph(raw, sr, pair = "") {
   let trimmed = nvTrimTrailingSilence(raw, 0.004, Math.trunc(sr * 0.01));
@@ -4810,7 +4813,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
             const c = Math.cos(r * Math.PI / 2);
             env *= c * c;
           }
-        } else if (!["ei", "au", "ea", "eo", "oa", "ua"].includes(cvd.v1 + cvd.v2)) {
+        } else if (!["ei", "au", "ao", "ea", "eo", "oa", "ua"].includes(cvd.v1 + cvd.v2)) {
           // 語末は 22% から cos² で閉じる (素材の自然な閉じを持つ6ペアは録音の包絡のまま)
           const u = phoneT / m.durationMs;
           if (u > 0.22) {
@@ -4823,6 +4826,17 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const balance = cvd.v1 === "e" && cvd.v2 === "a" && ["p", "t", "k"].includes(cvd.sourceOnset)
         ? Math.pow(10, 1.5 / 20) : 1;
       val = value * NV_DIPH_JOIN_GAIN * balance * amp * env * eventFade;
+      // ao は CV のフェードが拍の境目を越える: 直前の子音付き a の CV を同じ時計のまま読み、
+      // 境界前と同じフェードを完走させる (Core の base AO・iPhone 経路 = readRootCVSample)
+      if (cvd.v1 + cvd.v2 === "ao" && mi > 0 && cvd.sourceOnset != null) {
+        const prev = moras[mi - 1];
+        const elapsed = preRoll + phoneT;
+        if (prev.onset === cvd.sourceOnset && prev.nucleus === cvd.v1 && elapsed < timing.end) {
+          const cvTail = nvReadRootCVSample(bank, cvd.sourceOnset, cvd.v1, prev.durationMs + phoneT,
+                                            prev.durationMs, prev.durationMs > 30000 / 90);
+          if (cvTail !== null) val += cvTail * prev.amplitude * nvCvDiphGains(timing, elapsed).cv * eventFade;
+        }
+      }
     } else if (plan.kind === "diph") {
       const t = plan.diph.baseMs + tin;
       const raw = nvInterp(plan.arr, sr, t / 1000);
