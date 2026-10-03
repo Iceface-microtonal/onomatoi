@@ -297,8 +297,12 @@
     <span class="panel-title">FEEDBACK (<span id="fb-count">0</span>)</span>
     <span class="hint" id="t-fb-hint" style="margin-left:auto; text-align:right;"></span>
     <button id="btn-fb-copy">COPY</button>
+    <button id="btn-fb-share" style="display:none;"></button>
     <button id="btn-fb-clear" class="gray">CLEAR</button>
   </div>
+  <div class="hint" id="fb-export-hint" style="display:none; margin-top:8px;"></div>
+  <textarea id="fb-export" readonly rows="6" style="display:none; width:100%; box-sizing:border-box;
+    margin-top:6px; font: 11px/1.4 ui-monospace, monospace;"></textarea>
 </div>
 </details>
 
@@ -398,10 +402,13 @@ const T = uiLang === "ja" ? {
   voice: "Voice(声): PuppeTwin",
   romajiTitle: "ROMAJI 直接入力",
   romajiHint: "空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
-  fbHint: "👍👎 = イメージ通りか記録。COPY で書き出して開発に渡せます",
+  fbHint: "👍👎 = イメージ通りか記録。COPY / 送る で開発に渡せます",
   researchLabel: "研究に参加する",
   researchHint: "ON にすると 👍👎 で「イメージ通りか」を記録できます (端末内のみ・外部送信なし)",
   fbCopied: "COPIED!",
+  fbShare: "送る",
+  fbNeedVote: "👍 か 👎 を押すと、理由も一緒に記録されます",
+  fbExportHint: "自動でコピーできませんでした。下の枠を長押し →「すべてを選択」→「コピー」してください",
   fbSaved: (n) => `✓ 記録しました（計${n}件）`,
   fbReasonPH: "理由 (任意): どこがイメージ通り/違う?",
   start: "▶ 音をオンにして、描く",
@@ -413,10 +420,13 @@ const T = uiLang === "ja" ? {
   voice: "Voice: PuppeTwin",
   romajiTitle: "ROMAJI input",
   romajiHint: "space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
-  fbHint: "👍👎 = did it sound like your shape? COPY exports for tuning",
+  fbHint: "👍👎 = did it sound like your shape? COPY / SEND exports for tuning",
   researchLabel: "Join the research",
   researchHint: "Turn on to rate words with 👍👎 (stored on this device only)",
   fbCopied: "COPIED!",
+  fbShare: "SEND",
+  fbNeedVote: "Tap 👍 or 👎 to save this note with it",
+  fbExportHint: "Couldn't copy automatically. Long-press the box below → Select All → Copy",
   fbSaved: (n) => `✓ saved (${n} total)`,
   fbReasonPH: "why? (optional): what matched / didn't",
   start: "▶ Turn sound on and draw",
@@ -425,6 +435,8 @@ function applyLangTexts() {
   document.getElementById("t-eraser").textContent = T.eraser;
   document.getElementById("t-about").textContent = T.about;
   document.getElementById("t-fb-hint").textContent = T.fbHint;
+  document.getElementById("btn-fb-share").textContent = T.fbShare;
+  document.getElementById("fb-export-hint").textContent = T.fbExportHint;
   document.getElementById("loading-note").textContent = T.loadingInitial;
   const reasonEl = document.getElementById("fb-reason");
   if (reasonEl) reasonEl.placeholder = T.fbReasonPH;
@@ -5266,14 +5278,24 @@ function syncReasonToVote() {
   const reasonEl = document.getElementById("fb-reason");
   if (!reasonEl || !currentUtterance) return;
   const idx = feedbackLog.findIndex(r => r.id === currentUtterance.id);
-  if (idx < 0) return;   // まだ投票していない → vote() が拾う
   // 2026-07-21: 500 へ (vote() 側は 07-15 に拡大済みだったが、この後書き経路だけ 200 が残り
   // コウさんの P13 立法理由が切断された — 上限は必ず vote() と同値に保つこと)。
   const text = reasonEl.value.trim().slice(0, 500);
+  const vm = document.getElementById("vote-msg");
+  if (idx < 0) {
+    // まだ投票していない → vote() が理由ごと拾う。記録は 👍👎 が要る (import_feedback.py は
+    // vote 1/-1 のみ) ので、黙って消えないよう押してもらう (2026-10-03「書いても送れない」報告)。
+    if (text && vm) {
+      vm.textContent = T.fbNeedVote;
+      vm.classList.add("show");
+      clearTimeout(window._voteMsgTimer);
+      window._voteMsgTimer = setTimeout(() => vm.classList.remove("show"), 3000);
+    }
+    return;
+  }
   if (feedbackLog[idx].reason === text) return;
   feedbackLog[idx].reason = text;
   saveFeedback();
-  const vm = document.getElementById("vote-msg");
   if (vm) {
     vm.textContent = T.fbSaved(feedbackLog.length);
     vm.classList.add("show");
@@ -6193,22 +6215,68 @@ document.getElementById("btn-log-clear").addEventListener("click", () => {
 // ─── フィードバック UI 配線 ───
 document.getElementById("btn-good").addEventListener("click", () => vote(1));
 document.getElementById("btn-bad").addEventListener("click", () => vote(-1));
-document.getElementById("btn-fb-copy").addEventListener("click", async () => {
-  const payload = JSON.stringify({
+// 書き出し (2026-10-03 iPhone で「COPY できない」報告): Clipboard API だけに頼らない。
+// ① 押した瞬間に同期で execCommand("copy") ② だめなら Clipboard API
+// ③ それも失敗したら書き出しを画面の枠に出し、長押しでコピーしてもらう
+// (旧代替の prompt() は出ない環境がある)。送る = OS の共有シート (メール・LINE 等)。
+function feedbackExportText() {
+  return JSON.stringify({
     app: "onomatoi-web", fbVersion: FB_VERSION,
     exported: new Date().toISOString(),
     records: feedbackLog,
   }, null, 1);
+}
+function copyTextInGesture(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  // 16px = iOS が入力欄へのフォーカスで画面を拡大しない大きさ
+  ta.style.cssText = "position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; font-size:16px;";
+  document.body.appendChild(ta);
+  ta.focus({ preventScroll: true });
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) {}
+  ta.remove();
+  return ok;
+}
+function showFeedbackExport(text) {
+  const box = document.getElementById("fb-export");
+  box.value = text;
+  box.style.display = "";
+  document.getElementById("fb-export-hint").style.display = "";
+  box.focus({ preventScroll: true });
+  box.select();
+}
+function hideFeedbackExport() {
+  document.getElementById("fb-export").style.display = "none";
+  document.getElementById("fb-export-hint").style.display = "none";
+}
+document.getElementById("btn-fb-copy").addEventListener("click", async () => {
+  const text = feedbackExportText();
   const btn = document.getElementById("btn-fb-copy");
-  try {
-    await navigator.clipboard.writeText(payload);
-    btn.textContent = T.fbCopied;
-  } catch (e) {
-    // clipboard が使えない環境: テキストを selection で出す代替
-    window.prompt("Copy:", payload);
+  let ok = copyTextInGesture(text);
+  if (!ok && navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {}
   }
+  if (!ok) { showFeedbackExport(text); return; }
+  hideFeedbackExport();
+  btn.textContent = T.fbCopied;
   setTimeout(() => { btn.textContent = "COPY"; }, 1500);
 });
+if (navigator.share) {
+  const shareBtn = document.getElementById("btn-fb-share");
+  shareBtn.style.display = "";
+  shareBtn.addEventListener("click", async () => {
+    const text = feedbackExportText();
+    try {
+      await navigator.share({ title: "Onomatoi feedback", text });
+      hideFeedbackExport();
+    } catch (e) {
+      if (e?.name !== "AbortError") showFeedbackExport(text);   // 閉じただけなら何もしない
+    }
+  });
+}
 document.getElementById("btn-fb-clear").addEventListener("click", () => {
   feedbackLog = [];
   saveFeedback();
