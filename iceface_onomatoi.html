@@ -5321,6 +5321,22 @@ function syncTagsToVote() {
   saveFeedback();
 }
 
+// 聴き直した発声へ投票の宛先を移す (2026-10-03): 「ひとつ前」「これまでの声」「もう一度、聴く」は
+// 表示中の語を鳴らすが、宛先が最後に描いた発声のままで、別の語に 👍👎 と理由が付いていた。
+// その発声に付けた 👍👎・理由・タグも表示し直す (web-play.js の聴き直しから呼ぶ)。
+function focusUtterance(u) {
+  if (!u || u === currentUtterance) return;
+  currentUtterance = u;
+  const rec = feedbackLog.find(r => r.id === u.id) || null;
+  setVoteButtons(true, rec ? rec.vote : null);
+  const reasonEl = document.getElementById("fb-reason");
+  if (reasonEl) reasonEl.value = rec?.reason ?? "";
+  activeFbTags = new Set(rec?.tags ?? []);
+  const tagBox = document.getElementById("fb-tags");
+  if (tagBox) { tagBox.style.display = rec ? "" : "none"; if (rec) renderFbTags(); }
+  document.getElementById("vote-msg")?.classList.remove("show");
+}
+
 // 理由の後書き: 投票済みの発話に理由を書き足したら、そのレコードへ反映する。
 function syncReasonToVote() {
   const reasonEl = document.getElementById("fb-reason");
@@ -5528,7 +5544,8 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
   if (log) appendLog(event);
   const viewRect = canvas.getBoundingClientRect();
   window.dispatchEvent(new CustomEvent("onomatoi-utterance", { detail: {
-    event, src, points: stroke.map(p => [p.x / viewRect.width, p.y / viewRect.height]),
+    event, src, utterance: currentUtterance,   // 聴き直すときの投票の宛先 (focusUtterance)
+    points: stroke.map(p => [p.x / viewRect.width, p.y / viewRect.height]),
     aspect: viewRect.width / viewRect.height,
     presetPoints: presetShapePts ? presetShapePts.map(p => ({x:p.x,y:p.y})) : null,
     explanation: { axes: { ...axesUsed }, shape: extra.shape ?? null, source: src }

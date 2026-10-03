@@ -133,6 +133,7 @@
     selected = entry;
     renderLine(entry);
     playEvent(entry.event);
+    focusUtterance(entry.utterance);   // 👍👎 と理由の宛先 = いま表示して鳴らした語
     result(entry.event, caption);
     explain(entry);
     $('canvas-invitation').hidden = true;
@@ -156,8 +157,8 @@
   }
   window.addEventListener('onomatoi-result', e => result(e.detail.event));
   window.addEventListener('onomatoi-utterance', e => {
-    const {event,src,points,aspect,presetPoints,explanation} = e.detail;
-    selected = {event:structuredClone(event),points,aspect,presetPoints,explanation:structuredClone(explanation)};
+    const {event,src,points,aspect,presetPoints,explanation,utterance} = e.detail;
+    selected = {event:structuredClone(event),points,aspect,presetPoints,explanation:structuredClone(explanation),utterance};
     displayed = selected;
     explain(selected);
     if (src === 'draw') {
@@ -181,7 +182,8 @@
   $('play-current').onclick = () => {
     if (!selected) return;
     renderLine(selected);
-    playEvent(selected.event); result(selected.event, ja ? 'もう一度、同じ声。' : 'The same voice, once more.');
+    playEvent(selected.event); focusUtterance(selected.utterance);
+    result(selected.event, ja ? 'もう一度、同じ声。' : 'The same voice, once more.');
     explain(selected);
   };
   $('play-previous').onclick = () => {
