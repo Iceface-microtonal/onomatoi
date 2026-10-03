@@ -2878,8 +2878,10 @@ function openArcSignal(cx) {
     && cx.rotationFraction > 0.15 && cx.rotationFraction < 0.92
     && cx.curveConsistency > 0.8;   // 波/ジグザグの相殺した回転を弧と誤判別しない (3こぶ波対策)
 }
+// reversals ≤ 2 (2026-10-04・AxisExtractor.isOpenChevron と同一): 周期の多い波で角の検出が 1 つになると
+// 開いた一角 (1 拍) に入っていた。本物の一角は反転 0〜2 (上の開いた弧の反転ガード不採用とは別の判定)。
 function openChevronSignal(cx) {
-  return cx.corners === 1 && cx.loops === 0 && !cx.isClosed && cx.cornerSharpness >= 0.25;
+  return cx.corners === 1 && cx.loops === 0 && !cx.isClosed && cx.cornerSharpness >= 0.25 && cx.reversals <= 2;
 }
 // StrokeWordInterpreter.isStraightLineVocabularyCandidate と同じ境界。
 function straightLineVocabSignal(cx) {
