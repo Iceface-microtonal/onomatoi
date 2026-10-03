@@ -343,6 +343,24 @@
    "cat": "long"
   },
   {
+   "id": "long__mu_u__125",
+   "tokens": "mu u",
+   "moraMs": 125,
+   "cat": "long"
+  },
+  {
+   "id": "long__mu_u__250",
+   "tokens": "mu u",
+   "moraMs": 250,
+   "cat": "long"
+  },
+  {
+   "id": "long__mu_u__500",
+   "tokens": "mu u",
+   "moraMs": 500,
+   "cat": "long"
+  },
+  {
    "id": "cvdiph__ka_i__125",
    "tokens": "ka i",
    "moraMs": 125,
