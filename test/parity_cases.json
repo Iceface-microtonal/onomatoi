@@ -973,6 +973,42 @@
    "cat": "q"
   },
   {
+   "id": "q__ro_q_sha_a__125",
+   "tokens": "ro q sha a",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__ro_q_sha_a__250",
+   "tokens": "ro q sha a",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__ro_q_sha_a__500",
+   "tokens": "ro q sha a",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__ro_q_sa_a__125",
+   "tokens": "ro q sa a",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__ro_q_sa_a__250",
+   "tokens": "ro q sa a",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__ro_q_sa_a__500",
+   "tokens": "ro q sa a",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
    "id": "expr__twi__125",
    "tokens": "twi",
    "moraMs": 125,

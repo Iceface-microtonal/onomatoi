@@ -4201,13 +4201,27 @@ function nvLongVowelCVJoinRoot(idx, moras, bank) {
          moras[root - 1].nucleus === moras[idx].nucleus) root--;
   return nvUsesLongVowelCVJoin(root, moras, bank) ? root : null;
 }
-// readLongVowelCVJoinSample: runTimeMs は根 CV の頭から数えた時刻 (境界をまたいで一続き)
-function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs) {
-  const key = nvCvResolvedKey(bank, onset, vowel);
-  if (!key) return null;
-  const arr = bank.cv.get(key), t = runTimeMs / 1000;
-  const cv = nvInterp(arr, bank.sr, t) ?? 0;
-  const timing = nvLongVowelCVJoinTiming(rootDurationMs);
+// readLongVowelCVJoinSample: runTimeMs は根 CV の頭から数えた時刻 (境界をまたいで一続き)。
+// fricativeQ = 根が摩擦延長テイク (っさー/っしゃー・2026-10-03): CV の代わりにテイクを
+// readFricativeQAlignedSample と同じ整列で読む (runTimeMs = 0 はテイク内の母音の立ち上がり)。
+const NV_FRICQ_JOIN_MAX_ROOT_MS = 250;   // FormantSynth.fricativeQJoinMaxRootMs
+function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false) {
+  const t = runTimeMs / 1000;
+  let cv, cvRemainingSec;
+  if (fricativeQ) {
+    // テイクは短い (母音 ~0.4s)。尽きたら CV の EOF と同じく 0 とし v_aaaa だけで続ける
+    cv = nvReadFricativeQAlignedSample(bank, onset, runTimeMs) ?? 0;
+    cvRemainingSec = nvDur(bank.fricQ.get(onset), bank.sr) - (t + bank.fricQOnset.get(onset));
+  } else {
+    const key = nvCvResolvedKey(bank, onset, vowel);
+    if (!key) return null;
+    const arr = bank.cv.get(key);
+    cv = nvInterp(arr, bank.sr, t) ?? 0;
+    cvRemainingSec = nvDur(arr, bank.sr) - t;
+  }
+  // テイクの母音は拍の長さに関わらず ~0.2s で減衰する → 継ぎの時刻は 250ms 拍の値で止める
+  const timing = nvLongVowelCVJoinTiming(fricativeQ
+    ? Math.min(rootDurationMs, NV_FRICQ_JOIN_MAX_ROOT_MS) : rootDurationMs);
   if (runTimeMs < timing.startMs) return cv;
   const vowelSample = nvReadSustainedVowelSample(bank, vowel, (runTimeMs - timing.startMs) / 1000);
   if (vowelSample === null) return cv;
@@ -4215,8 +4229,18 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
   const vowelGain = Math.min(1, elapsed / Math.max(1, timing.vowelRiseMs));
   const cvGain = Math.max(0, 1 - elapsed / Math.max(1, timing.cvFallMs));
   // 短く切れた CV ファイルの EOF でクリックを出さない最後の 8ms ガード
-  const cvTailGain = Math.min(1, Math.max(0, (nvDur(arr, bank.sr) - t) / 0.008));
+  const cvTailGain = Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   return cv * cvGain * cvTailGain + vowelSample * vowelGain;
+}
+// 摩擦延長テイク (Stage 2b) を使う拍か: 促音 + s/sh + a (ts は除外) — usesFricativeQTake
+function nvUsesFricativeQTake(m, bank) {
+  return m.gapMs > 0 && (m.onset === "s" || m.onset === "sh") && m.nucleus === "a" &&
+    bank.fricQ.has(m.onset);
+}
+// readFricativeQAlignedSample: vowelTimeMs = 拍頭 (テイク内の sa 立ち上がり) からの時刻。gap 中は負
+function nvReadFricativeQAlignedSample(bank, onset, vowelTimeMs) {
+  const rawSec = vowelTimeMs / 1000 + bank.fricQOnset.get(onset);
+  return rawSec < 0 ? 0 : nvInterp(bank.fricQ.get(onset), bank.sr, rawSec);
 }
 
 // 伸ばし録音 (v_aaaa、無ければ v_a) — readSustainedVowelSample。
@@ -4619,9 +4643,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     }
     if (m.onset !== null) {
       // 促音 + s/sh + a: 摩擦延長テイクを sa の立ち上がり = 拍頭に揃えて読み、gap を摩擦で埋める
-      if (m.gapMs > 0 && (m.onset === "s" || m.onset === "sh") && m.nucleus === "a" &&
-          bank.fricQ.has(m.onset)) {
-        plan.fricQ = { arr: bank.fricQ.get(m.onset), onsetSec: bank.fricQOnset.get(m.onset) };
+      // 同じ母音の長音 (っさー/っしゃー) はテイクから伸ばし録音へ継ぎ、拍末で閉じない (2026-10-03)
+      if (nvUsesFricativeQTake(m, bank)) {
+        plan.fricQ = { join: nvUsesLongVowelCVJoin(i, moras, bank) };
       }
       if (!nvCvResolvedKey(bank, m.onset, m.nucleus)) return plan;
       return { ...plan, kind: "cv",
@@ -4656,7 +4680,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     if (joinRoot !== null) {
       // 子音+同母音の長音: 根 CV と伸ばし録音の2本の時間軸とフェードを境界の後もそのまま続ける
       return { ...plan, kind: "cvJoinExt", ext, joinOnset: moras[joinRoot].onset,
-               rootDurMs: moras[joinRoot].durationMs, suppressTail: extSuppressTail };
+               rootDurMs: moras[joinRoot].durationMs, suppressTail: extSuppressTail,
+               joinFricQ: nvUsesFricativeQTake(moras[joinRoot], bank) };
     }
     if (ext) {
       const cvXfade = ext.sourceOnset !== null && moras[i - 1].onset !== null &&
@@ -4732,11 +4757,13 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
 
     let fricValue = null;
     if (plan.fricQ) {
-      const rawSec = (phoneT - m.gapMs) / 1000 + plan.fricQ.onsetSec;
-      fricValue = rawSec < 0 ? 0 : nvInterp(plan.fricQ.arr, sr, Math.max(0, rawSec));
+      fricValue = plan.fricQ.join
+        ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, phoneT - m.gapMs, m.durationMs, true)
+        : nvReadFricativeQAlignedSample(bank, m.onset, phoneT - m.gapMs);
     }
     if (fricValue !== null) {
-      val = fricValue * amp * nvSampleEnvelope(phoneT, m.durationMs + m.gapMs) * eventFade;
+      const envTotal = m.durationMs + m.gapMs + (plan.fricQ.join ? NV_SAMPLE_FADE_OUT_MS + 5 : 0);
+      val = fricValue * amp * nvSampleEnvelope(phoneT, envTotal) * eventFade;
     } else if (plan.kind === "contN") {
       const preRoll = nvContNPreRollMs(plan.prevDurMs);
       const dur = nvDur(plan.arr, sr);
@@ -4807,7 +4834,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const ext = plan.ext;
       const timeMs = ext.baseMs + tin;
       const value = nvReadLongVowelCVJoinSample(bank, plan.joinOnset, ext.sourceNucleus,
-                                                timeMs, plan.rootDurMs);
+                                                timeMs, plan.rootDurMs, plan.joinFricQ);
       const envTotal = plan.suppressTail ? ext.totalMs + NV_SAMPLE_FADE_OUT_MS + 5 : ext.totalMs;
       const gain = nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs);
       val = (value === null ? 0 : value) * gain * nvSampleEnvelope(timeMs, envTotal) * eventFade;
