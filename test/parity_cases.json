@@ -1207,6 +1207,24 @@
    "cat": "expr"
   },
   {
+   "id": "expr__gwa__125",
+   "tokens": "gwa",
+   "moraMs": 125,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__gwa__250",
+   "tokens": "gwa",
+   "moraMs": 250,
+   "cat": "expr"
+  },
+  {
+   "id": "expr__gwa__500",
+   "tokens": "gwa",
+   "moraMs": 500,
+   "cat": "expr"
+  },
+  {
    "id": "chain__ka_i_o_u__125",
    "tokens": "ka i o u",
    "moraMs": 125,
