@@ -930,7 +930,11 @@ function expressiveVariantCandidate(parent, nucleus, axes) {
   }
   if (onset === null) return null;
   const strength = Math.max(0, Math.min(1, (evidence - 0.10) / 0.90));
-  return strength > 0 ? { onset, strength } : null;
+  if (strength <= 0) return null;
+  // 一時停止中の CV (ny+e 等) は候補にしない (iOS expressiveVariant の SuspendedCV ガード)。
+  // 旧: 候補にしてから再生時に取り除いたため、語の綴りだけ にぇ が残った (corpus c282・10-04)。
+  if (NV_SUSPENDED_CV.has(onset + "|" + nucleus)) return null;
+  return { onset, strength };
 }
 function expressiveOnset(parent, nucleus, axes, temperature, slot = 0) {
   const variant = expressiveVariantCandidate(parent, nucleus, axes);

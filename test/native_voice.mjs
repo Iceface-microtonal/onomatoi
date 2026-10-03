@@ -480,7 +480,7 @@ console.log("── 6.5. 表情CVと母音順序 ──");
   const rubbed = { size:0, sharp:1, tex:1, bright:0, round:1, open:0 };
   const bounce = { size:-1, sharp:1, tex:1, bright:0, round:0, open:0 };
   const cases = [
-    [null,"e",soft,"iy"], ["n","e",soft,"ny"],
+    [null,"e",soft,"iy"],
     ["k","a",rounded,"kw"], ["g","e",rounded,"gw"],
     ["s","i",rubbed,"sw"], ["z","i",rubbed,"zw"],
     ["h","a",soft,"hy"], ["m","i",soft,"my"],
@@ -493,6 +493,11 @@ console.log("── 6.5. 表情CVと母音順序 ──");
           JSON.stringify(candidate));
     check(`${expected}は強い証拠で決定的に選択`,
           api.expressiveOnset(parent, vowel, axes, 0) === expected);
+  }
+  // nye は 2026-09-15 作者指定で停止: 表情CVの候補にしない (Core SuspendedCVTests.testNyeIsNotAnExpressiveGenerationCandidate)
+  for (const sharp of [-1, 0, 1]) {
+    const axes = { size:0, sharp, tex:1, bright:0, round:1, open:0 };
+    check(`ne → ny は候補にならない (sharp ${sharp})`, api.expressiveVariantCandidate("n", "e", axes) === null);
   }
   // P11訂正 (2026-09-17・Core ec46a12): o→a を禁止せず並べ替えもしない。OCP は o を a へ開き直す
   const reopened = api.applyOCP([
