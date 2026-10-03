@@ -402,12 +402,15 @@ const T = uiLang === "ja" ? {
   voice: "Voice(声): PuppeTwin",
   romajiTitle: "ROMAJI 直接入力",
   romajiHint: "空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
-  fbHint: "👍👎 = イメージ通りか記録。COPY / 送る で開発に渡せます",
+  fbHint: "👍👎 = イメージ通りか記録。送る で開発者に届きます (COPY でも渡せます)",
   researchLabel: "研究に参加する",
-  researchHint: "ON にすると 👍👎 で「イメージ通りか」を記録できます (端末内のみ・外部送信なし)",
+  researchHint: "ON にすると 👍👎 で「イメージ通りか」を記録できます (この端末に保存・「送る」を押したときだけ開発者に届きます)",
   fbCopied: "COPIED!",
   fbShare: "送る",
   fbNeedVote: "👍 か 👎 を押すと、理由も一緒に記録されます",
+  fbSent: (n) => `送りました (${n}件)`,
+  fbNothingToSend: "新しい記録はありません",
+  fbSendLimit: "今日はもう送れません",
   fbExportHint: "自動でコピーできませんでした。下の枠を長押し →「すべてを選択」→「コピー」してください",
   fbSaved: (n) => `✓ 記録しました（計${n}件）`,
   fbReasonPH: "理由 (任意): どこがイメージ通り/違う?",
@@ -420,12 +423,15 @@ const T = uiLang === "ja" ? {
   voice: "Voice: PuppeTwin",
   romajiTitle: "ROMAJI input",
   romajiHint: "space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
-  fbHint: "👍👎 = did it sound like your shape? COPY / SEND exports for tuning",
+  fbHint: "👍👎 = did it sound like your shape? SEND delivers it to the developer (or COPY)",
   researchLabel: "Join the research",
-  researchHint: "Turn on to rate words with 👍👎 (stored on this device only)",
+  researchHint: "Turn on to rate words with 👍👎 (stored on this device; sent to the developer only when you press SEND)",
   fbCopied: "COPIED!",
   fbShare: "SEND",
   fbNeedVote: "Tap 👍 or 👎 to save this note with it",
+  fbSent: (n) => `Sent (${n})`,
+  fbNothingToSend: "Nothing new to send",
+  fbSendLimit: "Daily limit reached",
   fbExportHint: "Couldn't copy automatically. Long-press the box below → Select All → Copy",
   fbSaved: (n) => `✓ saved (${n} total)`,
   fbReasonPH: "why? (optional): what matched / didn't",
@@ -6329,16 +6335,49 @@ document.getElementById("btn-fb-copy").addEventListener("click", async () => {
   btn.textContent = T.fbCopied;
   setTimeout(() => { btn.textContent = "COPY"; }, 1500);
 });
-if (navigator.share) {
+// 送る (2026-10-03): 開発者へ直接届ける。onomatoi-reaction Worker の /api/feedback が検査して
+// 開発者の Gmail へメールする (宛先は Worker の secret だけが持つ)。送るのは未送信と、送った後に
+// 👍👎・理由・タグを変えた記録だけ。送れなかったら共有シート → 書き出しの枠へ。
+const FEEDBACK_SEND_URL = (["127.0.0.1", "localhost"].includes(location.hostname) && location.port === "8766"
+  ? "" : "https://onomatoi-reaction.puppetwin.workers.dev") + "/api/feedback";
+const FEEDBACK_SENT_KEY = "onomatoi.feedback.sent";
+const feedbackSignature = r => JSON.stringify([r.vote, r.reason || "", r.tags || []]);
+function unsentFeedback() {
+  let sent = {};
+  try { sent = JSON.parse(localStorage.getItem(FEEDBACK_SENT_KEY) || "{}"); } catch (e) {}
+  return { sent, records: feedbackLog.filter(r => sent[r.id] !== feedbackSignature(r)) };
+}
+async function shareFeedbackFallback() {
+  const text = feedbackExportText();
+  if (!navigator.share) { showFeedbackExport(text); return; }
+  try { await navigator.share({ title: "Onomatoi feedback", text }); hideFeedbackExport(); }
+  catch (e) { if (e?.name !== "AbortError") showFeedbackExport(text); }   // 閉じただけなら何もしない
+}
+{
   const shareBtn = document.getElementById("btn-fb-share");
   shareBtn.style.display = "";
   shareBtn.addEventListener("click", async () => {
-    const text = feedbackExportText();
+    const { sent, records } = unsentFeedback();
+    const say = msg => { shareBtn.textContent = msg; setTimeout(() => { shareBtn.textContent = T.fbShare; }, 2500); };
+    if (!records.length) { say(T.fbNothingToSend); return; }
+    shareBtn.disabled = true;
     try {
-      await navigator.share({ title: "Onomatoi feedback", text });
-      hideFeedbackExport();
+      const response = await fetch(FEEDBACK_SEND_URL, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app: "onomatoi-web", fbVersion: FB_VERSION, exported: new Date().toISOString(), records }) });
+      if (response.ok) {
+        for (const r of records) sent[r.id] = feedbackSignature(r);
+        try { localStorage.setItem(FEEDBACK_SENT_KEY, JSON.stringify(sent)); } catch (e) {}
+        hideFeedbackExport();
+        say(T.fbSent(records.length));
+      } else if (response.status === 429) {
+        say(T.fbSendLimit);
+      } else {
+        await shareFeedbackFallback();
+      }
     } catch (e) {
-      if (e?.name !== "AbortError") showFeedbackExport(text);   // 閉じただけなら何もしない
+      await shareFeedbackFallback();
+    } finally {
+      shareBtn.disabled = false;
     }
   });
 }

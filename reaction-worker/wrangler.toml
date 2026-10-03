@@ -6,6 +6,14 @@ compatibility_date = "2026-09-22"
 ALLOWED_ORIGINS = "https://onomatoi.com,https://www.onomatoi.com"
 DAILY_IP_LIMIT = "20"
 DAILY_GLOBAL_LIMIT = "300"
+FEEDBACK_DAILY_IP_LIMIT = "10"
+FEEDBACK_DAILY_GLOBAL_LIMIT = "200"
+
+# 「送る」のメール。宛先 (開発者の Gmail) は secret FEEDBACK_TO だけが持つ — ここには書かない。
+# 送れるのは Cloudflare Email Routing で確認済みの宛先だけ。差出人は onomatoi.com のアドレス。
+[[send_email]]
+name = "FEEDBACK_MAIL"
+allowed_sender_addresses = ["feedback@onomatoi.com"]
 
 [[durable_objects.bindings]]
 name = "QUOTA"

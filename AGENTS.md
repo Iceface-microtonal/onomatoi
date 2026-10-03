@@ -31,6 +31,7 @@ node test/native_voice.mjs         # 251
 node test/symbol_vocab.mjs         # 349
 node test/kou_properties.mjs       # 幾何 + regression が green であること (target は進捗指標・落ちてよい)
 node test/stroke_parity.mjs        # 一筆→語 のネイティブ一致 (進捗指標・fixture は隣の非公開 repo `../Onomatoi Film/parity/`)
+node test/feedback_worker.mjs       # 「送る」の受け口 (Worker) の検査とメール本文
 ```
 
 (件数は 2026-09-19 時点・全 green)。テストは HTML から純粋なエンジン宣言を自動抽出して `vm` で評価する

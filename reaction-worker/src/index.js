@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { SOUND_MAP_INSTRUCTIONS, soundMapClues } from './sound-map.mjs';
 import { responseStyle, reactionInstructions } from './response-style.mjs';
 import { requestAccess } from './native-client.mjs';
+import { cleanFeedback, feedbackMail, FEEDBACK_MAX_BYTES } from './feedback.mjs';
 
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const MODEL = 'gpt-6-luna';
@@ -65,6 +66,37 @@ export class Quota extends DurableObject {
   }
 }
 
+// 「送る」: 検査 → 1日の回数制限 (Luna とは別の保存先) → 開発者の Gmail へ (宛先は secret FEEDBACK_TO だけが持つ)
+async function sendFeedback(request, env, json) {
+  if (!env.FEEDBACK_MAIL || !env.FEEDBACK_TO) return json(503, { error: 'unavailable' });
+  if (Number(request.headers.get('Content-Length') || 0) > FEEDBACK_MAX_BYTES) return json(413, { error: 'too large' });
+  let clean;
+  try {
+    const text = await request.text();
+    if (text.length > FEEDBACK_MAX_BYTES) return json(413, { error: 'too large' });
+    clean = cleanFeedback(JSON.parse(text));
+  } catch {
+    return json(400, { error: 'invalid feedback' });
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    const quota = env.QUOTA.get(env.QUOTA.idFromName('feedback'));
+    const reserved = await quota.reserve(day, await actorFor(day, request),
+      Number(env.FEEDBACK_DAILY_IP_LIMIT) || 10, Number(env.FEEDBACK_DAILY_GLOBAL_LIMIT) || 200);
+    if (reserved !== 'ok') return json(429, { error: 'daily limit reached', code: reserved });
+  } catch {
+    return json(503, { error: 'unavailable' });
+  }
+  try {
+    const mail = feedbackMail(clean, new Date().toISOString());
+    await env.FEEDBACK_MAIL.send({ to: env.FEEDBACK_TO, from: env.FEEDBACK_FROM || 'feedback@onomatoi.com',
+      subject: mail.subject, text: mail.text });
+    return json(200, { ok: true, count: clean.records.length });
+  } catch {
+    return json(502, { error: 'send failed' });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -87,6 +119,12 @@ export default {
     if (!access.allowed) return json(403, { error: 'forbidden' });
     if (url.pathname === '/api/reaction/status' && request.method === 'GET') {
       return json(200, { mode: env.OPENAI_API_KEY ? 'configured' : 'unavailable' });
+    }
+    if (url.pathname === '/api/feedback/status' && request.method === 'GET') {
+      return json(200, { mode: env.FEEDBACK_MAIL && env.FEEDBACK_TO ? 'configured' : 'unavailable' });
+    }
+    if (url.pathname === '/api/feedback' && request.method === 'POST') {
+      return sendFeedback(request, env, json);
     }
     if (url.pathname !== '/api/reaction' || request.method !== 'POST') {
       return json(404, { error: 'not found' });
