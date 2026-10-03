@@ -8,7 +8,8 @@
     python3 scripts/sync_ios_base_voice.py --only v_uuuu  # 指定した base 音源だけ同期
 
 - 元   = /Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants/*.wav のうち base の録音
-         (予備 *.orig1.wav と高さ違い *_m300.wav / *_p200.wav / *_m300b.wav などは使わない)
+         (予備 *.orig1.wav / *_origi.wav・Finder の複製「diph_ao 2.wav」など空白入りの名前・
+          高さ違い *_m300.wav / *_p200.wav / *_m300b.wav などは使わない)
 - wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音)
 - mp3  = それ以外。48kHz・モノラル・80kbps
 - base に無いファイルは Web 側から消す。どの録音から作ったかは SOURCE.json (sha256) に残す
@@ -29,7 +30,7 @@ from pathlib import Path
 
 SRC = Path("/Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants")
 DST = Path(__file__).resolve().parent.parent / "ConsonantsOnomatoi"
-NOT_BASE = re.compile(r"(\.orig\d*|_[mp]\d{3}[a-z]?)$")
+NOT_BASE = re.compile(r"(\.orig\d*|_orig\w*|_[mp]\d{3}[a-z]?)$|\s")
 KEEP_WAV = re.compile(r"^(diph_.+|v_([aiueo])\2\2\2)$")
 VOWEL_ONLY = re.compile(r"^v_([aiueo])(\1\1\1)?$")
 
