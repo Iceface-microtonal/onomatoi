@@ -515,11 +515,11 @@
   },
   "cv_myi.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_myi.wav",
-   "sha256": "8dc6774ee73c703327b718a54e660531e816f80b5fd90474d560bf6770aec003",
-   "frames": 31004,
-   "trimStart": 3,
+   "sha256": "6d6ddc346236e7c3f04a767523f1c670dde9ec475ebbbd97ba7c14e9cc7f0591",
+   "frames": 30440,
+   "trimStart": 2,
    "encoding": "mp3_80k",
-   "outputSha256": "adfe130791df184df570223ed2dbe1ae1717b5bf3470476c969a6918bffb347a"
+   "outputSha256": "c10bbe37f8f59f15cf914ef378305efa17c4587531731de4407c89a1f8a80b0d"
   },
   "cv_myo.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_myo.wav",

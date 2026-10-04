@@ -3972,7 +3972,8 @@ function nvQuantizeMoras(moras, targetMoraMs) {
 // SokuonLeadIn (PhonosymbolicEvent.swift の移植・2026-10-04): 録音の頭から母音に着くまで (ms)。表に無い音節はずらさない。
 // 伸ばす量 = 母音に着く + 90ms (母音が聞こえる長さ) − 拍。上限は「っ」の半分。録り直したら測り直す。
 const NV_SOKUON_VOWEL_ARRIVAL_MS = { kyo: 260, cho: 210, cha: 270, sha: 340, sho: 310,
-  mya: 220, rya: 220, nyo: 210, hye: 260, kwa: 250, kwo: 280, pya: 230, ryo: 230 };
+  mya: 220, rya: 220, nyo: 210, hye: 260, kwa: 250, kwo: 280, pya: 230, ryo: 230,
+  myi: 260 };   // むぃ: 測定 200ms では「っ」の前で足りず (作者の耳・10-05) → +60ms
 function nvSokuonLeadInMs(onset, nucleus, moraMs, gapMs) {
   const arrival = NV_SOKUON_VOWEL_ARRIVAL_MS[(onset ?? "") + nucleus];
   if (arrival === undefined || !(gapMs > 0)) return 0;

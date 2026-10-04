@@ -1547,6 +1547,24 @@
    "tokens": "kyo q sa",
    "moraMs": 500,
    "cat": "q"
+  },
+  {
+   "id": "q__myi_q_he_ri__125",
+   "tokens": "myi q he ri",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__myi_q_he_ri__250",
+   "tokens": "myi q he ri",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__myi_q_he_ri__500",
+   "tokens": "myi q he ri",
+   "moraMs": 500,
+   "cat": "q"
   }
  ]
 }
