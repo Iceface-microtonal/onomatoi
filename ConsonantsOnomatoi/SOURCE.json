@@ -579,11 +579,11 @@
   },
   "cv_nya.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_nya.wav",
-   "sha256": "1d3706766d2353ef8362759e3ed653fb5a6ae7bbdeafce8e05d675c8c7b1451a",
-   "frames": 36783,
-   "trimStart": 13,
+   "sha256": "b2d6759b2c4acce735ba7238794ce4164dd46e5be6144e12cc7fe224036aa0f1",
+   "frames": 28033,
+   "trimStart": 0,
    "encoding": "mp3_80k",
-   "outputSha256": "2e0b6fdbb410faa48cf274041c0e74ebc4dff4f405924afba3aff4e14e0b7db6"
+   "outputSha256": "8719ab572f48ba94c0b7c329b64ada1784070fa5b9a02e62364a5a03e4793ec2"
   },
   "cv_nye.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_nye.wav",
