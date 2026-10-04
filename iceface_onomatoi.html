@@ -3958,7 +3958,7 @@ function nvPlaybackMoras(moras) {
 function nvQuantizeMoras(moras, targetMoraMs) {
   const out = nvPlaybackMoras(moras).map(m => m.isQ ? m
     : { ...m, durationMs: targetMoraMs, gapMs: m.gapMs > 0 ? targetMoraMs : 0 });
-  // 「っ」の前で母音に着くのが遅い音節は、「っ」の無音を少しだけ後へずらす (SokuonLeadIn・2 拍の合計は不変)
+  // 「っ」の無音を少しだけ後へずらす (SokuonLeadIn・全音節・2 拍の合計は不変)
   for (let i = 0; i + 1 < out.length; i++) {
     const m = out[i], next = out[i + 1];
     if (!(next.gapMs > 0) || m.isN || m.isQ || nvSokuonNextUsesFricativeTake(next)) continue;
@@ -3969,15 +3969,17 @@ function nvQuantizeMoras(moras, targetMoraMs) {
   }
   return out;
 }
-// SokuonLeadIn (PhonosymbolicEvent.swift の移植・2026-10-04): 録音の頭から母音に着くまで (ms)。表に無い音節はずらさない。
-// 伸ばす量 = 母音に着く + 90ms (母音が聞こえる長さ) − 拍。上限は「っ」の半分。録り直したら測り直す。
+// SokuonLeadIn (PhonosymbolicEvent.swift の移植・2026-10-04・10-05 から全音節): 全音節で「っ」の 4 割を後へずらし
+// (前の音節 1.4 拍 + っ 0.6 拍)、表の音節は 母音に着く + 90ms − 拍 まで。上限は「っ」の半分。録り直したら測り直す。
 const NV_SOKUON_VOWEL_ARRIVAL_MS = { kyo: 260, cho: 210, cha: 270, sha: 340, sho: 310,
   mya: 220, rya: 220, nyo: 210, hye: 260, kwa: 250, kwo: 280, pya: 230, ryo: 230,
   myi: 260 };   // むぃ: 測定 200ms では「っ」の前で足りず (作者の耳・10-05) → +60ms
 function nvSokuonLeadInMs(onset, nucleus, moraMs, gapMs) {
+  if (!(gapMs > 0)) return 0;
+  let lead = gapMs * 0.4;
   const arrival = NV_SOKUON_VOWEL_ARRIVAL_MS[(onset ?? "") + nucleus];
-  if (arrival === undefined || !(gapMs > 0)) return 0;
-  return Math.max(0, Math.min(arrival + 90 - moraMs, gapMs * 0.5));
+  if (arrival !== undefined) lead = Math.max(lead, arrival + 90 - moraMs);
+  return Math.max(0, Math.min(lead, gapMs * 0.5));
 }
 // 「っ」の後が さ・しゃ なら摩擦の延長録音が「っ」を埋める (usesFricativeQTake) — ずらさない
 function nvSokuonNextUsesFricativeTake(next) {

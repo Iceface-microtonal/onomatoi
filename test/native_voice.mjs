@@ -388,8 +388,11 @@ console.log("── 4. 促音の音価 (量子化) ──");
   const kutta = api.segmentWord("kutta");
   const qk = api.nvQuantizeMoras(kutta, MORA_MS);
   const gapped = qk.find(m => m.gapMs > 0);
-  check("語中促音の gap は 1 拍へ量子化", !!gapped && gapped.gapMs === MORA_MS,
-        JSON.stringify(qk.map(m => m.gapMs)));
+  // 2026-10-05: 「っ」と前の音節で 2 拍を、前の音節 1.4 拍 + っ 0.6 拍に分ける (SokuonLeadIn・Core と同じ)
+  check("語中促音: 前の音節 1.4 拍 + っ 0.6 拍 (2 拍の合計は不変)",
+        !!gapped && Math.abs(gapped.gapMs - MORA_MS * 0.6) < 1e-9
+        && Math.abs(qk[0].durationMs - MORA_MS * 1.4) < 1e-9,
+        JSON.stringify(qk.map(m => [m.durationMs, m.gapMs])));
 }
 
 console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApplyingFollowingMoraAttenuation) ──");
