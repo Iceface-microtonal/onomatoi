@@ -1475,6 +1475,78 @@
    "tokens": "a ya no pa ru",
    "moraMs": 500,
    "cat": "kou"
+  },
+  {
+   "id": "q__kyo_q_mi_i_ru__125",
+   "tokens": "kyo q mi i ru",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__kyo_q_mi_i_ru__250",
+   "tokens": "kyo q mi i ru",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__kyo_q_mi_i_ru__500",
+   "tokens": "kyo q mi i ru",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__sha_q_da_ri__125",
+   "tokens": "sha q da ri",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__sha_q_da_ri__250",
+   "tokens": "sha q da ri",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__sha_q_da_ri__500",
+   "tokens": "sha q da ri",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__nyo_q_he_ri__125",
+   "tokens": "nyo q he ri",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__nyo_q_he_ri__250",
+   "tokens": "nyo q he ri",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__nyo_q_he_ri__500",
+   "tokens": "nyo q he ri",
+   "moraMs": 500,
+   "cat": "q"
+  },
+  {
+   "id": "q__kyo_q_sa__125",
+   "tokens": "kyo q sa",
+   "moraMs": 125,
+   "cat": "q"
+  },
+  {
+   "id": "q__kyo_q_sa__250",
+   "tokens": "kyo q sa",
+   "moraMs": 250,
+   "cat": "q"
+  },
+  {
+   "id": "q__kyo_q_sa__500",
+   "tokens": "kyo q sa",
+   "moraMs": 500,
+   "cat": "q"
   }
  ]
 }
