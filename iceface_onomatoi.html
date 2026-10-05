@@ -1616,7 +1616,7 @@ function emptyShapeDescriptor() {
            solidity: 0, compactness: 0, isAvailable: false };
 }
 function emptyTrajectoryDescriptor() {
-  return { closureConfidence: 0, selfIntersectionCount: 0, windingCount: 0,
+  return { closureConfidence: 0, selfIntersectionCount: 0, interiorSelfIntersectionCount: 0, windingCount: 0,
            radialTrend: 0, oscillationCount: 0, periodicity: 0,
            radialSymmetryOrder: 0, radialSymmetryStrength: 0, isAvailable: false };
 }
@@ -1855,6 +1855,7 @@ function measureTrajectoryDescriptor(points) {
   const closureConfidence = Math.min(shapeSmoothstep(0.30, 0.10, endpointGap / pathLength),
                                      shapeSmoothstep(0.35, 0.08, endpointGap / diag));
   const intersections = [];
+  const interiorHits = [];   // 形の内側の交差 (Core AxisExtractor と同じ・2026-10-05)
   const segmentCount = samples.length - 1;
   for (let a = 0; a < segmentCount; a++) {
     if (a + 2 >= segmentCount) continue;
@@ -1866,6 +1867,15 @@ function measureTrajectoryDescriptor(points) {
       if (Math.abs(den) < 1e-9) continue;
       const tx = q.x - p.x, ty = q.y - p.y;
       const t = (tx * d2y - ty * d2x) / den, u = (tx * d1y - ty * d1x) / den;
+      // 形の内側の交差: 交点が点の上でも 1 回だけ数える (半開区間)・角度 15° 以上・二か所が線の上で 2 割以上離れる・
+      // 閉じ目の重なり (描き始めの 2 割と描き終わりの 2 割どうし) は除く
+      const sinAngle = Math.abs(den) / Math.max(Math.hypot(d1x, d1y) * Math.hypot(d2x, d2y), 1e-12);
+      if (t >= 0 && t < 1 && u >= 0 && u < 1 && sinAngle > 0.26 && (b - a) >= 0.2 * segmentCount) {
+        const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
+        const closureOverlap = a < 0.2 * segmentCount && b > 0.8 * segmentCount;
+        if (!closureOverlap && !interiorHits.some(v => Math.hypot(v.x - hit.x, v.y - hit.y) <= diag * 0.025))
+          interiorHits.push(hit);
+      }
       if (t <= 0.03 || t >= 0.97 || u <= 0.03 || u >= 0.97) continue;
       const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
       if (!intersections.some(v => Math.hypot(v.x - hit.x, v.y - hit.y) <= diag * 0.025))
@@ -1937,6 +1947,7 @@ function measureTrajectoryDescriptor(points) {
   }
   if (radialSymmetryStrength < 0.55) radialSymmetryOrder = 0;
   return { closureConfidence, selfIntersectionCount: intersections.length,
+           interiorSelfIntersectionCount: interiorHits.length,
            windingCount: Math.abs(totalTurning) / (2 * Math.PI), radialTrend,
            oscillationCount: turnPeaks.length >= 2 ? turnPeaks.length : 0, periodicity,
            radialSymmetryOrder, radialSymmetryStrength, isAvailable: true };
@@ -3181,8 +3192,11 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const sharpnessWord = SHARPNESS_VOCAB[stage]?.[sizeClass];
   const hasSharpnessVocabulary = !!sharpnessWord && ((stage === 0 && straightLineVocabSignal(cx)) || singleAngle);
   const openChevron = (openChevronSignal(cx) && !drawsLoops) || (hasSharpnessVocabulary && stage > 0);
+  // 形の内側で自分と交差する閉じた線 (砂時計形 等) は閉じた形の固有語にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
+  // 閉じ目の重なりは数えない・なぞり直しと一筆五芒星は従来どおり
+  const crossesInside = (cx.trajectoryDescriptor?.interiorSelfIntersectionCount ?? 0) > 0 && !cx.retraced;
   let vocabWord = null, vocabReason = null, displayWordOverride = null;
-  if (heartVocabSignal(cx)) {
+  if (heartVocabSignal(cx) && !crossesInside) {
     vocabWord = heartVocabWord(cx);
     const heartLevel = cx.heartRecognitionLevel;
     const heartDisplay = heartLevel === 3 ? "くぅん" : "みゅーん";
@@ -3198,32 +3212,32 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
     vocabReason = language === "ja"
       ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
       : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
-  } else if (outlineStarVocabSignal(cx)) {
+  } else if (outlineStarVocabSignal(cx) && !crossesInside) {
     vocabWord = STAR_VOCAB;
     vocabReason = language === "ja"
       ? `輪郭星の完成形 → ${STAR_VOCAB}（固定語「ちぎゃーん」）`
       : `outline star → ${STAR_VOCAB} (fixed word: chigyaan)`;
-  } else if (cx.isLeaf) {
+  } else if (cx.isLeaf && !crossesInside) {
     vocabWord = prototypeVocabWord("leaf", cx.leafRecognitionLevel);
     vocabReason = language === "ja"
       ? `葉・認識度${cx.leafRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `leaf level ${cx.leafRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isCrescent) {
+  } else if (cx.isCrescent && !crossesInside) {
     vocabWord = prototypeVocabWord("crescent", cx.crescentRecognitionLevel);
     vocabReason = language === "ja"
       ? `三日月・認識度${cx.crescentRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `crescent level ${cx.crescentRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isCloud) {
+  } else if (cx.isCloud && !crossesInside) {
     vocabWord = prototypeVocabWord("cloud", cx.cloudRecognitionLevel);
     vocabReason = language === "ja"
       ? `雲・認識度${cx.cloudRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `cloud level ${cx.cloudRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isFlower) {
+  } else if (cx.isFlower && !crossesInside) {
     vocabWord = prototypeVocabWord("flower", cx.flowerRecognitionLevel);
     vocabReason = language === "ja"
       ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isDroplet) {
+  } else if (cx.isDroplet && !crossesInside) {
     vocabWord = prototypeVocabWord("droplet", cx.dropletRecognitionLevel);
     vocabReason = language === "ja"
       ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
@@ -3243,7 +3257,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
     vocabReason = language === "ja"
       ? `開いた弧 ${dirJa}・${sizeJa} → ${vocabWord}（鼻音=柔らかさ・ん は円が完成するまで付かない）`
       : `open arc (${dir}, size ${sizeClass}) → ${vocabWord} (nasal = softness; no final N until the circle closes)`;
-  } else if (circleVocabSignal(cx, ax)) {
+  } else if (circleVocabSignal(cx, ax) && !crossesInside) {
     // 2026-07-21 立法: 円もサイズ3段階 (小=まとまり oon / 中=広がり→まとまり aoon / 大=全開 aaaan)。
     const circleSize = arcSizeClass(inkPts, w, h);
     vocabWord = CIRCLE_VOCAB[circleSize];
@@ -3251,7 +3265,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
     vocabReason = language === "ja"
       ? `完全な円 (${["小", "中", "大"][circleSize]}) → ${vocabWord}（${csJa}・ん で空間を完成）`
       : `completed circle (size ${circleSize}) → ${vocabWord} (o = gathering, a = opening; the final N completes the space)`;
-  } else if (triangleVocabSignal(cx)) {
+  } else if (triangleVocabSignal(cx) && !crossesInside) {
     const inverted = invertedTriangleVocabSignal(cx);
     vocabWord = inverted ? INVERTED_TRIANGLE_VOCAB : TRIANGLE_VOCAB;
     vocabReason = language === "ja"
@@ -3261,7 +3275,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
       : (inverted
         ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
         : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
-  } else if (quadrilateralVocabSignal(cx)) {
+  } else if (quadrilateralVocabSignal(cx) && !crossesInside) {
     const quadrilateralSize = arcSizeClass(inkPts, w, h);
     const family = quadrilateralFamily(inkPts);
     vocabWord = (family === "square" ? SQUARE_VOCAB : RECTANGLE_VOCAB)[quadrilateralSize];
