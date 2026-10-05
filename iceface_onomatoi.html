@@ -1908,7 +1908,22 @@ function crossedQuadrilateral(points) {
   const b1 = box(lobe1), b2 = box(lobe2);
   if (lobe1.length < 8 || lobe2.length < 8 || b1.diag < 0.3 * diag || b2.diag < 0.3 * diag) return null;
   if (simplifiedVertexCount(lobe1, 0.07 * b1.diag) > 5 || simplifiedVertexCount(lobe2, 0.07 * b2.diag) > 5) return null;
-  return Math.abs(b1.cy - b2.cy) >= Math.abs(b1.cx - b2.cx) ? "hourglass" : "bowtie";
+  const kind = Math.abs(b1.cy - b2.cy) >= Math.abs(b1.cx - b2.cx) ? "hourglass" : "bowtie";
+  // 典型からの近さ (Core と同じ): 0.35 辺のまっすぐさ + 0.25 二つの三角の釣り合い + 0.25 交点が真ん中 + 0.15 閉じ方
+  const triangleFit = (l, d) => {   // 5 点以内に収まる最小の誤差 (部分の大きさに対する比) を二分探索
+    let lo = 0, hi = 0.07;
+    for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2; if (simplifiedVertexCount(l, mid * d) <= 5) hi = mid; else lo = mid; }
+    return hi;
+  };
+  const straightness = Math.max(0, 1 - Math.max(triangleFit(lobe1, b1.diag), triangleFit(lobe2, b2.diag)) / 0.07);
+  const balance = Math.min(b1.diag, b2.diag) / Math.max(b1.diag, b2.diag);
+  const mx = xs.reduce((s, v) => s + v, 0) / 96, my = ys.reduce((s, v) => s + v, 0) / 96;
+  const centrality = Math.max(0, 1 - Math.hypot(hits[0].point.x - mx, hits[0].point.y - my) / (0.25 * diag));
+  const closure = Math.min(1, (closureConfidence - 0.5) / 0.5);
+  const confidence = 0.35 * straightness + 0.25 * balance + 0.25 * centrality + 0.15 * closure;
+  // 三段階 (2026-10-05 作者: 中心 0.90 以上 / 近傍 0.82 以上 / それ未満は外縁)
+  const level = confidence >= 0.90 ? 3 : confidence >= 0.82 ? 2 : 1;
+  return { kind, confidence, level };
 }
 function measureTrajectoryDescriptor(points) {
   const samples = resampleOpenTrajectory(points, 96);
@@ -3241,9 +3256,15 @@ const LEGISLATED_DISPLAY = {
   teton: "てとん", tetoon: "てとおん", tetooon: "てとおおん",
   tsukon: "つこん", tsukoon: "つこおん", tsukooon: "つこおおん",
   gyogyaQgyagyo: "ぎょぎゃっぎゃぎょ", gyagyoQgyagyo: "ぎゃぎょっぎゃぎょ",
+  gyogyaQjagyo: "ぎょぎゃっじゃぎょ", gyagyoQjagyo: "ぎゃぎょっじゃぎょ",
+  gyogyaQhyagyo: "ぎょぎゃっひゃぎょ", gyagyoQhyagyo: "ぎゃぎょっひゃぎょ",
 };
 // 砂時計形・蝶ネクタイ形の準固有語 (Core SymbolVocab.hourglass / bowtie・2026-10-05 作者の仮決定・案 B・ん なし・大きさで変えない)
-const CROSSED_QUADRILATERAL_VOCAB = { hourglass: "gyogyaQgyagyo", bowtie: "gyagyoQgyagyo" };
+// 三段階 (案 1・一筆五芒星にならう): 交わりの直後の音節だけ ぎゃ (中心) → じゃ (近傍) → ひゃ (外縁)
+const CROSSED_QUADRILATERAL_CROSS = { 3: "gya", 2: "ja", 1: "hya" };
+function crossedQuadrilateralVocabWord(cq) {
+  return (cq.kind === "hourglass" ? "gyogya" : "gyagyo") + "Q" + CROSSED_QUADRILATERAL_CROSS[cq.level] + "gyo";
+}
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
@@ -3281,10 +3302,10 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
       ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
       : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
   } else if (crossedQuad) {
-    vocabWord = CROSSED_QUADRILATERAL_VOCAB[crossedQuad];
+    vocabWord = crossedQuadrilateralVocabWord(crossedQuad);
     vocabReason = language === "ja"
-      ? `${crossedQuad === "hourglass" ? "砂時計形 (▽ の上に △)" : "蝶ネクタイ形 (◁ ▷)"} → ${vocabWord}（三角のことばを二つ並べ、交わりを っ で切る・ん は付けない）`
-      : `${crossedQuad} → ${vocabWord} (two triangle words joined at the crossing)`;
+      ? `${crossedQuad.kind === "hourglass" ? "砂時計形 (▽ の上に △)" : "蝶ネクタイ形 (◁ ▷)"}・認識度${crossedQuad.level}（近さ ${crossedQuad.confidence.toFixed(2)}）→ ${vocabWord}（三角のことばを二つ並べ、交わりを っ で切る・ん は付けない）`
+      : `${crossedQuad.kind} level ${crossedQuad.level} (score ${crossedQuad.confidence.toFixed(2)}) → ${vocabWord}`;
   } else if (outlineStarVocabSignal(cx) && !crossesInside) {
     vocabWord = STAR_VOCAB;
     vocabReason = language === "ja"
