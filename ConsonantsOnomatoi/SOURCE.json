@@ -1303,11 +1303,11 @@
   },
   "v_eeee.wav": {
    "source": "Onomatoi/Resources/Consonants/v_eeee.wav",
-   "sha256": "0328c3cc71422a8013ad82604b0912b9c957d5e9fbc7853393c7ae53d6c1af24",
+   "sha256": "b73cf27858e154d1384b3bd770a3fc657493d21528047827c3af4ffce15b86f4",
    "frames": 50999,
    "trimStart": 0,
    "encoding": "pcm_s16le",
-   "outputSha256": "ff650b782e341bdc087c3d58776098c8f3341c0519f1e82688c0b85f03ba0710"
+   "outputSha256": "afc2bc42d17c31b7a1f18f3b365423a7f924ae42e17c5f416eda2c33f3c92506"
   },
   "v_i.mp3": {
    "source": "Onomatoi/Resources/Consonants/v_i.wav",
