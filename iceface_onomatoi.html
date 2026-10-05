@@ -739,6 +739,29 @@ function densified(points, spacing) {
   return out;
 }
 
+// 大きさに依らない粗い筆 (2026-10-06・Core StrokeWordInterpreter.scaleFreeInk と同じ・形の地図 probes/size_sweep)。
+// 旧: 珠の間隔が画面の対角の 2.2% で固定 → 同じ形を拡縮すると珠の当たり方が変わり、ざらつき・鋭さ・角の数の読みが変わった。
+// 新: 珠の間隔を一筆自身の外枠の対角 × 0.08 にし、解析の座標系を対角 314px に揃える (キャンバスも同じ倍率)。
+// 戻り値の points / w / h は同じ倍率 scale の座標系 (原点中心)。キャンバスに対する比は元の描画と同じ。
+const SCALE_FREE_STEP_RATIO = 0.08, SCALE_FREE_DIAGONAL = 314;
+function scaleFreeInk(raw, w, h, spacing = 6) {
+  if (!raw.length || w <= 0 || h <= 0) return { points: raw, w, h, scale: 1 };
+  let minX = raw[0].x, maxX = minX, minY = raw[0].y, maxY = minY;
+  for (const p of raw) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  const diagonal = Math.hypot(maxX - minX, maxY - minY);
+  if (diagonal < 1) {   // 点に近い一筆は大きさの基準が無い → 従来の画面基準の珠
+    const beads = distanceFiltered(raw, Math.hypot(w, h) * 0.022);
+    return { points: beads.length >= 2 ? densified(beads, spacing) : beads, w, h, scale: 1 };
+  }
+  const beads = distanceFiltered(raw, diagonal * SCALE_FREE_STEP_RATIO);
+  const scale = SCALE_FREE_DIAGONAL / diagonal;
+  const scaled = beads.map(p => ({ x: p.x * scale, y: p.y * scale }));
+  return { points: scaled.length >= 2 ? densified(scaled, spacing) : scaled, w: w * scale, h: h * scale, scale };
+}
+
 // P1 (2026-07-12): 珠→スプライン再構成。粗い筆の珠+線形補間は滑らかな曲線を
 // 「珠の継ぎ目に角のある折れ線」にしてしまい、S字の反転が偽の角として発火していた
 // (コウさんフィードバック #9)。Catmull-Rom で珠を通る滑らかな曲線を復元し、
@@ -6040,6 +6063,7 @@ const canvas = document.getElementById("canvas");
 const cctx = canvas.getContext("2d");
 let drawing = false, stroke = [], presetShapePts = null;
 let coarseInk = null;   // 粗い筆の珠の状態 (coarseBeads)。stroke はその珠の写し
+let rawStroke = [];     // 粗い筆の一筆の、珠にする前の指の軌跡 (語は scaleFreeInk で読む・2026-10-06)
 
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
@@ -6188,6 +6212,7 @@ canvas.addEventListener("pointerdown", ev => {
     updatePhraseLine();
   }
   stroke = [pointerPos(ev)];
+  rawStroke = stroke.slice();
   coarseInk = null;
   canvas.setPointerCapture(ev.pointerId);
   ev.preventDefault();
@@ -6218,6 +6243,7 @@ canvas.addEventListener("pointermove", ev => {
       coarseInk = coarseBeads(stroke[0], Math.hypot(rect.width, rect.height) * 0.022);
     }
     coarseInk.add(p);
+    rawStroke.push(p);
     stroke = coarseInk.beads.slice();
     pendingPt = p;
   } else {
@@ -6240,13 +6266,15 @@ canvas.addEventListener("pointerup", ev => {
   const inkPts = (coarse && stroke.length >= 2) ? densified(stroke, 6) : stroke;
   if (inkPts.length >= 2) {
     const rect = canvas.getBoundingClientRect();
-    const result = interpretStroke(inkPts, rect.width, rect.height, {
+    // 粗い筆: 語は指の軌跡を scaleFreeInk に通して読む (同じ形の拡縮で形の読みが変わらない)。表示は画面基準の珠のまま。
+    const free = coarse && rawStroke.length >= 2 ? scaleFreeInk(rawStroke, rect.width, rect.height) : null;
+    const result = interpretStroke(free ? free.points : inkPts, free ? free.w : rect.width, free ? free.h : rect.height, {
       coarse, hc: Number(document.getElementById("kn-hc").value), language: uiLang });
     const { ax, cx, kDraw } = result;
     setSliders(ax);
     // Step1 確定▲: 判定に使った「形の角」(閉形は正準化後 = 描き始めの頂点も含む) を表示。
     // 実況▲(輪郭線) = 軌跡がその場で曲がった点 / 確定▲(塗り) = 完成形としての角 — 表示と判定を一致させる。
-    confirmedCorners = cx.cornerPoints || [];
+    confirmedCorners = (cx.cornerPoints || []).map(c => free ? { ...c, x: c.x / free.scale, y: c.y / free.scale } : c);
     redraw();
     // v4 フィードバック用の発話コンテキスト: 判定に使った導出量 + 描いた珠の頂点列 (正規化・≤48点)。
     const r3 = v => Math.round(v * 1000) / 1000;

@@ -85,7 +85,8 @@
     ctx.stroke();
   }
   function read(points) {
-    return interpretStroke(TwinsGeometry.prepare(points, size), size, size,
+    const ink = TwinsGeometry.prepare(points, size);
+    return interpretStroke(ink.points, ink.w, ink.h,
       { coarse: true, hc: 0, language: 'ja' });
   }
   function word(result) { return result.event.displayWordOverride ?? namingKanaOf(result.event.moras); }

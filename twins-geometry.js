@@ -42,11 +42,9 @@ const TwinsGeometry = {
     return length <= 2 ? 1 : length <= 5 ? 2 : length <= 10 ? 3 : length <= 20 ? 4 : 5;
   },
   // Scale the original input BEFORE sampling beads; never scale old beads.
-  // This is the same coarse-ink preparation used by the public drawing UI.
+  // Same preparation as the public pen-up (scaleFreeInk): beads relative to the stroke's own size,
+  // analysed in a frame of fixed stroke size with the canvas scaled alike. Returns {points, w, h, scale}.
   prepare(points, size) {
-    const ink = coarseBeads(points[0], Math.hypot(size, size) * 0.022);
-    for (const p of points.slice(1)) ink.add(p);
-    const beads = ink.finished(points[points.length - 1]);
-    return beads.length >= 2 ? densified(beads, 6) : beads;
+    return scaleFreeInk(points, size, size);
   }
 };

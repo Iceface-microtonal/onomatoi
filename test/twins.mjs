@@ -12,8 +12,9 @@ const extract = vm.runInNewContext(`${impurity}\n${extractor}\nextractEngine`);
 const ctx = vm.createContext({ console });
 vm.runInContext(extract(fs.readFileSync(new URL('../iceface_onomatoi.html', import.meta.url), 'utf8')) +
   '\n' + fs.readFileSync(new URL('../twins-geometry.js', import.meta.url), 'utf8') +
-  '\nthis.api = {TwinsGeometry, interpretStroke, distanceFiltered, densified, romajiOf};', ctx);
-const {TwinsGeometry: g, interpretStroke, distanceFiltered, densified, romajiOf} = ctx.api;
+  '\nthis.api = {TwinsGeometry, interpretStroke, distanceFiltered, densified, scaleFreeInk, romajiOf};', ctx);
+const {TwinsGeometry: g, interpretStroke, distanceFiltered, densified, scaleFreeInk, romajiOf} = ctx.api;
+const readInk = ink => interpretStroke(ink.points, ink.w, ink.h, {coarse:true,hc:0,language:'ja'});
 const size = 600;
 const circle = Array.from({length:97}, (_, i) => ({x:300 + 115 * Math.cos(i / 96 * 2 * Math.PI), y:300 + 115 * Math.sin(i / 96 * 2 * Math.PI)}));
 const zigzag = [{x:80,y:400},{x:180,y:180},{x:300,y:400},{x:420,y:180},{x:520,y:400}];
@@ -30,16 +31,15 @@ for (const raw of [circle, zigzag, edge, vertical]) {
     assert.ok(Math.abs(after.x - b.x) < 1e-8 && Math.abs(after.y - b.y) < 1e-8);
     assert.ok(Math.abs(after.width - b.width * factor) < 1e-8);
     assert.ok(scaled.every(p => p.x >= 3 - 1e-8 && p.x <= 597 + 1e-8 && p.y >= 3 - 1e-8 && p.y <= 597 + 1e-8));
-    const beads = distanceFiltered(scaled, Math.hypot(size,size) * .022);
     const prepared = g.prepare(scaled,size);
-    assert.equal(JSON.stringify(prepared), JSON.stringify(densified(beads,6)), 'same preprocessing as public canvas');
-    const read = () => interpretStroke(prepared,size,size,{coarse:true,hc:0,language:'ja'});
+    assert.equal(JSON.stringify(prepared), JSON.stringify(scaleFreeInk(scaled,size,size)), 'same preprocessing as public pen-up');
+    const read = () => readInk(prepared);
     assert.equal(JSON.stringify(read()),JSON.stringify(read()),'repeatable output');
     checks += 5;
   }
 }
 assert.equal(snapshot, JSON.stringify([circle, zigzag, edge, vertical])); checks++;
-const words = [.4,1,2].map(f => romajiOf(interpretStroke(g.prepare(g.scale(circle,f),size),size,size).event));
+const words = [.4,1,2].map(f => romajiOf(readInk(g.prepare(g.scale(circle,f),size)).event));
 assert.ok(new Set(words).size > 1, 'circle size changes reach the shared vocabulary'); checks++;
 // Word band: run-length of the 1%-step words (pure function in twins-geometry.js).
 const shape = rs => rs.map(r => `${r.word}${r.start}+${r.length}${r.returns ? 'R' : ''}`).join(' ');
@@ -58,7 +58,7 @@ assert.equal(lengths.join(), '1,1,2,2,3,3,4,4,5,5'); checks++;
 const circleMax = Math.floor(g.maxScale(circle, size) * 100);
 const circleWords = [];
 for (let p = 40; p <= circleMax; p++) {
-  const r = interpretStroke(g.prepare(g.scale(circle, p / 100), size), size, size, { coarse: true, hc: 0, language: 'ja' });
+  const r = readInk(g.prepare(g.scale(circle, p / 100), size));
   circleWords.push(r ? romajiOf(r.event) : '∅');
 }
 const circleRuns = g.runs(circleWords, 40);

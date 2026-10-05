@@ -84,7 +84,7 @@ function extractEngine(html) {
   return blocks.filter(b => !IMPURE.test(b)).join("\n\n");
 }
 
-const EXPORTS = ["interpretStroke", "distanceFiltered", "densified", "romajiOf", "mannerProfile"];
+const EXPORTS = ["interpretStroke", "distanceFiltered", "densified", "scaleFreeInk", "romajiOf", "mannerProfile"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(extractEngine(fs.readFileSync(HTML_PATH, "utf8")) + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`,
   ctx, { filename: "engine(extracted)" });
@@ -94,10 +94,10 @@ for (const name of EXPORTS) if (api[name] === undefined) throw new Error(`engine
 // pointerup と同じ段: 粗い筆の頂点 (distanceFiltered と同じ規則・終端補完あり) → 6px 密化 → interpretStroke
 function webInterpret(points, w, h) {
   const raw = points.map(([x, y]) => ({ x, y }));
-  const beads = api.distanceFiltered(raw, Math.hypot(w, h) * 0.022);
-  const ink = beads.length >= 2 ? api.densified(beads, 6) : beads;
-  if (ink.length < 2) return null;
-  return api.interpretStroke(ink, w, h, { coarse: true, hc: 0, language: "ja" });
+  // 本体のペンアップと同じ「大きさに依らない粗い筆」(Core scaleFreeInk と同じ・2026-10-06)
+  const free = api.scaleFreeInk(raw, w, h);
+  if (free.points.length < 2) return null;
+  return api.interpretStroke(free.points, free.w, free.h, { coarse: true, hc: 0, language: "ja" });
 }
 
 const ROUTE = { vocabulary: "vocab", units: "unit", generated: "global" };
