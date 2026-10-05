@@ -1840,6 +1840,76 @@ function resampleOpenTrajectory(points, count = 96) {
   }
   return result;
 }
+// 形の内側の交差 (Core AxisExtractor.interiorCrossings と同じ・2026-10-05): 交点が点の上でも 1 回だけ数える (半開区間)・
+// 角度 15° 以上・二か所が線の上で 2 割以上離れる・閉じ目の重なり (描き始めの 2 割と描き終わりの 2 割どうし) は除く
+function interiorCrossings(samples, diag, closureConfidence) {
+  const hits = [], segmentCount = samples.length - 1;
+  if (segmentCount < 3) return hits;
+  for (let a = 0; a < segmentCount; a++) {
+    if (a + 2 >= segmentCount) continue;
+    for (let b = a + 2; b < segmentCount; b++) {
+      if (closureConfidence >= 0.5 && a === 0 && b === segmentCount - 1) continue;
+      if ((b - a) < 0.2 * segmentCount) continue;
+      const p = samples[a], p2 = samples[a + 1], q = samples[b], q2 = samples[b + 1];
+      const d1x = p2.x - p.x, d1y = p2.y - p.y, d2x = q2.x - q.x, d2y = q2.y - q.y;
+      const den = d1x * d2y - d1y * d2x;
+      if (Math.abs(den) < 1e-9) continue;
+      const tx = q.x - p.x, ty = q.y - p.y;
+      const t = (tx * d2y - ty * d2x) / den, u = (tx * d1y - ty * d1x) / den;
+      const sinAngle = Math.abs(den) / Math.max(Math.hypot(d1x, d1y) * Math.hypot(d2x, d2y), 1e-12);
+      if (!(t >= 0 && t < 1 && u >= 0 && u < 1 && sinAngle > 0.26)) continue;
+      if (a < 0.2 * segmentCount && b > 0.8 * segmentCount) continue;
+      const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
+      if (!hits.some(h => Math.hypot(h.point.x - hit.x, h.point.y - hit.y) <= diag * 0.025)) hits.push({ point: hit, a, b });
+    }
+  }
+  return hits;
+}
+// 折れ線をどの点も誤差 tolerance 以内に収まるよう簡略化したときに残る頂点の数 (両端を含む・Core simplifiedVertexCount)
+function simplifiedVertexCount(l, tolerance) {
+  if (l.length <= 2) return l.length;
+  const keep = new Set([0, l.length - 1]); const stack = [[0, l.length - 1]];
+  while (stack.length) {
+    const [i, j] = stack.pop();
+    if (j <= i + 1) continue;
+    const ax = l[i].x, ay = l[i].y, bx = l[j].x, by = l[j].y, len = Math.hypot(bx - ax, by - ay);
+    let far = -1, at = i;
+    for (let k = i + 1; k < j; k++) {
+      const d = len > 1e-9 ? Math.abs((bx - ax) * (ay - l[k].y) - (ax - l[k].x) * (by - ay)) / len
+                           : Math.hypot(l[k].x - ax, l[k].y - ay);
+      if (d > far) { far = d; at = k; }
+    }
+    if (far > tolerance) { keep.add(at); stack.push([i, at], [at, j]); }
+  }
+  return keep.size;
+}
+// 交差四辺形 (砂時計形・蝶ネクタイ形) の向き (Core AxisExtractor.crossedQuadrilateral と同じ・2026-10-05 作者の仮決定)
+function crossedQuadrilateral(points) {
+  const samples = resampleOpenTrajectory(points, 96);
+  if (samples.length !== 96) return null;
+  const xs = samples.map(p => p.x), ys = samples.map(p => p.y);
+  const diag = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  if (diag <= 1e-6) return null;
+  let pathLength = 0;
+  for (let i = 1; i < samples.length; i++) pathLength += Math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]);
+  const endpointGap = Math.hypot(xs[95] - xs[0], ys[95] - ys[0]);
+  const closureConfidence = Math.min(shapeSmoothstep(0.30, 0.10, endpointGap / Math.max(pathLength, 1e-9)),
+                                     shapeSmoothstep(0.35, 0.08, endpointGap / diag));
+  if (closureConfidence < 0.5) return null;
+  const hits = interiorCrossings(samples, diag, closureConfidence);
+  if (hits.length !== 1) return null;
+  const { a, b } = hits[0];
+  const lobe1 = samples.slice(a + 1, b + 1), lobe2 = samples.slice(b + 1).concat(samples.slice(0, a + 1));
+  const box = l => {
+    const lx = l.map(p => p.x), ly = l.map(p => p.y);
+    return { diag: Math.hypot(Math.max(...lx) - Math.min(...lx), Math.max(...ly) - Math.min(...ly)),
+             cx: lx.reduce((s, v) => s + v, 0) / lx.length, cy: ly.reduce((s, v) => s + v, 0) / ly.length };
+  };
+  const b1 = box(lobe1), b2 = box(lobe2);
+  if (lobe1.length < 8 || lobe2.length < 8 || b1.diag < 0.3 * diag || b2.diag < 0.3 * diag) return null;
+  if (simplifiedVertexCount(lobe1, 0.07 * b1.diag) > 5 || simplifiedVertexCount(lobe2, 0.07 * b2.diag) > 5) return null;
+  return Math.abs(b1.cy - b2.cy) >= Math.abs(b1.cx - b2.cx) ? "hourglass" : "bowtie";
+}
 function measureTrajectoryDescriptor(points) {
   const samples = resampleOpenTrajectory(points, 96);
   if (samples.length !== 96) return emptyTrajectoryDescriptor();
@@ -1855,7 +1925,7 @@ function measureTrajectoryDescriptor(points) {
   const closureConfidence = Math.min(shapeSmoothstep(0.30, 0.10, endpointGap / pathLength),
                                      shapeSmoothstep(0.35, 0.08, endpointGap / diag));
   const intersections = [];
-  const interiorHits = [];   // 形の内側の交差 (Core AxisExtractor と同じ・2026-10-05)
+  const interiorHits = interiorCrossings(samples, diag, closureConfidence);   // Core AxisExtractor.interiorCrossings と同じ
   const segmentCount = samples.length - 1;
   for (let a = 0; a < segmentCount; a++) {
     if (a + 2 >= segmentCount) continue;
@@ -1867,15 +1937,6 @@ function measureTrajectoryDescriptor(points) {
       if (Math.abs(den) < 1e-9) continue;
       const tx = q.x - p.x, ty = q.y - p.y;
       const t = (tx * d2y - ty * d2x) / den, u = (tx * d1y - ty * d1x) / den;
-      // 形の内側の交差: 交点が点の上でも 1 回だけ数える (半開区間)・角度 15° 以上・二か所が線の上で 2 割以上離れる・
-      // 閉じ目の重なり (描き始めの 2 割と描き終わりの 2 割どうし) は除く
-      const sinAngle = Math.abs(den) / Math.max(Math.hypot(d1x, d1y) * Math.hypot(d2x, d2y), 1e-12);
-      if (t >= 0 && t < 1 && u >= 0 && u < 1 && sinAngle > 0.26 && (b - a) >= 0.2 * segmentCount) {
-        const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
-        const closureOverlap = a < 0.2 * segmentCount && b > 0.8 * segmentCount;
-        if (!closureOverlap && !interiorHits.some(v => Math.hypot(v.x - hit.x, v.y - hit.y) <= diag * 0.025))
-          interiorHits.push(hit);
-      }
       if (t <= 0.03 || t >= 0.97 || u <= 0.03 || u >= 0.97) continue;
       const hit = { x: p.x + t * d1x, y: p.y + t * d1y };
       if (!intersections.some(v => Math.hypot(v.x - hit.x, v.y - hit.y) <= diag * 0.025))
@@ -3151,12 +3212,14 @@ function vocabEvent(word, axes) {
     if (rest === "Q") { moras.push(finalSokuonMora(prevV || "a")); break; }
     const m = rest.match(/^([^aiueo]*)([aiueo])/);
     if (!m) break;   // 語彙定数は自前なので到達しない (保険)
-    const onset = m[1] || null;
-    if (!onset && m[2] === prevV && moras.length > 0) {
+    // 語の途中の っ (Q): 次の拍の前に促音の間 (Core SymbolVocab.event と同じ・2026-10-05 ぎょぎゃっぎゃぎょ)
+    const medialQ = m[1].startsWith("Q");
+    const onset = (medialQ ? m[1].slice(1) : m[1]) || null;
+    if (!onset && !medialQ && m[2] === prevV && moras.length > 0) {
       moras.push(heldVowelMora(m[2]));
     } else {
       moras.push({ onset, nucleus: m[2], durationMs: 170 + axes.size * 20,
-                   gapMs: 0, amplitude: 1.0, isN: false, isQ: false });
+                   gapMs: medialQ ? geminateGapMs(onset) : 0, amplitude: 1.0, isN: false, isQ: false });
     }
     prevV = m[2];
     rest = rest.slice(m[0].length);
@@ -3177,7 +3240,10 @@ const LEGISLATED_DISPLAY = {
   zochiQ: "ぞちっ", zechiQ: "ぜちっ", suchiQ: "すちっ",
   teton: "てとん", tetoon: "てとおん", tetooon: "てとおおん",
   tsukon: "つこん", tsukoon: "つこおん", tsukooon: "つこおおん",
+  gyogyaQgyagyo: "ぎょぎゃっぎゃぎょ", gyagyoQgyagyo: "ぎゃぎょっぎゃぎょ",
 };
+// 砂時計形・蝶ネクタイ形の準固有語 (Core SymbolVocab.hourglass / bowtie・2026-10-05 作者の仮決定・案 B・ん なし・大きさで変えない)
+const CROSSED_QUADRILATERAL_VOCAB = { hourglass: "gyogyaQgyagyo", bowtie: "gyagyoQgyagyo" };
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
@@ -3195,6 +3261,8 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   // 形の内側で自分と交差する閉じた線 (砂時計形 等) は閉じた形の固有語にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
   // 閉じ目の重なりは数えない・なぞり直しと一筆五芒星は従来どおり
   const crossesInside = (cx.trajectoryDescriptor?.interiorSelfIntersectionCount ?? 0) > 0 && !cx.retraced;
+  // 砂時計形・蝶ネクタイ形: 尖った角 (90° 以下) のある交差四辺形だけ (Core と同じ・角の数は見ない)
+  const crossedQuad = crossesInside && stage >= 3 ? crossedQuadrilateral(inkPts) : null;
   let vocabWord = null, vocabReason = null, displayWordOverride = null;
   if (heartVocabSignal(cx) && !crossesInside) {
     vocabWord = heartVocabWord(cx);
@@ -3212,6 +3280,11 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
     vocabReason = language === "ja"
       ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
       : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
+  } else if (crossedQuad) {
+    vocabWord = CROSSED_QUADRILATERAL_VOCAB[crossedQuad];
+    vocabReason = language === "ja"
+      ? `${crossedQuad === "hourglass" ? "砂時計形 (▽ の上に △)" : "蝶ネクタイ形 (◁ ▷)"} → ${vocabWord}（三角のことばを二つ並べ、交わりを っ で切る・ん は付けない）`
+      : `${crossedQuad} → ${vocabWord} (two triangle words joined at the crossing)`;
   } else if (outlineStarVocabSignal(cx) && !crossesInside) {
     vocabWord = STAR_VOCAB;
     vocabReason = language === "ja"
