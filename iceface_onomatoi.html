@@ -3907,7 +3907,8 @@ function nvCvDiphArr(bank, pair) {
 // 主音と同じ録音 diph run (kai の a→i・単独 ai) に属するモーラは主音側へ含める。
 // 語頭主音の3モーラ語で、先頭2モーラが一続きの diph・3モーラ目が新しい子音なら、
 // その3モーラ目だけもう一度 -3dB (tea-mi 型)。生成時の強弱 (畳語の漸減) はそのまま掛け合わせる。
-const NV_FOLLOWING_MORA_ATTENUATION_DB = -3;
+// 2026-10-05 作者「2拍目以降の dB 調節を一旦やめてみて」: -3 → 0 (試し・iOS ContentView と同じ)。戻すときは -3 に
+const NV_FOLLOWING_MORA_ATTENUATION_DB = 0;
 function nvApplyFollowingMoraAttenuation(moras, bank, decibels = NV_FOLLOWING_MORA_ATTENUATION_DB,
                                          emphasizedAudibleMoraIndex = 0) {
   const audible = [];

@@ -399,7 +399,8 @@ console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApply
 {
   const g = Math.pow(10, -3 / 20);
   const bank = makeBank();
-  check("Onomatoi 本体と同じ -3dB", api.NV_FOLLOWING_MORA_ATTENUATION_DB === -3);
+  // 2026-10-05 作者の試し: 本体は 0dB (弱めない)。仕組みは -3dB を渡して検査し続ける (戻すとき用)
+  check("Onomatoi 本体と同じ 0dB (2026-10-05 試し)", api.NV_FOLLOWING_MORA_ATTENUATION_DB === 0);
   const source = [
     { onset:"k", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.74, isN:false, isQ:false },
     { onset:null, nucleus:"a", durationMs:180, gapMs:0, amplitude:0, isN:false, isQ:false, isSilentRest:true },
@@ -407,19 +408,21 @@ console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApply
     { onset:null, nucleus:"a", durationMs:60, gapMs:0, amplitude:0.18, isN:false, isQ:true },
     { onset:"m", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.66, isN:false, isQ:false },
   ];
-  const actual = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank);
+  const actual = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank, -3);
+  const plain = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank);
+  check("既定 (0dB) ではどの拍も生成時の強弱のまま", plain.every((m, i) => m.amplitude === source[i].amplitude));
   check("語頭の主音は生成時の強弱のまま (0.74)", actual[0].amplitude === 0.74);
   check("休符は数えず 0 のまま", actual[1].amplitude === 0);
   check("2モーラ目以降は生成時の強弱 × -3dB",
         Math.abs(actual[2].amplitude - 0.92 * g) < 1e-12 && Math.abs(actual[4].amplitude - 0.66 * g) < 1e-12);
   check("語末促音も同じ -3dB (断ちの 0.18 を保つ)", Math.abs(actual[3].amplitude - 0.18 * g) < 1e-12);
   check("元のモーラ列は非破壊", source[0].amplitude === 0.74 && source[2].amplitude === 0.92);
-  const kai = api.nvApplyFollowingMoraAttenuation(q("kaita"), bank);
+  const kai = api.nvApplyFollowingMoraAttenuation(q("kaita"), bank, -3);
   check("kaita: 主音と同じ diph run (ka→i) は弱めない", kai[0].amplitude === 1 && kai[1].amplitude === 1,
         JSON.stringify(kai.map(m => m.amplitude)));
   check("kaita: 先頭2モーラが一続きの diph で3モーラ目が新しい子音なら -6dB (tea-mi 型)",
         Math.abs(kai[2].amplitude - g * g) < 1e-12, JSON.stringify(kai.map(m => m.amplitude)));
-  const kakiku = api.nvApplyFollowingMoraAttenuation(q("kakiku"), bank);
+  const kakiku = api.nvApplyFollowingMoraAttenuation(q("kakiku"), bank, -3);
   check("kakiku: 通常の3モーラ語は2・3モーラ目とも -3dB",
         kakiku[0].amplitude === 1 && Math.abs(kakiku[1].amplitude - g) < 1e-12
           && Math.abs(kakiku[2].amplitude - g) < 1e-12, JSON.stringify(kakiku.map(m => m.amplitude)));
