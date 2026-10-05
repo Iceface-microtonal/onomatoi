@@ -34,7 +34,7 @@ for c in cases {
     let base = PhonosymbolicEvent(axes: .zero, moras: moras, baseF0: 200, isReduplicated: false)
         .bpmQuantized(targetMoraMs: c.moraMs)
     let event = FormantRenderer.eventApplyingFollowingMoraAttenuation(
-        base, decibels: 0, emphasizedAudibleMoraIndex: 0, sampleBank: bank)   // Onomatoi 本体と同じ (2026-10-05 試し: -3 → 0)
+        base, decibels: -0.5, emphasizedAudibleMoraIndex: 0, sampleBank: bank)   // Onomatoi 本体と同じ (2026-10-05 試し: -3 → 0 → -0.5)
     var synth = FormantSynth()
     synth.sampleBank = bank
     synth.eventFadeInMs = 5.0

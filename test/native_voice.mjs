@@ -399,8 +399,8 @@ console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApply
 {
   const g = Math.pow(10, -3 / 20);
   const bank = makeBank();
-  // 2026-10-05 作者の試し: 本体は 0dB (弱めない)。仕組みは -3dB を渡して検査し続ける (戻すとき用)
-  check("Onomatoi 本体と同じ 0dB (2026-10-05 試し)", api.NV_FOLLOWING_MORA_ATTENUATION_DB === 0);
+  // 2026-10-05 作者の試し: 本体は -0.5dB (頭だけ 0.5dB 高く)。仕組みは -3dB を渡して検査し続ける (戻すとき用)
+  check("Onomatoi 本体と同じ -0.5dB (2026-10-05 試し)", api.NV_FOLLOWING_MORA_ATTENUATION_DB === -0.5);
   const source = [
     { onset:"k", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.74, isN:false, isQ:false },
     { onset:null, nucleus:"a", durationMs:180, gapMs:0, amplitude:0, isN:false, isQ:false, isSilentRest:true },
@@ -409,8 +409,12 @@ console.log("── 4b. 後続モーラの弱め (iOS FormantRenderer.eventApply
     { onset:"m", nucleus:"a", durationMs:180, gapMs:0, amplitude:0.66, isN:false, isQ:false },
   ];
   const actual = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank, -3);
-  const plain = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank);
-  check("既定 (0dB) ではどの拍も生成時の強弱のまま", plain.every((m, i) => m.amplitude === source[i].amplitude));
+  const plain = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank, 0);
+  check("0dB ではどの拍も生成時の強弱のまま", plain.every((m, i) => m.amplitude === source[i].amplitude));
+  const half = api.nvApplyFollowingMoraAttenuation(api.nvPlaybackMoras(source), bank);
+  const h = Math.pow(10, -0.5 / 20);
+  check("既定 (-0.5dB): 語頭はそのまま・2拍目以降は 0.5dB 下がる",
+        half[0].amplitude === 0.74 && Math.abs(half[2].amplitude - 0.92 * h) < 1e-12);
   check("語頭の主音は生成時の強弱のまま (0.74)", actual[0].amplitude === 0.74);
   check("休符は数えず 0 のまま", actual[1].amplitude === 0);
   check("2モーラ目以降は生成時の強弱 × -3dB",
