@@ -515,11 +515,11 @@
   },
   "cv_myi.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_myi.wav",
-   "sha256": "6d6ddc346236e7c3f04a767523f1c670dde9ec475ebbbd97ba7c14e9cc7f0591",
-   "frames": 30440,
-   "trimStart": 2,
+   "sha256": "0b97f781be2b58cdc88284e03f37405452dcfca0ac9e6cc164663d3fea266034",
+   "frames": 31032,
+   "trimStart": 5,
    "encoding": "mp3_80k",
-   "outputSha256": "c10bbe37f8f59f15cf914ef378305efa17c4587531731de4407c89a1f8a80b0d"
+   "outputSha256": "4344bc0dc558a0173cb7d1f2020c75bba884ca7cc85ce9c695edf816cefa4c3e"
   },
   "cv_myo.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_myo.wav",
@@ -547,11 +547,11 @@
   },
   "cv_ne.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_ne.wav",
-   "sha256": "9eee740eb75337c3c4b1f54dbd8c0b68d0d14951e0ea90b4cda02001c8889e3c",
+   "sha256": "111ebdaa945229e4195a62f7347a662dfd56ddd80bab3c8c56da3242c03dc5e1",
    "frames": 43809,
    "trimStart": 0,
    "encoding": "mp3_80k",
-   "outputSha256": "40583995aa18d4e7805add88e57c2c2a7660b6231828169484a12c8aab8219c7"
+   "outputSha256": "0f3adcb79f3937506f5ae94f752e6874702454e180689330e05b320d8f032def"
   },
   "cv_ni.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_ni.wav",
@@ -636,11 +636,11 @@
   },
   "cv_po.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_po.wav",
-   "sha256": "31761c82ddee99157baf80620d666c835cc5850792f48e4cb6b75cc98aa5b226",
-   "frames": 45720,
-   "trimStart": 0,
+   "sha256": "f9fed43c5d3756e4fc0f998a9dcd5e442c94f5ce74589a386744306939087ed0",
+   "frames": 46382,
+   "trimStart": 219,
    "encoding": "mp3_80k",
-   "outputSha256": "451c73c765c3a2606b1e918ae992eef213a86932a584a3f4643b23f115d454c3"
+   "outputSha256": "562acb2fca54052de1361c6c6863daecd8ce175cdae83d63628a53c8b19ee123"
   },
   "cv_pu.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_pu.wav",
