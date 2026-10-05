@@ -531,6 +531,16 @@ function axesSeed(ax, salt = 0n) {
   }
   return h === 0n ? GOLDEN_GAMMA : h;
 }
+// 語を選ぶ乱数の種 (2026-10-06・Core CVGenerator.wordSeed と同じ・形の地図 probes/size_sweep)。
+// shape なし (既定・従来): 軸の値から種 = 1 軸が段を越えると語全体が引き直される (TUNE のスライダー等)。
+// shape = { corners, loops, isClosed } (一筆→語の経路): 種 = 一筆の骨組みと口の向き (丸め・開きが ±0.5 を越えるか)。
+// 骨組みと口が同じなら語は点数分布のどこに同じ乱数が落ちるかで決まり、軸が少し動くと語は近い所だけ変わる。
+function wordSeed(ax, salt, shape) {
+  if (!shape) return axesSeed(ax, salt);
+  const mouth = v => (v || 0) >= 0.5 ? 0.5 : (v || 0) <= -0.5 ? -0.5 : 0;
+  return axesSeed({ size: Math.min(shape.corners || 0, 6) / 8, sharp: Math.min(shape.loops || 0, 3) / 8,
+                    tex: shape.isClosed ? 0.5 : 0, bright: 0, round: mouth(ax.round), open: mouth(ax.open) }, salt);
+}
 function splitmix64(seed) {
   let state = u64(seed);
   return function() {
@@ -3423,6 +3433,8 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
   const sustained = cx.loops <= 1 && cx.corners <= 2 && cx.cornerSharpness < 0.35
     && ax.tex < 0.3 && cx.moraCount >= 2;
   const disorder = cx.disorder >= 0.4 ? cx.disorder : null;
+  // 語を選ぶ乱数の種は一筆の骨組みと口の向きから (Core StrokeWordInterpreter と同じ・wordSeed)
+  const seedShape = { corners: cx.corners, loops: cx.loops, isClosed: cx.isClosed };
   let event, route;
   if (selection.vocabWord) {
     event = vocabEvent(selection.vocabWord, ax);
@@ -3432,15 +3444,18 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
   } else {
     const seg = segmentStroke(inkPts);
     if (unitEligible(seg) && cx.formK == null) {
-      event = generateFromUnits(seg.units, w, h, ax, kDraw, 0.4, mDraw, disorder, cx.moraCount);
+      event = generateFromUnits(seg.units, w, h, ax, kDraw, 0.4, mDraw, disorder, cx.moraCount, seedShape);
       route = "units";
     } else {
-      event = generateEvent(ax, 0, { moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
+      event = generateEvent(ax, 0, { seedShape, moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
         kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
         forceConsonantOnset: selection.openChevron, disorder });
       route = "generated";
     }
   }
+  // 録音を一時停止している音節 (ぎぃ 等) は語から除く (iOS PhonosymbolicEvent.init の SuspendedCV.removing と同じ)。
+  // 旧: 再生時だけ除いたので、語の綴りに残り iOS と別の語に見えた (corpus c001・10-06)。
+  event.moras = event.moras.filter(m => !NV_SUSPENDED_CV.has((m.onset ?? "") + "|" + m.nucleus));
   return { ax, cx, kDraw, event, route, stage: selection.stage };
 }
 
@@ -3547,17 +3562,17 @@ function polishUnits(moras, axes, kiki = null) {
 }
 // ギザギザのつなぎ線 1 本を音節にする (2026-10-03 作者・案②d・CVGenerator.connectorSyllables と同一)。
 // 線の形から大域生成と同じ規則で「角の数から決まる拍数 × scale」の音節。ん・語末っ・語末整形は足さない (原理7)。
-function connectorSyllables(u, index, scale, w, h, disorder) {
+function connectorSyllables(u, index, scale, w, h, disorder, seedShape = null) {
   const ax = extractAxes(u.points, w, h);
   const cx = strokeComplexity(coreSplineSmoothed(u.points), w, h, 16, false);
   const k = drawK(ax.sharp, cx.corners, cx.cornerSharpness);
   const manner = mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
   const count = Math.max(1, Math.round(cx.moraCount * scale));
-  const ev = generateEvent(ax, index + 7, { moraCountOverride: count, kiki: k, manner, disorder, rawOnly: true });
+  const ev = generateEvent(ax, index + 7, { moraCountOverride: count, kiki: k, manner, disorder, rawOnly: true, seedShape });
   return ev.moras.filter(m => !m.isN && !m.isQ && !m.isSilentRest);
 }
 function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0.4, manner = null,
-                           disorder = null, maxMoras = null) {   // #4 乱雑度 (null=従来と厳密互換)
+                           disorder = null, maxMoras = null, seedShape = null) {   // #4 乱雑度 (null=従来と厳密互換)
   const step = 0.0001 + 0.7 * 0.4;   // tuning.repetition 0.7: 同じループ = 同じ音節
   const quant = ax => {
     const q = v => swiftRounded(v / step) * step;
@@ -3583,7 +3598,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         const mUnit = (manner !== null && ucx)
           ? mannerProfile(ax.sharp, ucx.corners, ucx.cornerSharpness, ax.tex, 1)
           : null;
-        const rand = splitmix64(axesSeed(ax, salt));
+        const rand = splitmix64(wordSeed(ax, salt, seedShape));
         const primaryOnset = pickConsonant(ax, null, temperature, rand, kUnit, mUnit, false, disorder);
         let restrict = null;
         if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
@@ -3604,7 +3619,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         } else if (c.role === "cut") {
           // 2026-10-03 (作者・案②d): 「っ」で区切ったうえで、そのつなぎ線の形から音節にする
           // (旧: 角がいくつあっても「っ」1 つ — 「これだけ描いたのに にっ」)。
-          const syl = connectorScale !== null ? connectorSyllables(u, idx, connectorScale, w, h, disorder) : [];
+          const syl = connectorScale !== null ? connectorSyllables(u, idx, connectorScale, w, h, disorder, seedShape) : [];
           if (syl.length) {
             if (prevVowel !== null) syl[0] = { ...syl[0], gapMs: geminateGapMs(syl[0].onset) };
             out.push(...syl);
@@ -6039,7 +6054,7 @@ function generateEvent(axes, salt = 0, opts = {}) {
     // 語レベル K 整合ゲート: 語の K が描画の K とズレたら salt を変えて再試行 (最大3案・決定的)
     let best = null, bestD = Infinity;
     for (let a = 0; a < 3; a++) {
-      const rand = splitmix64(axesSeed(axes, u64(salt) + u64(a)));
+      const rand = splitmix64(wordSeed(axes, u64(salt) + u64(a), opts.seedShape));
       const ev = generate(axes, rand, 0.4, opts);
       const d = Math.abs(wordK(ev.moras) - opts.kiki);
       if (d < bestD) { best = ev; bestD = d; }
@@ -6047,7 +6062,7 @@ function generateEvent(axes, salt = 0, opts = {}) {
     }
     event = best;
   } else {
-    const rand = splitmix64(axesSeed(axes, salt));
+    const rand = splitmix64(wordSeed(axes, salt, opts.seedShape));
     event = generate(axes, rand, 0.4, opts);
   }
   return event;
