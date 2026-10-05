@@ -3170,12 +3170,17 @@ const LEGISLATED_DISPLAY = {
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
-  const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed;
-  const openArc = openArcSignal(cx) && !singleAngle;
+  // 自分と交差して輪を描く線は、一角・弧・角度の語彙にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
+  // 逆向きの輪 2 つは回転が打ち消し合って loops = 0 になり「開いた一角」と読まれていた。
+  // 構造単位の輪 かつ 交差あり — V の先端のはね返りや交差しない ほぼ一周の弧 (P12) は残る。
+  const drawsLoops = segmentStroke(inkPts).units.some(u => u.kind === "loop")
+    && (cx.trajectoryDescriptor?.selfIntersectionCount ?? 0) > 0;
+  const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed && !drawsLoops;
+  const openArc = openArcSignal(cx) && !singleAngle && !drawsLoops;
   const sizeClass = arcSizeClass(inkPts, w, h);
   const sharpnessWord = SHARPNESS_VOCAB[stage]?.[sizeClass];
   const hasSharpnessVocabulary = !!sharpnessWord && ((stage === 0 && straightLineVocabSignal(cx)) || singleAngle);
-  const openChevron = openChevronSignal(cx) || (hasSharpnessVocabulary && stage > 0);
+  const openChevron = (openChevronSignal(cx) && !drawsLoops) || (hasSharpnessVocabulary && stage > 0);
   let vocabWord = null, vocabReason = null, displayWordOverride = null;
   if (heartVocabSignal(cx)) {
     vocabWord = heartVocabWord(cx);
