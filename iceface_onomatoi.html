@@ -4357,6 +4357,12 @@ function nvLongVowelCVJoinRoot(idx, moras, bank) {
 const NV_FRICQ_JOIN_MAX_ROOT_MS = 250;   // FormantSynth.fricativeQJoinMaxRootMs
 // u の継ぎは速い拍でも 350ms 拍の時刻で入れる (FormantSynth.uJoinMinRootMs・作者 B350 2026-10-03)
 const NV_U_JOIN_MIN_ROOT_MS = 350;
+// Base の u / e は作者の Cubase 配置 (FormantSynth.baseHeldJoinLayout・2026-10-05)。Web の声は Base だけなので常に使う。
+// 伸ばし録音を startMs から vowelRiseMs で上げ、CV は cvHoldMs まで保って cvZeroMs で 0。拍の長さに依らない
+const NV_BASE_HELD_JOIN_LAYOUT = {
+  u: { startMs: 56, vowelRiseMs: 113, cvHoldMs: 90, cvZeroMs: 216 },
+  e: { startMs: 69, vowelRiseMs: 121, cvHoldMs: 95, cvZeroMs: 223 },
+};
 function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false) {
   const t = runTimeMs / 1000;
   let cv, cvRemainingSec;
@@ -4372,10 +4378,18 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
     cvRemainingSec = nvDur(arr, bank.sr) - t;
   }
   // テイクの母音は拍の長さに関わらず ~0.2s で減衰する → 継ぎの時刻は 250ms 拍の値で止める
-  const timing = nvLongVowelCVJoinTiming(fricativeQ
+  const proportional = nvLongVowelCVJoinTiming(fricativeQ
     ? Math.min(rootDurationMs, NV_FRICQ_JOIN_MAX_ROOT_MS)
     : vowel === "u" ? Math.max(rootDurationMs, NV_U_JOIN_MIN_ROOT_MS) : rootDurationMs);
-  if (runTimeMs < timing.startMs) return cv;
+  const layout = fricativeQ ? null : NV_BASE_HELD_JOIN_LAYOUT[vowel] ?? null;
+  const timing = layout
+    ? { startMs: layout.startMs, vowelRiseMs: layout.vowelRiseMs, cvHoldMs: layout.cvHoldMs,
+        cvFallMs: layout.cvZeroMs - layout.cvHoldMs }
+    : { ...proportional, cvHoldMs: proportional.startMs };
+  // 短く切れた CV ファイルの EOF でクリックを出さない最後の 8ms ガード
+  const cvTailGain = Math.min(1, Math.max(0, cvRemainingSec / 0.008));
+  const cvGain = Math.max(0, 1 - Math.max(0, runTimeMs - timing.cvHoldMs) / Math.max(1, timing.cvFallMs));
+  if (runTimeMs < timing.startMs) return cv * cvGain * cvTailGain;
   const vowelSample = nvReadSustainedVowelSample(bank, vowel, (runTimeMs - timing.startMs) / 1000);
   if (vowelSample === null) return cv;
   const elapsed = runTimeMs - timing.startMs;
@@ -4383,9 +4397,6 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
   const heldGainDb = bank.vGainDb?.get(vowel) ?? 0;
   const vowelGain = Math.min(1, elapsed / Math.max(1, timing.vowelRiseMs))
     * (heldGainDb === 0 ? 1 : Math.pow(10, -heldGainDb / 20));
-  const cvGain = Math.max(0, 1 - elapsed / Math.max(1, timing.cvFallMs));
-  // 短く切れた CV ファイルの EOF でクリックを出さない最後の 8ms ガード
-  const cvTailGain = Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   return cv * cvGain * cvTailGain + vowelSample * vowelGain;
 }
 // 摩擦延長テイク (Stage 2b) を使う拍か: 促音 + s/sh + a (ts は除外) — usesFricativeQTake
