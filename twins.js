@@ -268,7 +268,9 @@
     e.preventDefault(); stop(); revision++; stopBand(); hideBand(); bands = {};
     pointer = e.pointerId; draft = [position(e)]; enable(false);
     $('twin-invite-left').hidden = true;
-    left.setPointerCapture(pointer); paint(left, draft);
+    // 取り込みに失敗しても筆は続ける (例外で pointer が残ると、次の一筆を受け付けなくなる)
+    try { left.setPointerCapture(pointer); } catch (_) {}
+    paint(left, draft);
   });
   left.addEventListener('pointermove', e => {
     if (e.pointerId !== pointer) return;
@@ -337,7 +339,8 @@
     paint(left, []); paint(right, []);
   }
   $('twin-clear').onclick = clear;
-  window.addEventListener('resize', () => { if (pointer !== null) cancelDraft(); paint(left, source); paint(right, rightPoints); if (leftResult && !$('twin-band-wrap').hidden && $('twin-band').clientWidth !== bandWidth) renderBand(); });
+  // 描いている途中の resize (iPhone/iPad のアドレスバーの出入り等) で一筆を捨てない。座標は毎回 600 の枠へ写すので続けて描ける
+  window.addEventListener('resize', () => { paint(left, pointer !== null ? draft : source); paint(right, rightPoints); if (leftResult && !$('twin-band-wrap').hidden && $('twin-band').clientWidth !== bandWidth) renderBand(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
   clear();
 })();
