@@ -119,3 +119,73 @@ for (const [name, raw] of [['circle', circle], ['zigzag', zigzag], ['edge', edge
 }
 console.log('twins position (recorded):\n  ' + positionLog.join('\n  '));
 console.log(`twins: ${checks} checks passed in total`);
+
+// Rotation (about the box centre; + = clockwise on screen) and one-axis stretch.
+{
+  const shapes = [['circle', circle], ['zigzag', zigzag], ['edge', edge], ['vertical', vertical]];
+  const ex = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-8, `${msg}: ${a} vs ${b}`);
+  const inFrame = pts => pts.every(p => p.x >= 3 - 1e-8 && p.x <= size - 3 + 1e-8 && p.y >= 3 - 1e-8 && p.y <= size - 3 + 1e-8);
+  const guard = JSON.stringify(shapes.map(s => s[1]));
+  // direction: the point right of the centre, turned +90, ends up BELOW it (screen y is down) = clockwise
+  const probe = g.rotate([{x:100,y:100},{x:200,y:100},{x:150,y:100}], 90);
+  ex(probe[2].x, 150, 'pivot x'); ex(probe[2].y, 100, 'pivot y');
+  assert.ok(probe[1].y > probe[2].y + 40 && Math.abs(probe[1].x - 150) < 1e-8, '+90 is clockwise on screen'); checks += 3;
+  const probe2 = g.rotate([{x:100,y:100},{x:200,y:100},{x:150,y:100}], -90);
+  assert.ok(probe2[1].y < probe2[2].y - 40, '-90 is counter-clockwise'); checks++;
+  for (const [name, raw] of shapes) {
+    const b = g.extent(raw);
+    assert.equal(JSON.stringify(g.rotate(raw, 0)), JSON.stringify(raw), `${name}: 0 deg is untouched`); checks++;
+    g.rotate(raw, 0)[0].x = -1;   // the copy is independent of the input
+    const full = g.rotate(raw, 360);
+    full.forEach((p, i) => { ex(p.x, raw[i].x, `${name} 360 x`); ex(p.y, raw[i].y, `${name} 360 y`); }); checks += raw.length * 2;
+    // the axis (box centre of the input) does not move
+    const withPivot = g.rotate([...raw, { x: b.x, y: b.y }], 37).pop();
+    ex(withPivot.x, b.x, `${name} pivot x`); ex(withPivot.y, b.y, `${name} pivot y`); checks += 2;
+    // a half turn maps the box onto itself: the box centre stays
+    const half = g.extent(g.rotate(raw, 180));
+    ex(half.x, b.x, `${name} 180 centre x`); ex(half.y, b.y, `${name} 180 centre y`); checks += 2;
+    // range: contains 0, contiguous, whole shape inside the frame, and one degree past either end does not fit
+    const r = g.rotationRange(raw, size);
+    assert.equal(r.origin, 0); assert.ok(r.min <= 0 && 0 <= r.max && r.min >= -180 && r.max <= 180); checks += 2;
+    for (let d = r.min; d <= r.max; d++) assert.ok(inFrame(g.rotate(raw, d)), `${name}: ${d} deg fits`);
+    checks += r.max - r.min + 1;
+    if (r.max < 180) { assert.equal(g.fits(g.rotate(raw, r.max + 1), size), false, `${name}: max+1 leaves the frame`); checks++; }
+    if (r.min > -180) { assert.equal(g.fits(g.rotate(raw, r.min - 1), size), false, `${name}: min-1 leaves the frame`); checks++; }
+    // stretch: the other coordinate is exactly unchanged, the box centre does not move, the span follows the factor
+    for (const axis of ['x', 'y']) {
+      const other = axis === 'x' ? 'y' : 'x', dim = axis === 'x' ? 'width' : 'height', otherDim = axis === 'x' ? 'height' : 'width';
+      assert.equal(JSON.stringify(g.stretch(raw, axis, 1)), JSON.stringify(raw)); checks++;
+      const sr = g.stretchRange(raw, size, axis);
+      assert.deepEqual([sr.min, sr.origin], [40, 100]); assert.ok(sr.max >= 100 && sr.max <= 200); checks += 2;
+      for (const f of [.4, .7, 1.5, sr.max / 100]) {
+        const st = g.stretch(raw, axis, f), e = g.extent(st);
+        st.forEach((p, i) => assert.equal(p[other], raw[i][other], `${name} ${axis}: other axis exact`));
+        ex(e.x, b.x, `${name} ${axis} centre x`); ex(e.y, b.y, `${name} ${axis} centre y`);
+        ex(e[dim], b[dim] * f, `${name} ${axis} span`); ex(e[otherDim], b[otherDim], `${name} ${axis} other span`);
+        checks += raw.length + 4;
+      }
+      assert.ok(inFrame(g.stretch(raw, axis, sr.max / 100)), `${name} ${axis}: max fits`); checks++;
+      if (sr.max < 200) { assert.equal(g.fits(g.stretch(raw, axis, (sr.max + 1) / 100), size), false, `${name} ${axis}: max+1 leaves the frame`); checks++; }
+    }
+  }
+  assert.equal(guard, JSON.stringify(shapes.map(s => s[1])), 'rotate/stretch do not mutate inputs'); checks++;
+  // The word over the whole range (recorded, not judged): rotation as far as the frame allows, stretch 40%..limit.
+  const log = [];
+  const sweep = (label, lo, hi, make) => {
+    const ws = [];
+    for (let v = lo; v <= hi; v++) { const res = readInk(g.prepare(make(v), size)); ws.push(res ? romajiOf(res.event) : '∅'); }
+    assert.equal(ws.length, hi - lo + 1); checks++;
+    const rs = g.runs(ws, lo);
+    log.push(`${label} ${lo}..${hi} = ${rs.length} run(s): ${rs.map(q => `${q.word}:${q.start}+${q.length}${q.returns ? 'R' : ''}`).join(' ')}`);
+  };
+  for (const [name, raw] of shapes) {
+    const rr = g.rotationRange(raw, size);
+    sweep(`${name} 回転(度)`, rr.min, rr.max, d => g.rotate(raw, d));
+    for (const axis of ['x', 'y']) {
+      const sr = g.stretchRange(raw, size, axis);
+      sweep(`${name} ${axis === 'x' ? '横に伸ばす' : '縦に伸ばす'}(%)`, sr.min, sr.max, v => g.stretch(raw, axis, v / 100));
+    }
+  }
+  console.log('twins rotate/stretch (recorded):\n  ' + log.join('\n  '));
+}
+console.log(`twins: ${checks} checks passed with rotate/stretch`);

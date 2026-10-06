@@ -44,6 +44,40 @@ const TwinsGeometry = {
     const d = percent / 100 * size - this.extent(points)[axis];
     return axis === 'x' ? this.translate(points, d, 0) : this.translate(points, 0, d);
   },
+  // Whole shape inside the frame with the same margin (3) as maxScale / positionRange.
+  fits(points, size) {
+    return points.every(p => p.x >= 3 - 1e-9 && p.x <= size - 3 + 1e-9 && p.y >= 3 - 1e-9 && p.y <= size - 3 + 1e-9);
+  },
+  // Rotation about the centre of the bounding box (of the input), `deg` degrees. Positive = clockwise as seen on
+  // screen (screen y points down, so the plain rotation matrix turns clockwise). Never mutates the input.
+  rotate(points, deg) {
+    if (deg === 0) return points.map(p => ({ ...p }));
+    const b = this.extent(points), t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+    return points.map(p => {
+      const dx = p.x - b.x, dy = p.y - b.y;
+      return { x: b.x + dx * c - dy * s, y: b.y + dx * s + dy * c };
+    });
+  },
+  // Whole degrees the shape can be turned to and still sit inside the frame: the run of angles around 0 that all fit
+  // (angles past the first misfit are left out even if they fit again). Within [-180, 180]; origin = 0.
+  rotationRange(points, size) {
+    let min = 0, max = 0;
+    while (max < 180 && this.fits(this.rotate(points, max + 1), size)) max++;
+    while (min > -180 && this.fits(this.rotate(points, min - 1), size)) min--;
+    return { min, max, origin: 0 };
+  },
+  // Stretch only `axis` ('x' | 'y') by `factor` about the bounding-box centre; the other coordinate is untouched.
+  stretch(points, axis, factor) {
+    if (factor === 1) return points.map(p => ({ ...p }));
+    const c = this.extent(points)[axis];
+    return points.map(p => axis === 'x' ? { x: c + (p.x - c) * factor, y: p.y } : { x: p.x, y: c + (p.y - c) * factor });
+  },
+  // Range (whole %) of the stretch along `axis`: 40% .. as far as the shape stays inside the frame (cap 200%).
+  stretchRange(points, size, axis) {
+    const b = this.extent(points), c = b[axis], len = axis === 'x' ? b.width : b.height;
+    const limit = len ? 2 * Math.min(c - 3, size - 3 - c) / len : Infinity;
+    return { min: 40, max: Math.max(100, Math.min(200, Math.floor(limit * 100 + 1e-9))), origin: 100 };
+  },
   // Run-length the words read at consecutive 1% steps (words[0] is at startPercent).
   // `returns`: the neighbours on both sides are the same word and this run is <= 4% long,
   // i.e. the word flips away and straight back (same rule as the Atlas size sweep bands).

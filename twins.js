@@ -34,6 +34,9 @@
         <button type="button" class="twin-mode" data-mode="scale" aria-pressed="true" disabled>大きさ</button>
         <button type="button" class="twin-mode" data-mode="y" aria-pressed="false" disabled>上下</button>
         <button type="button" class="twin-mode" data-mode="x" aria-pressed="false" disabled>左右</button>
+        <button type="button" class="twin-mode" data-mode="rot" aria-pressed="false" disabled>回転</button>
+        <button type="button" class="twin-mode" data-mode="sx" aria-pressed="false" disabled>横に伸ばす</button>
+        <button type="button" class="twin-mode" data-mode="sy" aria-pressed="false" disabled>縦に伸ばす</button>
       </div>
       <p id="twin-axis-note" class="twins-footnote twin-axis-note" hidden></p>
       <label class="twins-scale-label" for="twin-scale"><span id="twin-scale-title">右のかたちの大きさ</span><output id="twin-percent">100%</output></label>
@@ -47,8 +50,8 @@
       <div class="twin-band-info" id="twin-band-info" hidden>
         <p id="twin-band-desc" class="twin-band-desc" aria-live="polite"></p>
         <ul class="twin-band-legend" aria-label="帯の色">
-          <li><i class="L1"></i>1〜2%</li><li><i class="L2"></i>3〜5%</li><li><i class="L3"></i>6〜10%</li>
-          <li><i class="L4"></i>11〜20%</li><li><i class="L5"></i>21%〜</li><li><i class="R"></i>行って戻る</li>
+          <li><i class="L1"></i><span>1〜2%</span></li><li><i class="L2"></i><span>3〜5%</span></li><li><i class="L3"></i><span>6〜10%</span></li>
+          <li><i class="L4"></i><span>11〜20%</span></li><li><i class="L5"></i><span>21%〜</span></li><li><i class="R"></i><span>行って戻る</span></li>
         </ul>
         <p class="twins-footnote" id="twin-band-note"></p>
       </div>
@@ -70,22 +73,39 @@
   const size = 600;
   let source = [], draft = [], rightPoints = [], leftResult = null, rightResult = null;
   let pointer = null, playbackToken = 0, revision = 0, renderPending = false;
-  // How the right shape is moved: size (40%..limit) or position (up/down, left/right) of its bounding-box centre.
+  // How the right shape is moved: size (40%..limit), position (up/down, left/right) of its bounding-box centre,
+  // rotation (degrees, about the box centre) or a one-axis stretch (40%..limit). `unit` = the slider's unit.
   const BAND_UNIT = '帯 = つまみの全範囲 (1%刻み) の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。';
   const AXIS = (axis, name, lo, hi) => ({ axis, title: `右のかたちの${name}の位置`, heading: '位置を変えた一筆', canvas: '位置を動かした右の形',
     value: v => `${lo[0]}から ${v}%`, size: v => `${lo[0]}から ${v}%`, reset: '元の位置に戻す', same: '位置が変わっても、同じことば。',
     ends: r => [`${lo} · ${r.min}%`, `${hi} · ${r.max}%`], bandLabel: r => `${name}の位置、${r.min}%から${r.max}%までの全範囲の語。区間を押すと、その位置の右の声が鳴ります`,
     note: '指を離すと、右の声が鳴ります。動かせる範囲は、形が枠に収まるところまで。', bandNote: () => `${BAND_UNIT}縦線 = 元の位置。`,
-    unset: 'この位置では声になりません。', at: '右の位置を動かしてみて。' });
+    unset: 'この位置では声になりません。', at: '右の位置を動かしてみて。', unit: '%' });
+  const STRETCH = (axis, dir, name, lo, hi) => ({ axis, unit: '%', title: `右のかたちの${name}`, heading: `${dir}に伸ばした一筆`, canvas: `${dir}に伸ばした右の形`,
+    value: v => `${name} ${v}%`, size: v => `${name} ${v}%`, reset: '100%に戻す', same: `${name}が変わっても、同じことば。`,
+    ends: r => [`${lo} · ${r.min}%`, `${hi} · ${r.max}%`], bandLabel: r => `${name}、${r.min}%から${r.max}%までの全範囲の語。区間を押すと、その${name}の右の声が鳴ります`,
+    note: `指を離すと、右の声が鳴ります。${dir}にだけ伸び縮みします。上限は、形が枠に収まるところまで。`,
+    bandNote: r => `帯 = ${r.min}%〜上限の全範囲の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。縦線 = 100%。`,
+    unset: `この${name}では声になりません。`, at: `右の${name}を動かしてみて。` });
   const MODES = {
     scale: { title: '右のかたちの大きさ', heading: '大きさを変えた一筆', canvas: '拡大縮小した右の形', value: v => `${v}%`, size: v => `もとの ${v}%`,
       reset: '100%に戻す', same: '大きさが変わっても、同じことば。', ends: r => [`小さく · ${r.min}%`, `大きく · ${r.max}%`],
       bandLabel: r => `${r.min}%から${r.max}%までの全倍率の語。区間を押すと、その倍率の右の声が鳴ります`,
       note: '指を離すと、右の声が鳴ります。大きさの上限は、形が枠に収まるところまで。<br>形が変わっても、同じことばになることがあります。',
       bandNote: r => `帯 = ${r.min}%〜上限の全倍率の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。縦線 = 100%。`,
-      unset: 'もう少し大きくすると、声になります。', at: '右の大きさを動かしてみて。' },
+      unset: 'もう少し大きくすると、声になります。', at: '右の大きさを動かしてみて。', unit: '%' },
     y: { ...AXIS('y', '上下', '上', '下'), aside: '高さは声の明るさの軸。上ほど明るい' },
-    x: { ...AXIS('x', '左右', '左', '右'), aside: '左右は語に使わない (iOS 版では声の左右の聞こえに使う・Web には左右の聞こえはない)' }
+    x: { ...AXIS('x', '左右', '左', '右'), aside: '左右は語に使わない (iOS 版では声の左右の聞こえに使う・Web には左右の聞こえはない)' },
+    rot: { title: '右のかたちの向き', heading: '向きを変えた一筆', canvas: '回転した右の形', unit: '°',
+      value: v => v === 0 ? '元の向き' : v > 0 ? `時計回りに ${v}°` : `反時計回りに ${-v}°`,
+      size: v => v === 0 ? '元の向き' : v > 0 ? `時計回りに ${v}°` : `反時計回りに ${-v}°`,
+      reset: '元の向きに戻す', same: '向きが変わっても、同じことば。', ends: r => [`反時計 · ${r.min}°`, `時計 · ${r.max}°`],
+      bandLabel: r => `${r.min}度から${r.max}度までの全範囲の語。区間を押すと、その向きの右の声が鳴ります`,
+      note: '指を離すと、右の声が鳴ります。回せる範囲は、形が枠に収まるところまで。', bandNote: () => '帯 = つまみの全範囲 (1度刻み) の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。縦線 = 元の向き。',
+      unset: 'この向きでは声になりません。', at: '右の向きを動かしてみて。',
+      aside: '向きは形の読み (角・弧の向き) に効く。開いた弧は向きで語が変わる' },
+    sx: { ...STRETCH('x', '横', '横幅', '細く', '太く'), aside: '縦横の比は口の形 (開き・丸み) の読みに効く' },
+    sy: { ...STRETCH('y', '縦', '縦幅', '細く', '太く'), aside: '縦横の比は口の形 (開き・丸み) の読みに効く' }
   };
   const BAND_HINT = '区間にふれると、その位置の語が分かります。押すと、右の声が鳴ります。';
   let mode = 'scale', ranges = {}, bands = {}, bandRun = 0, bandTimer = 0, bandWidth = 0;
@@ -138,7 +158,10 @@
   // The right shape for a slider value in the current mode (the origin value is the untouched drawing).
   function transform(points, percent) {
     if (percent === range().origin) return points.map(p => ({ ...p }));
-    return mode === 'scale' ? TwinsGeometry.scale(points, percent / 100) : TwinsGeometry.moveTo(points, size, MODES[mode].axis, percent);
+    if (mode === 'scale') return TwinsGeometry.scale(points, percent / 100);
+    if (mode === 'rot') return TwinsGeometry.rotate(points, percent);
+    if (mode === 'sx' || mode === 'sy') return TwinsGeometry.stretch(points, MODES[mode].axis, percent / 100);
+    return TwinsGeometry.moveTo(points, size, MODES[mode].axis, percent);
   }
   // The word band: every 1% over the slider's whole range, read with the same read()/word() as the slider.
   function bandWord(points, percent) {
@@ -171,7 +194,7 @@
     step();
   }
   function runText(r) {
-    const range = r.length === 1 ? `${r.start}%` : `${r.start}〜${r.start + r.length - 1}%`;
+    const u = MODES[mode].unit, range = r.length === 1 ? `${r.start}${u}` : `${r.start}〜${r.start + r.length - 1}${u}`;
     return `${range}: ${r.word === '∅' ? '∅(語にならない)' : r.word}${r.returns ? ' (すぐ元の語に戻る)' : ''}`;
   }
   function bandDesc(text) {
@@ -292,7 +315,9 @@
     leftResult = read(source);
     if (!leftResult) { clear(); return; }
     ranges = { scale: { min: 40, max: Math.floor(TwinsGeometry.maxScale(source, size) * 100), origin: 100 },
-      y: TwinsGeometry.positionRange(source, size, 'y'), x: TwinsGeometry.positionRange(source, size, 'x') };
+      y: TwinsGeometry.positionRange(source, size, 'y'), x: TwinsGeometry.positionRange(source, size, 'x'),
+      rot: TwinsGeometry.rotationRange(source, size),
+      sx: TwinsGeometry.stretchRange(source, size, 'x'), sy: TwinsGeometry.stretchRange(source, size, 'y') };
     bands = {};
     $('twin-word-left').textContent = word(leftResult);
     $('twin-invite-right').hidden = true;
@@ -321,6 +346,9 @@
     right.setAttribute('aria-label', m.canvas);
     $('twin-reset').textContent = m.reset;
     $('twin-scale-note').innerHTML = m.note;
+    root.querySelectorAll('.twin-band-legend span').forEach((el, i) => {   // legend labels follow the unit
+      if (i < 5) el.textContent = ['1〜2', '3〜5', '6〜10', '11〜20', '21'][i] + (i === 4 ? `${m.unit}〜` : m.unit);
+    });
     $('twin-axis-note').hidden = !m.aside; $('twin-axis-note').textContent = m.aside ?? '';
     root.querySelectorAll('.twin-mode').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
   }

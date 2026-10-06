@@ -22,9 +22,9 @@
 #twins button:focus-visible, #twins input:focus-visible { outline:3px solid var(--extra); outline-offset:4px; }
 #twins .twin-listen { display:block; margin:0 auto 18px; }
 .twins-controls { max-width:600px; margin:26px auto 0; }
-/* Segmented control: how the right shape is moved (size / up-down / left-right). */
+/* Segmented control: how the right shape is moved (size / up-down / left-right / rotate / stretch x / stretch y). */
 .twin-modes { display:flex; justify-content:center; margin:0 auto 6px; }
-#twins .twin-mode { flex:1 1 0; max-width:140px; min-width:0; border-radius:0; padding:10px 8px; background:transparent; border:1px solid #c9c3ba; margin-left:-1px; }
+#twins .twin-mode { flex:1 1 0; min-width:0; border-radius:0; padding:10px 8px; background:transparent; border:1px solid #c9c3ba; margin-left:-1px; }
 #twins .twin-mode:first-child { border-radius:999px 0 0 999px; margin-left:0; }
 #twins .twin-mode:last-child { border-radius:0 999px 999px 0; }
 #twins .twin-mode[aria-pressed="true"] { background:var(--accent); border-color:var(--extra); position:relative; font-weight:600; }
@@ -64,6 +64,9 @@
 .twins-mode #loading-note { position:static; transform:none; max-width:600px; margin:12px auto 20px; display:block; width:100%; }
 .twins-mode #loading-note[data-started] { display:none; }
 @media (max-width:560px) {
+  /* Six modes wrap into two rows of three; each cell is its own pill. */
+  .twin-modes { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  #twins .twin-mode, #twins .twin-mode:first-child, #twins .twin-mode:last-child { border-radius:999px; margin-left:0; padding:10px 4px; }
   #twins { padding:12px 0 30px; }
   .twins-grid { gap:8px; }
   .twin-card { border-radius:12px; }
