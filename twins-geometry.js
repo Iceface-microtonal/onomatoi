@@ -22,6 +22,28 @@ const TwinsGeometry = {
     return points.map(p => ({ x: b.x + (p.x - b.x) * factor,
       y: b.y + (p.y - b.y) * factor }));
   },
+  // Plain translation (shape and size untouched). Never mutates the input.
+  translate(points, dx, dy) {
+    return points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+  },
+  // Centre of the bounding box along `axis` ('x' | 'y') as a percentage of the frame (exact, not rounded).
+  positionPercent(points, size, axis) {
+    return this.extent(points)[axis] / size * 100;
+  },
+  // Range (in whole %) the bounding-box centre can take along `axis` with the whole shape inside the
+  // frame (margin 3, like maxScale), plus `origin` = the drawn position rounded to a whole %.
+  // The origin is always inside [min, max] (it is served by the untouched shape, not by a translation).
+  positionRange(points, size, axis) {
+    const b = this.extent(points), half = (axis === 'x' ? b.width : b.height) / 2;
+    const lo = (3 + half) / size * 100, hi = (size - 3 - half) / size * 100;
+    const origin = Math.round(this.positionPercent(points, size, axis));
+    return { min: Math.min(Math.ceil(lo - 1e-9), origin), max: Math.max(Math.floor(hi + 1e-9), origin), origin };
+  },
+  // The shape with its bounding-box centre moved to `percent` along `axis` (other axis untouched).
+  moveTo(points, size, axis, percent) {
+    const d = percent / 100 * size - this.extent(points)[axis];
+    return axis === 'x' ? this.translate(points, d, 0) : this.translate(points, 0, d);
+  },
   // Run-length the words read at consecutive 1% steps (words[0] is at startPercent).
   // `returns`: the neighbours on both sides are the same word and this run is <= 4% long,
   // i.e. the word flips away and straight back (same rule as the Atlas size sweep bands).

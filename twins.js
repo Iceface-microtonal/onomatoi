@@ -22,7 +22,7 @@
         <button class="twin-listen" id="twin-play-left" disabled>▶ 左を聴く</button>
       </section>
       <section class="twin-card" id="twin-card-right" aria-label="右の双子">
-        <header><strong>大きさを変えた一筆</strong><span id="twin-size">もとの 100%</span></header>
+        <header><strong id="twin-right-title">大きさを変えた一筆</strong><span id="twin-size">もとの 100%</span></header>
         <div class="twin-board"><canvas id="twin-right" aria-label="拡大縮小した右の形"></canvas>
           <p id="twin-invite-right">もうひとつの形が<br>ここに生まれます。</p></div>
         <output class="twin-word" id="twin-word-right">…</output>
@@ -30,21 +30,27 @@
       </section>
     </div>
     <div class="twins-controls">
-      <label class="twins-scale-label" for="twin-scale"><span>右のかたちの大きさ</span><output id="twin-percent">100%</output></label>
+      <div class="twin-modes" role="group" aria-label="右のかたちの動かし方">
+        <button type="button" class="twin-mode" data-mode="scale" aria-pressed="true" disabled>大きさ</button>
+        <button type="button" class="twin-mode" data-mode="y" aria-pressed="false" disabled>上下</button>
+        <button type="button" class="twin-mode" data-mode="x" aria-pressed="false" disabled>左右</button>
+      </div>
+      <p id="twin-axis-note" class="twins-footnote twin-axis-note" hidden></p>
+      <label class="twins-scale-label" for="twin-scale"><span id="twin-scale-title">右のかたちの大きさ</span><output id="twin-percent">100%</output></label>
       <input id="twin-scale" type="range" min="40" max="200" step="1" value="100" disabled aria-describedby="twin-scale-note">
       <div class="twin-band-track" id="twin-band-wrap" hidden>
         <div class="twin-band" id="twin-band" role="group" aria-label="40%から上限までの全倍率の語。区間を押すと、その倍率の右の声が鳴ります"></div>
         <span class="twin-band-100" id="twin-band-100" aria-hidden="true"></span>
         <span class="twin-band-now" id="twin-band-now" aria-hidden="true"></span>
       </div>
-      <div class="twins-scale-ends"><span>小さく · 40%</span><span id="twin-scale-max">大きく · 200%</span></div>
+      <div class="twins-scale-ends"><span id="twin-scale-min">小さく · 40%</span><span id="twin-scale-max">大きく · 200%</span></div>
       <div class="twin-band-info" id="twin-band-info" hidden>
         <p id="twin-band-desc" class="twin-band-desc" aria-live="polite"></p>
         <ul class="twin-band-legend" aria-label="帯の色">
           <li><i class="L1"></i>1〜2%</li><li><i class="L2"></i>3〜5%</li><li><i class="L3"></i>6〜10%</li>
           <li><i class="L4"></i>11〜20%</li><li><i class="L5"></i>21%〜</li><li><i class="R"></i>行って戻る</li>
         </ul>
-        <p class="twins-footnote">帯 = 40%〜上限の全倍率の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。縦線 = 100%。</p>
+        <p class="twins-footnote" id="twin-band-note"></p>
       </div>
       <div class="twins-actions">
         <button id="twin-pair" disabled>▶ 左 → 右を聴く</button>
@@ -53,7 +59,7 @@
         <button id="twin-clear" class="twin-quiet">描き直す</button>
       </div>
       <p id="twin-message" role="status">左の枠に描くと、ふたつのことばが生まれます。</p>
-      <p id="twin-scale-note" class="twins-footnote">指を離すと、右の声が鳴ります。大きさの上限は、形が枠に収まるところまで。<br>形が変わっても、同じことばになることがあります。</p>
+      <p id="twin-scale-note" class="twins-footnote"></p>
       <p class="twins-footnote">Onomatoiと同じしくみ・同じ声で動く、試作の聴き比べです。<br>一筆はこの画面だけに残ります。再読み込みすると消えます。<br>つくる・こえ　PuppeTwin</p>
     </div><a class="twins-back" href="./iceface_onomatoi.html">← おのまといに戻る</a>`;
   document.querySelector('main').prepend(root);
@@ -64,10 +70,32 @@
   const size = 600;
   let source = [], draft = [], rightPoints = [], leftResult = null, rightResult = null;
   let pointer = null, playbackToken = 0, revision = 0, renderPending = false;
-  const BAND_MIN = 40, BAND_HINT = '区間にふれると、その倍率の語が分かります。押すと、右の声が鳴ります。';
-  let bandWords = [], bandDone = false, bandRun = 0, bandTimer = 0, bandWidth = 0;
+  // How the right shape is moved: size (40%..limit) or position (up/down, left/right) of its bounding-box centre.
+  const BAND_UNIT = '帯 = つまみの全範囲 (1%刻み) の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。';
+  const AXIS = (axis, name, lo, hi) => ({ axis, title: `右のかたちの${name}の位置`, heading: '位置を変えた一筆', canvas: '位置を動かした右の形',
+    value: v => `${lo[0]}から ${v}%`, size: v => `${lo[0]}から ${v}%`, reset: '元の位置に戻す', same: '位置が変わっても、同じことば。',
+    ends: r => [`${lo} · ${r.min}%`, `${hi} · ${r.max}%`], bandLabel: r => `${name}の位置、${r.min}%から${r.max}%までの全範囲の語。区間を押すと、その位置の右の声が鳴ります`,
+    note: '指を離すと、右の声が鳴ります。動かせる範囲は、形が枠に収まるところまで。', bandNote: () => `${BAND_UNIT}縦線 = 元の位置。`,
+    unset: 'この位置では声になりません。', at: '右の位置を動かしてみて。' });
+  const MODES = {
+    scale: { title: '右のかたちの大きさ', heading: '大きさを変えた一筆', canvas: '拡大縮小した右の形', value: v => `${v}%`, size: v => `もとの ${v}%`,
+      reset: '100%に戻す', same: '大きさが変わっても、同じことば。', ends: r => [`小さく · ${r.min}%`, `大きく · ${r.max}%`],
+      bandLabel: r => `${r.min}%から${r.max}%までの全倍率の語。区間を押すと、その倍率の右の声が鳴ります`,
+      note: '指を離すと、右の声が鳴ります。大きさの上限は、形が枠に収まるところまで。<br>形が変わっても、同じことばになることがあります。',
+      bandNote: r => `帯 = ${r.min}%〜上限の全倍率の語。区切り = 語が変わる位置。<br>色が濃いほど、同じ語が続く幅が広い。縦線 = 100%。`,
+      unset: 'もう少し大きくすると、声になります。', at: '右の大きさを動かしてみて。' },
+    y: { ...AXIS('y', '上下', '上', '下'), aside: '高さは声の明るさの軸。上ほど明るい' },
+    x: { ...AXIS('x', '左右', '左', '右'), aside: '左右は語に使わない (iOS 版では声の左右の聞こえに使う・Web には左右の聞こえはない)' }
+  };
+  const BAND_HINT = '区間にふれると、その位置の語が分かります。押すと、右の声が鳴ります。';
+  let mode = 'scale', ranges = {}, bands = {}, bandRun = 0, bandTimer = 0, bandWidth = 0;
+  const range = () => ranges[mode] ?? { min: 40, max: 200, origin: 100 };
+  const bandState = () => bands[mode] ?? (bands[mode] = { words: [], done: false });
   const enabledIds = ['twin-play-left', 'twin-play-right', 'twin-pair', 'twin-reset', 'twin-scale'];
-  function enable(value) { enabledIds.forEach(id => { $(id).disabled = !value; }); }
+  function enable(value) {
+    enabledIds.forEach(id => { $(id).disabled = !value; });
+    root.querySelectorAll('.twin-mode').forEach(b => { b.disabled = !value; });
+  }
   function stop() {
     playbackToken++;
     pendingEvent = null;
@@ -92,46 +120,53 @@
   function word(result) { return result.event.displayWordOverride ?? namingKanaOf(result.event.moras); }
   function updateRight() {
     if (!leftResult) return;
-    const percent = Number(scale.value);
-    rightPoints = TwinsGeometry.scale(source, percent / 100);
-    rightResult = percent === 100 ? leftResult : read(rightPoints);
+    const percent = Number(scale.value), m = MODES[mode], origin = range().origin;
+    rightPoints = transform(source, percent);
+    rightResult = percent === origin ? leftResult : read(rightPoints);
     paint(right, rightPoints);
     $('twin-word-right').textContent = rightResult ? word(rightResult) : '…';
-    $('twin-percent').textContent = `${percent}%`;
-    $('twin-size').textContent = `もとの ${percent}%`;
-    $('twin-message').textContent = !rightResult ? 'もう少し大きくすると、声になります。'
-      : percent === 100 ? '同じかたち、同じことば。右の大きさを動かしてみて。'
-      : word(leftResult) === word(rightResult) ? '大きさが変わっても、同じことば。声も聴き比べてみて。'
+    $('twin-percent').textContent = m.value(percent);
+    $('twin-size').textContent = m.size(percent);
+    $('twin-message').textContent = !rightResult ? m.unset
+      : percent === origin ? `同じかたち、同じことば。${m.at}`
+      : word(leftResult) === word(rightResult) ? `${m.same}声も聴き比べてみて。`
       : 'ことばが変わりました。左と右を聴き比べてみて。';
     $('twin-play-right').disabled = !rightResult;
     $('twin-pair').disabled = !rightResult;
     markBand();
   }
-  // The word band: every 1% from 40% to scale.max, read with the same read()/word() as the slider.
+  // The right shape for a slider value in the current mode (the origin value is the untouched drawing).
+  function transform(points, percent) {
+    if (percent === range().origin) return points.map(p => ({ ...p }));
+    return mode === 'scale' ? TwinsGeometry.scale(points, percent / 100) : TwinsGeometry.moveTo(points, size, MODES[mode].axis, percent);
+  }
+  // The word band: every 1% over the slider's whole range, read with the same read()/word() as the slider.
   function bandWord(points, percent) {
     try {
-      const result = read(TwinsGeometry.scale(points, percent / 100));
+      const result = read(transform(points, percent));
       return result ? word(result) : '∅';
     } catch (e) { console.warn('twins band', percent, e); return '∅'; }
   }
   function stopBand() { bandRun++; clearTimeout(bandTimer); }
   function hideBand() { $('twin-band-wrap').hidden = true; $('twin-band-info').hidden = true; }
+  // Computes (or resumes) the current mode's band; a finished band is reused. Words are kept per mode in `bands`.
   function startBand() {
     stopBand();
-    const run = bandRun, rev = revision, points = source, max = Number(scale.max), count = max - BAND_MIN + 1;
-    bandWords = []; bandDone = false;
+    const run = bandRun, rev = revision, points = source, r = range(), count = r.max - r.min + 1, state = bandState(), m = mode;
     $('twin-band-wrap').hidden = false; $('twin-band-info').hidden = false;
+    $('twin-band').setAttribute('aria-label', MODES[m].bandLabel(r));
+    $('twin-band-note').innerHTML = MODES[m].bandNote(r);
     const step = () => {
-      // A new stroke / clear changes revision or bandRun: drop the stale computation.
+      // A new stroke / clear / mode switch changes revision or bandRun: drop the stale computation.
       if (run !== bandRun || rev !== revision) return;
       const t0 = performance.now();
-      do {
-        const percent = BAND_MIN + bandWords.length;
-        bandWords.push(percent === 100 ? word(leftResult) : bandWord(points, percent));
-      } while (bandWords.length < count && performance.now() - t0 < 10);
-      bandDone = bandWords.length >= count;
+      while (state.words.length < count && (state.words.length === 0 || performance.now() - t0 < 10)) {
+        const percent = r.min + state.words.length;
+        state.words.push(percent === r.origin ? word(leftResult) : bandWord(points, percent));
+      }
+      state.done = state.words.length >= count;
       renderBand();
-      if (!bandDone) bandTimer = setTimeout(step, 0);
+      if (!state.done) bandTimer = setTimeout(step, 0);
     };
     step();
   }
@@ -139,9 +174,13 @@
     const range = r.length === 1 ? `${r.start}%` : `${r.start}〜${r.start + r.length - 1}%`;
     return `${range}: ${r.word === '∅' ? '∅(語にならない)' : r.word}${r.returns ? ' (すぐ元の語に戻る)' : ''}`;
   }
-  function bandDesc(text) { $('twin-band-desc').textContent = text ?? (bandDone ? BAND_HINT : `帯を計算中… ${Math.round(bandWords.length / (Number(scale.max) - BAND_MIN + 1) * 100)}%`); }
+  function bandDesc(text) {
+    const r = range(), state = bandState();
+    $('twin-band-desc').textContent = text ?? (state.done ? BAND_HINT : `帯を計算中… ${Math.round(state.words.length / (r.max - r.min + 1) * 100)}%`);
+  }
   function renderBand() {
-    const band = $('twin-band'), span = Number(scale.max) - BAND_MIN + 1, runs = TwinsGeometry.runs(bandWords, BAND_MIN);
+    const band = $('twin-band'), r0 = range(), span = r0.max - r0.min + 1, state = bandState(), bandDone = state.done,
+      runs = TwinsGeometry.runs(state.words, r0.min);
     bandWidth = band.clientWidth;   // labels depend on it; re-render only when the width changes
     band.setAttribute('aria-busy', String(!bandDone));
     band.replaceChildren(...runs.map(r => {
@@ -173,9 +212,9 @@
   // Slider-position marker, the 100% line, current run + roving tabindex.
   function markBand() {
     if (!leftResult || $('twin-band-wrap').hidden) return;
-    const span = Number(scale.max) - BAND_MIN + 1, percent = Number(scale.value);
-    $('twin-band-100').style.left = `${(100 - BAND_MIN + .5) / span * 100}%`;
-    $('twin-band-now').style.left = `${(percent - BAND_MIN + .5) / span * 100}%`;
+    const r = range(), span = r.max - r.min + 1, percent = Number(scale.value);
+    $('twin-band-100').style.left = `${(r.origin - r.min + .5) / span * 100}%`;
+    $('twin-band-now').style.left = `${(percent - r.min + .5) / span * 100}%`;
     const buttons = [...$('twin-band').querySelectorAll('button')];
     const current = buttons.find(b => percent >= Number(b.dataset.start) && percent < Number(b.dataset.start) + Number(b.dataset.length));
     buttons.forEach(b => {
@@ -226,7 +265,7 @@
   }
   left.addEventListener('pointerdown', e => {
     if (pointer !== null || !e.isPrimary || e.button !== 0) return;
-    e.preventDefault(); stop(); revision++; stopBand(); hideBand();
+    e.preventDefault(); stop(); revision++; stopBand(); hideBand(); bands = {};
     pointer = e.pointerId; draft = [position(e)]; enable(false);
     $('twin-invite-left').hidden = true;
     left.setPointerCapture(pointer); paint(left, draft);
@@ -250,12 +289,12 @@
     source = draft; draft = [];
     leftResult = read(source);
     if (!leftResult) { clear(); return; }
-    scale.max = String(Math.floor(TwinsGeometry.maxScale(source, size) * 100));
-    scale.value = '100';
-    $('twin-scale-max').textContent = `大きく · ${scale.max}%`;
+    ranges = { scale: { min: 40, max: Math.floor(TwinsGeometry.maxScale(source, size) * 100), origin: 100 },
+      y: TwinsGeometry.positionRange(source, size, 'y'), x: TwinsGeometry.positionRange(source, size, 'x') };
+    bands = {};
     $('twin-word-left').textContent = word(leftResult);
     $('twin-invite-right').hidden = true;
-    paint(left, source); enable(true); updateRight(); startBand(); hear(['left']);
+    paint(left, source); enable(true); applyMode(); updateRight(); startBand(); hear(['left']);
   });
   scale.addEventListener('input', () => {
     stop();
@@ -269,12 +308,29 @@
   $('twin-play-right').onclick = () => hear(['right']);
   $('twin-pair').onclick = () => hear(['left', 'right']);
   $('twin-stop').onclick = stop;
-  $('twin-reset').onclick = () => { stop(); scale.value = '100'; updateRight(); };
+  $('twin-reset').onclick = () => { stop(); scale.value = String(range().origin); updateRight(); };
+  // Slider range/labels/texts follow the mode; the slider starts at that mode's origin (right = the left shape).
+  function applyMode() {
+    const m = MODES[mode], r = range(), [lo, hi] = m.ends(r);
+    scale.min = String(r.min); scale.max = String(r.max); scale.value = String(r.origin);
+    $('twin-scale-min').textContent = lo; $('twin-scale-max').textContent = hi;
+    $('twin-scale-title').textContent = m.title;
+    $('twin-right-title').textContent = m.heading;
+    right.setAttribute('aria-label', m.canvas);
+    $('twin-reset').textContent = m.reset;
+    $('twin-scale-note').innerHTML = m.note;
+    $('twin-axis-note').hidden = !m.aside; $('twin-axis-note').textContent = m.aside ?? '';
+    root.querySelectorAll('.twin-mode').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  }
+  root.querySelectorAll('.twin-mode').forEach(b => b.addEventListener('click', () => {
+    if (!leftResult || b.dataset.mode === mode) return;
+    stop(); stopBand(); mode = b.dataset.mode;
+    applyMode(); updateRight(); startBand();
+  }));
   function clear() {
-    stop(); revision++; stopBand(); hideBand(); bandWords = []; pointer = null;
+    stop(); revision++; stopBand(); hideBand(); bands = {}; ranges = {}; mode = 'scale'; pointer = null;
     source = []; draft = []; rightPoints = []; leftResult = null; rightResult = null;
-    enable(false); scale.value = '100'; scale.max = '200';
-    $('twin-scale-max').textContent = '大きく · 200%';
+    enable(false); applyMode();
     $('twin-size').textContent = 'もとの 100%'; $('twin-percent').textContent = '100%';
     for (const side of ['left', 'right']) { $('twin-word-' + side).textContent = '…'; $('twin-invite-' + side).hidden = false; }
     $('twin-message').textContent = '左の枠に描くと、ふたつのことばが生まれます。';

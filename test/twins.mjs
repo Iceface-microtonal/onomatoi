@@ -67,3 +67,55 @@ assert.equal(circleRuns.reduce((n, r) => n + r.length, 0), circleWords.length);
 assert.ok(circleRuns.length >= 2 && circleRuns.length <= 6, `circle band has a few runs (got ${circleRuns.length})`); checks += 3;
 console.log(`twins band: circle 40-${circleMax}% = ${circleRuns.length} runs (${circleRuns.map(r => `${r.word}:${r.start}+${r.length}`).join(' ')})`);
 console.log(`twins: ${checks} checks passed; circle 40/100/200%: ${words.join(' / ')}`);
+
+// Position (up/down, left/right): translation only; the range keeps the whole shape inside the frame.
+const before = JSON.stringify([circle, zigzag, edge, vertical]);
+for (const raw of [circle, zigzag, edge, vertical]) {
+  const b = g.extent(raw);
+  assert.equal(JSON.stringify(g.translate(raw, 0, 0)), JSON.stringify(raw)); checks++;
+  const moved = g.translate(raw, 17, -9), mb = g.extent(moved);
+  assert.ok(Math.abs(mb.width - b.width) < 1e-8 && Math.abs(mb.height - b.height) < 1e-8, 'translate keeps size');
+  assert.ok(moved.every((p, i) => Math.abs(p.x - raw[i].x - 17) < 1e-8 && Math.abs(p.y - raw[i].y + 9) < 1e-8)); checks += 2;
+  for (const axis of ['x', 'y']) {
+    const r = g.positionRange(raw, size, axis), other = axis === 'x' ? 'y' : 'x';
+    assert.ok(r.min <= r.origin && r.origin <= r.max && r.min >= 0 && r.max <= 100); checks++;
+    assert.equal(r.origin, Math.round(g.positionPercent(raw, size, axis))); checks++;
+    for (const v of [r.min, r.max]) {
+      if (v === r.origin) continue;   // the origin is served by the untouched drawing
+      const m = g.moveTo(raw, size, axis, v), e = g.extent(m);
+      assert.ok(Math.abs(e[axis] - v / 100 * size) < 1e-8, 'centre lands on the %');
+      assert.ok(Math.abs(e[other] - b[other]) < 1e-8, 'other axis untouched');
+      assert.ok(Math.abs(e.width - b.width) < 1e-8 && Math.abs(e.height - b.height) < 1e-8, 'size untouched');
+      assert.ok(m.every(p => p.x >= 3 - 1e-8 && p.x <= size - 3 + 1e-8 && p.y >= 3 - 1e-8 && p.y <= size - 3 + 1e-8), `${axis}=${v}% fits the frame`);
+      checks += 4;
+    }
+  }
+}
+assert.equal(before, JSON.stringify([circle, zigzag, edge, vertical]), 'inputs not mutated'); checks++;
+// Tightness on a shape with a known box: circle r=115 -> centre range (3+115)/6 .. (597-115)/6 => 20 .. 80 (ceil / floor)
+{
+  const r = g.positionRange(circle, size, 'x');
+  assert.deepEqual([r.min, r.max, r.origin], [20, 80, 50]); checks++;
+  const out = g.moveTo(circle, size, 'x', r.min - 1);
+  assert.ok(Math.min(...out.map(p => p.x)) < 3, 'one % before min leaves the frame'); checks++;
+  const out2 = g.moveTo(circle, size, 'x', r.max + 1);
+  assert.ok(Math.max(...out2.map(p => p.x)) > size - 3, 'one % after max leaves the frame'); checks++;
+}
+// The word over every position. Left/right is expected to be a pure pan (same word everywhere): observed, and asserted
+// only as far as the observation holds (see the log line). Up/down: the number of runs is recorded, not judged.
+const positionLog = [];
+for (const [name, raw] of [['circle', circle], ['zigzag', zigzag], ['edge', edge], ['vertical', vertical]]) {
+  for (const axis of ['x', 'y']) {
+    const r = g.positionRange(raw, size, axis), ws = [];
+    for (let v = r.min; v <= r.max; v++) {
+      const res = readInk(g.prepare(v === r.origin ? raw : g.moveTo(raw, size, axis, v), size));
+      ws.push(res ? romajiOf(res.event) : '∅');
+    }
+    const rs = g.runs(ws, r.min);
+    assert.equal(ws.length, r.max - r.min + 1); checks++;
+    positionLog.push(`${name} ${axis === 'x' ? '左右' : '上下'} ${r.min}-${r.max}% = ${rs.length} run(s): ${rs.map(q => `${q.word}:${q.start}+${q.length}`).join(' ')}`);
+    if (axis === 'x' && (name === 'circle' || name === 'zigzag')) { assert.equal(new Set(ws).size, 1, `${name}: left/right moves keep one word`); checks++; }
+  }
+}
+console.log('twins position (recorded):\n  ' + positionLog.join('\n  '));
+console.log(`twins: ${checks} checks passed in total`);
