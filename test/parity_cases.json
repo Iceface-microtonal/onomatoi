@@ -1565,6 +1565,222 @@
    "tokens": "myi q he ri",
    "moraMs": 500,
    "cat": "q"
+  },
+  {
+   "id": "rawheld__aiin__250",
+   "tokens": "a i i n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__aiin__333",
+   "tokens": "a i i n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__aiin__500",
+   "tokens": "a i i n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__auun__250",
+   "tokens": "a u u n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__auun__333",
+   "tokens": "a u u n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__auun__500",
+   "tokens": "a u u n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__aoon__250",
+   "tokens": "a o o n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__aoon__333",
+   "tokens": "a o o n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__aoon__500",
+   "tokens": "a o o n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eiin__250",
+   "tokens": "e i i n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eiin__333",
+   "tokens": "e i i n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eiin__500",
+   "tokens": "e i i n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oiin__250",
+   "tokens": "o i i n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oiin__333",
+   "tokens": "o i i n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oiin__500",
+   "tokens": "o i i n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__ouun__250",
+   "tokens": "o u u n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__ouun__333",
+   "tokens": "o u u n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__ouun__500",
+   "tokens": "o u u n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uiin__250",
+   "tokens": "u i i n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uiin__333",
+   "tokens": "u i i n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uiin__500",
+   "tokens": "u i i n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uoon__250",
+   "tokens": "u o o n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uoon__333",
+   "tokens": "u o o n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uoon__500",
+   "tokens": "u o o n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eaan__250",
+   "tokens": "e a a n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eaan__333",
+   "tokens": "e a a n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eaan__500",
+   "tokens": "e a a n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eoon__250",
+   "tokens": "e o o n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eoon__333",
+   "tokens": "e o o n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__eoon__500",
+   "tokens": "e o o n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oaan__250",
+   "tokens": "o a a n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oaan__333",
+   "tokens": "o a a n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__oaan__500",
+   "tokens": "o a a n",
+   "moraMs": 500,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uaan__250",
+   "tokens": "u a a n",
+   "moraMs": 250,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uaan__333",
+   "tokens": "u a a n",
+   "moraMs": 333.3333333333333,
+   "cat": "rawheld"
+  },
+  {
+   "id": "rawheld__uaan__500",
+   "tokens": "u a a n",
+   "moraMs": 500,
+   "cat": "rawheld"
   }
  ]
 }

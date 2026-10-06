@@ -4962,7 +4962,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     if (ext) {
       const cvXfade = ext.sourceOnset !== null && moras[i - 1].onset !== null &&
                       nvDur(bank.v.get(ext.sourceNucleus), sr) >= 0.6;
-      return { ...plan, kind: "ext", ext, cvXfade, extSuppressTail };
+      const followsRawDiph = nvRawVVDiphPart2Takes(i - 1, moras, bank);
+      return { ...plan, kind: "ext", ext, cvXfade, extSuppressTail, followsRawDiph };
     }
     if (bank.v.has(m.nucleus) || bank.shortV.has(m.nucleus)) {
       const suppressTail =
@@ -5147,7 +5148,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         ? ext.totalMs + NV_SAMPLE_FADE_OUT_MS + 5 : ext.totalMs;
       let env = nvSampleEnvelope(timeMs, extEnvTotal);
       // v7.15b: ソースが diph → v_<v> へ切り替わるモーラは頭 12ms をフェードイン
-      if (ext.sourceSwitched && phoneT < 12.0) env *= phoneT / 12.0;
+      // A raw diph can switch to a held take even when its root vowel is unchanged.
+      if ((ext.sourceSwitched || plan.followsRawDiph) && phoneT < 12.0) env *= phoneT / 12.0;
       val = value * nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs)
           * env * eventFade;
     } else if (plan.kind === "v") {
