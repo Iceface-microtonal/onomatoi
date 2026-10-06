@@ -751,23 +751,37 @@ function densified(points, spacing) {
 
 // 大きさに依らない粗い筆 (2026-10-06・Core StrokeWordInterpreter.scaleFreeInk と同じ・形の地図 probes/size_sweep)。
 // 旧: 珠の間隔が画面の対角の 2.2% で固定 → 同じ形を拡縮すると珠の当たり方が変わり、ざらつき・鋭さ・角の数の読みが変わった。
-// 新: 珠の間隔を一筆自身の外枠の対角 × 0.08 にし、解析の座標系を対角 314px に揃える (キャンバスも同じ倍率)。
+// 新: 珠の間隔を一筆自身の大きさ (scaleFreeSize・回しても変わらない) × 0.08 にし、解析の座標系を対角 314px に揃える (キャンバスも同じ倍率)。
 // 戻り値の points / w / h は同じ倍率 scale の座標系 (原点中心)。キャンバスに対する比は元の描画と同じ。
 const SCALE_FREE_STEP_RATIO = 0.08, SCALE_FREE_DIAGONAL = 314;
+// 一筆の大きさ = √12 × 線の広がり (Core StrokeWordInterpreter.scaleFreeSize と同じ・2026-10-06 probes/shape_sweep)。
+// 線の広がり = 線の上に一様に墨がある とみなした重心からの二乗平均距離 (線の長さで重み付け = 描く速さに依らない)。
+// まっすぐな線ならその長さ (= 外枠の対角)。回しても変わらない (旧の外枠の対角は回すと変わり、珠の位相の揺れが戻った)。
+function scaleFreeSize(raw) {
+  let length = 0, sx = 0, sy = 0;
+  for (let i = 1; i < raw.length; i++) {
+    const a = raw[i - 1], b = raw[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+    length += l; sx += l * (a.x + b.x) / 2; sy += l * (a.y + b.y) / 2;
+  }
+  if (length <= 1e-9) return 0;
+  const cx = sx / length, cy = sy / length;
+  let second = 0;
+  for (let i = 1; i < raw.length; i++) {
+    const a = raw[i - 1], b = raw[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+    const mx = (a.x + b.x) / 2 - cx, my = (a.y + b.y) / 2 - cy;
+    second += l * (mx * mx + my * my + l * l / 12);
+  }
+  return Math.sqrt(12 * second / length);
+}
 function scaleFreeInk(raw, w, h, spacing = 6) {
   if (!raw.length || w <= 0 || h <= 0) return { points: raw, w, h, scale: 1 };
-  let minX = raw[0].x, maxX = minX, minY = raw[0].y, maxY = minY;
-  for (const p of raw) {
-    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-  }
-  const diagonal = Math.hypot(maxX - minX, maxY - minY);
-  if (diagonal < 1) {   // 点に近い一筆は大きさの基準が無い → 従来の画面基準の珠
+  const size = scaleFreeSize(raw);
+  if (size < 1) {   // 点に近い一筆は大きさの基準が無い → 従来の画面基準の珠
     const beads = distanceFiltered(raw, Math.hypot(w, h) * 0.022);
     return { points: beads.length >= 2 ? densified(beads, spacing) : beads, w, h, scale: 1 };
   }
-  const beads = distanceFiltered(raw, diagonal * SCALE_FREE_STEP_RATIO);
-  const scale = SCALE_FREE_DIAGONAL / diagonal;
+  const beads = distanceFiltered(raw, size * SCALE_FREE_STEP_RATIO);
+  const scale = SCALE_FREE_DIAGONAL / size;
   const scaled = beads.map(p => ({ x: p.x * scale, y: p.y * scale }));
   return { points: scaled.length >= 2 ? densified(scaled, spacing) : scaled, w: w * scale, h: h * scale, scale };
 }
