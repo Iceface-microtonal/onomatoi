@@ -54,3 +54,4 @@ node test/feedback_worker.mjs       # 「送る」の受け口 (Worker) の検�
 - 語形・言い直し・語の美学 (慣習層) は言語の権威 (調音設計パートナー) の領分。エンジンの規則を変えるときは性質テストを先に足す。
 - `iceface_onomatopian.html` / `about.html` / `Consonants/` (旧版) は更新しない。
 - commit / push / 公開は明示指示があるときだけ。**公開コミットのメッセージは簡素に** (設計語りは入れない)。
+- 作業ツリーに他の作業の未コミット差分が同居することがある。**commit は自分の差分だけ** (`git add <path>` / `git apply --cached`)。他の差分は触らない・混ぜない。
