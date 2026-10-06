@@ -725,5 +725,26 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
   }
 }
 
+// Raw V1+V2 → held V2: verify the rendered entry, not just route flags.
+{
+  const bank = makeBank();
+  for (const vowel of ["a", "i", "u", "e", "o"]) {
+    bank.v.set(vowel, new Float32Array(SR * 2).fill(0.2));
+    bank.contN.set(vowel, new Float32Array(SR * 2));
+  }
+  for (const pair of api.DIPH_PAIRS) bank.diph.set(pair, new Float32Array(SR * 2).fill(-0.1));
+  for (const pair of api.DIPH_PAIRS) for (const bpm of [60, 90, 120]) {
+    const word = pair + pair[1] + "n", ms = 30000 / bpm;
+    const wave = api.nvRenderEvent(api.segmentWord(word), bank, SR, ms).data;
+    const moras = api.nvApplyFollowingMoraAttenuation(api.nvQuantizeMoras(api.segmentWord(word), ms), bank);
+    const gain = t => api.nvContinuousMoraGain(moras[1].amplitude, moras[2].amplitude, t, ms);
+    const start = Math.round(2 * ms / 1000 * SR), full = wave[start + 12 * 48];
+    check(`${word}/${bpm}: 別テイク入口はゼロ開始`, Math.abs(wave[start]) < 1e-6);
+    check(`${word}/${bpm}: 6msで半量`, full > 0.01 && Math.abs(wave[start + 6 * 48] / (0.2 * gain(6)) - 0.5) < 0.005);
+    check(`${word}/${bpm}: 12ms後は元の音量`, Math.abs(full - 0.2 * gain(12)) < 0.001
+      && Math.abs(wave[start + 20 * 48] - 0.2 * gain(20)) < 0.001);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
