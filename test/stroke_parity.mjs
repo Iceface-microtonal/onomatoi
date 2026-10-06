@@ -120,6 +120,9 @@ const FIELDS = {
   "輪": (r, e) => [r.cx.loops, e.loops],
   "拍数": (r, e) => [r.cx.moraCount, e.moraCount],
   "閉じ": (r, e) => [!!r.cx.isClosed, !!e.isClosed],
+  // かたち辞書 (2026-10-06): 型と距離 (Core Katachi.swift = web katachiMatch)
+  "型": (r, e) => [r.katachi?.type ?? null, e.katachiType ?? null],
+  "型の距離": (r, e) => [r.katachi?.d ?? null, e.katachiDistance ?? null, 1e-9],
   ...Object.fromEntries(AXES.map(([wk, sk]) => [`軸 ${sk}`, (r, e) => [r.ax[wk], e.axes[sk], 1e-6]])),
   ...Object.fromEntries(MANNER.map(([wk, sk]) => [`調音 ${sk}`, (r, e) => [mannerOf(r)[wk], e.manner[sk], 1e-3]])),
 };
