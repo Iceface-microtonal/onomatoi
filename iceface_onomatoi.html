@@ -113,7 +113,7 @@
   .knob-row .knob { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--gray); }
   .knob-row input[type=range] { width: 110px; accent-color: var(--pink); }
 </style>
-<link rel="stylesheet" href="./web-play.css">
+<link rel="stylesheet" href="./web-play.css?v=beta1">
 <link rel="stylesheet" href="./reaction.css?v=twomodes1">
 </head>
 <body>
@@ -125,6 +125,7 @@
 
 <main>
 <section class="play-intro" aria-labelledby="play-title">
+  <p class="beta-note"><span class="beta-pill" lang="en">beta</span><span data-copy="betaNote"><span class="ph">ベータ版。</span><span class="ph">毎日すこしずつ、</span><span class="ph">生き物のように変わり、</span><span class="ph">育っています。</span></span></p>
   <h1 id="play-title" class="product-name" lang="ja">おのまとい</h1>
   <p class="brand-tagline" data-copy="title">線が、ことばになる。</p>
   <p data-copy="intro">丸くても、ギザギザでも。ひと筆、どうぞ。</p>
@@ -215,6 +216,7 @@
   <section class="portal-card updates-card" aria-labelledby="updates-title">
     <span class="portal-kicker" data-copy="updatesKicker">おのまといのいま</span>
     <h2 id="updates-title" data-copy="updatesTitle">新しいこと</h2>
+    <p class="updates-lead" data-copy="updatesLead"><span class="ph">おのまといは、</span><span class="ph">日々変わっています。</span><span class="ph">声やことばが、</span><span class="ph">昨日と違うことも</span><span class="ph">あります。</span></p>
     <ol class="updates-list">
       <li><time datetime="2026-09-25">09.25</time><span data-copy="updateVoice">Web の声を更新しました。</span></li>
       <li><time datetime="2026-09-24">09.24</time><a href="./yama/" data-copy="updateYama">おのまといの山が加わりました ↗</a></li>
@@ -6722,7 +6724,7 @@ function unlockAudio() {
 }
 for (const ev of UNLOCK_EVENTS) document.addEventListener(ev, unlockAudio);
 </script>
-<script src="./web-play.js"></script>
+<script src="./web-play.js?v=beta1"></script>
 <script src="./reaction.js?v=twomodes1"></script>
 </body>
 </html>

@@ -29,6 +29,8 @@
     yamaOpen:'Explore the mountain ↗', aboutCardTitle:'About Onomatoi',
     aboutCardDescription:'A little guide to shapes and words. Discover how Onomatoi works.',
     aboutCardLink:'About Onomatoi ↗', updatesKicker:'Onomatoi today', updatesTitle:'What’s new',
+    betaNote:'Onomatoi is in beta. Like a living thing, it changes and grows a little every day.',
+    updatesLead:'Onomatoi keeps changing. A voice or a word may be different from yesterday.',
     updateVoice:'The Web voices have been updated.', updateYama:'Onomatoi Mountain has arrived ↗'
   };
   if (!ja) document.querySelectorAll('[data-copy]').forEach(el => {
