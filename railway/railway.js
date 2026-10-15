@@ -9,10 +9,11 @@
   let stops = [], current = null, previous = 'はじまり', total = 0;
   let animation = 0, rideVersion = 0, requestController = null, requestVersion = 0;
   let soundOn = true, provider = 'checking', activeIndex = -1;
+  let ride = null, voiceEndsAt = 0, laying = false;
   try {
     const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}');
     if (Array.isArray(stored.stops)) {
-      stops = stored.stops.filter(s => typeof s.word === 'string' && s.word.length < 41 &&
+      stops = stored.stops.filter(s => typeof s.word === 'string' && s.word.length < 41 && typeof s.romaji === 'string' &&
         Array.isArray(s.points) && s.points.length >= 2 && s.points.length <= 600 &&
         s.points.every(p => Array.isArray(p) && p.length === 2 && p.every(n => Number.isFinite(n) && n >= 0 && n <= 1)) &&
         s.event && Array.isArray(s.event.moras) && s.event.moras.length < 80).slice(-24);
@@ -83,12 +84,20 @@
     $('journey-count').textContent = String(total).padStart(2, '0');
     setProvider();
   }
-  function chime() {
+  function stopRide() { ride?.stop(); ride = null; }
+  // The word is spoken as the train departs (BPM120: one mora = 0.25 s). Arrival sounds wait for it.
+  function announce(event) {
+    if (!soundOn) { voiceEndsAt = 0; return; }
+    const ctx = ensureCtx();
+    voiceEndsAt = ctx.currentTime + .1 + event.moras.length * .25;
+  }
+  function chime(at = 0) {
     if (!soundOn) return;
     const ctx = ensureCtx();
     const notes = [523.25, 659.25, 783.99, 659.25];
+    const first = Math.max(at, voiceEndsAt, ctx.currentTime);
     notes.forEach((freq, i) => {
-      const start = ctx.currentTime + i * .14;
+      const start = first + i * .14;
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = freq;
       g.gain.setValueAtTime(0, start);
@@ -139,6 +148,12 @@
     const length = path.getTotalLength();
     const duration = reducedMotion ? 1 : Math.max(2200, Math.min(5200, length * 7));
     const started = performance.now();
+    stopRide();
+    if (soundOn && !reducedMotion && window.RailwaySound) {
+      const ctx = ensureCtx(), rect = canvas.getBoundingClientRect();
+      ride = RailwaySound.ride(ctx, {duration, voiceSec: Math.max(0, voiceEndsAt - ctx.currentTime),
+        points: entry.points.map(p => [p[0] * rect.width, p[1] * rect.height])});
+    }
     board(entry, replay ? 'もう一度、あの駅へ' : '次は');
     $('drawing-label').textContent = lineName(entry);
     $('operation').textContent = `${entry.word}駅へ、ひらめき運転中。`;
@@ -153,12 +168,13 @@
       let angle = Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180 / Math.PI;
       if (angle > 90 || angle < -90) angle += 180;
       train.setAttribute('transform', `translate(${point.x} ${point.y}) rotate(${angle})`);
+      ride?.tick(now - started);
       if (linear < 1) animation = requestAnimationFrame(frame);
       else {
         $('board-caption').textContent = 'ただいま到着';
         $('travel-status').textContent = `${entry.word}駅に到着しました。次の線路も、ひと筆どうぞ。`;
         $('operation').textContent = `${entry.word}駅に停車中。まもなく、次のひと筆へ。`;
-        chime();
+        chime(ride ? ride.arrive() : 0);
       }
     }
     animation = requestAnimationFrame(frame);
@@ -180,7 +196,7 @@
       const name = document.createElement('strong'); name.textContent = stop.word;
       const number = document.createElement('small'); number.textContent = `OT ${String(stop.number).padStart(2, '0')}`;
       button.append(dot, name, number);
-      button.onclick = () => { cancelRequest(); activeIndex = i; ensureCtx(); playEvent(stop.event); travel(stop, true); };
+      button.onclick = () => { cancelRequest(); activeIndex = i; announce(stop.event); playEvent(stop.event); travel(stop, true); };
       history.append(button);
     });
   }
@@ -197,6 +213,8 @@
       number: ++total, previous: stops[stops.length - 1]?.word || 'はじまり'
     };
     if (entry.points.length < 2) return;
+    laying = false;
+    announce(event);
     stops.push(entry);
     if (stops.length > 24) stops.shift();
     activeIndex = stops.length - 1;
@@ -204,20 +222,42 @@
     travel(entry);
     requestAnimationFrame(() => { $('station-history').scrollLeft = $('station-history').scrollWidth; });
   }
+  // Put the train back at the platform of the current station without running (no sound).
+  function park(entry) {
+    cancelAnimationFrame(animation); rideVersion++; stopRide();
+    restoreInk(entry);
+    const {path, train} = drawRail(entry);
+    const length = path.getTotalLength(), p = path.getPointAtLength(length), q = path.getPointAtLength(Math.max(0, length - 2));
+    let angle = Math.atan2(p.y - q.y, p.x - q.x) * 180 / Math.PI;
+    if (angle > 90 || angle < -90) angle += 180;
+    train.setAttribute('transform', `translate(${p.x} ${p.y}) rotate(${angle})`);
+    $('board-caption').textContent = 'ただいま到着';
+  }
+  // A tap or an interrupted stroke yields no word: restore the last station instead of leaving
+  // the rail half-cleared. Runs after the engine's own pointerup, which announces synchronously.
+  function abandonLaying(message) {
+    if (!laying) return;
+    laying = false;
+    if (current) park(current);
+    else { $('rail-invitation').hidden = false; $('btn-clear').click(); }
+    $('travel-status').textContent = message;
+  }
   window.addEventListener('onomatoi-utterance', ({detail}) => accept(detail));
   canvas.addEventListener('pointerdown', () => {
-    cancelAnimationFrame(animation); rideVersion++; cancelRequest();
+    cancelAnimationFrame(animation); rideVersion++; cancelRequest(); stopRide();
+    laying = true;
     $('rail-layer').replaceChildren();
     $('rail-invitation').hidden = true;
     $('sky-caption').hidden = false;
     $('travel-status').textContent = 'ただいま敷設中。指を離すと、出発します。';
   });
+  canvas.addEventListener('pointerup', () => abandonLaying('線路が短すぎたようです。もう少し長く、ひと筆どうぞ。'));
   canvas.addEventListener('pointercancel', () => {
     drawing = false; pendingPt = null; coarseInk = null;
-    $('travel-status').textContent = '線路の敷設を中断しました。もう一度、ひと筆どうぞ。';
+    abandonLaying('線路の敷設を中断しました。もう一度、ひと筆どうぞ。');
   });
   $('rail-clear').onclick = () => {
-    cancelAnimationFrame(animation); rideVersion++; cancelRequest(); current = null; activeIndex = -1;
+    cancelAnimationFrame(animation); rideVersion++; cancelRequest(); stopRide(); current = null; activeIndex = -1;
     $('btn-clear').click();
     $('rail-layer').replaceChildren(); $('rail-invitation').hidden = false; $('sky-caption').hidden = false;
     $('travel-status').textContent = '次の駅は、まだ誰も知りません。';
@@ -232,15 +272,15 @@
   };
   $('rail-replay').onclick = () => {
     if (!current) return;
-    ensureCtx(); playEvent(current.event); travel(current, true);
+    announce(current.event); playEvent(current.event); travel(current, true);
   };
   $('rail-sound').onclick = () => {
     soundOn = !soundOn;
-    if (!soundOn) { pendingEvent = null; stopAll(); }
+    if (!soundOn) { pendingEvent = null; stopAll(); stopRide(); }
     else ensureCtx();
     $('rail-sound').setAttribute('aria-pressed', String(soundOn));
     $('rail-sound').querySelector('span').textContent = soundOn ? '音あり' : '音なし';
-    notify(soundOn ? '音声と到着チャイムを鳴らします。' : '音を止めました。静かな旅をどうぞ。');
+    notify(soundOn ? '音声と列車の音、到着チャイムを鳴らします。' : '音を止めました。静かな旅をどうぞ。');
   };
   document.querySelectorAll('[data-track]').forEach(button => {
     button.onclick = () => {
@@ -299,13 +339,15 @@
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { if (current && !drawing) { cancelAnimationFrame(animation); rideVersion++; restoreInk(current); const {path,train} = drawRail(current); const p = path.getPointAtLength(path.getTotalLength()); train.setAttribute('transform', `translate(${p.x} ${p.y})`); $('board-caption').textContent = 'ただいま到着'; } }, 160);
+    resizeTimer = setTimeout(() => { if (current && !drawing) park(current); }, 160);
   });
+  // A hidden tab pauses the animation frames; do not leave the train rumbling in the background.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopRide(); });
   renderHistory(); setProvider();
   fetch(API + '/api/reaction/status', {signal:AbortSignal.timeout(8000)})
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(data => { provider = ['configured','luna'].includes(data.mode) ? 'ready' : 'unavailable'; setProvider(); })
     .catch(() => { provider = 'unavailable'; setProvider(); });
-  // Narrow testable view helpers; the phonetic generator stays in engine.js.
+  // Narrow testable view helpers; the phonetic generator stays in /iceface_onomatoi.html.
   window.RailwayView = {lineName, officeMessage, pathData};
 })();
