@@ -12,6 +12,7 @@
   const STEP = 4;          // px resolution of the curvature table
   const LEVEL = .4;        // whole train under the voice (rendered RMS about 10 dB below a spoken word)
   const DUCK = .5;         // further down while the word is still being spoken
+  const CLACK = .7;        // rail-joint clicks relative to the rest (10-16 作者: ガタゴトをもう少しだけ小さく = -3 dB)
   const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
   const smooth = u => u * u * (3 - 2 * u);   // same easing as the train animation
   let noise = null;
@@ -91,8 +92,8 @@
     function speedAt(u) { return length / (duration / 1000) * 6 * u * (1 - u); }
     // One bogie over a joint: two axles, each a low thump with a short metallic tick.
     function clack(t, speed, front) {
-      const amp = Math.pow(clamp(speed / VREF), .6) * (.85 + Math.random() * .3);
-      if (amp < .02) return;
+      const amp = CLACK * Math.pow(clamp(speed / VREF), .6) * (.85 + Math.random() * .3);
+      if (amp < .02 * CLACK) return;
       const gap = clamp(AXLE / Math.max(speed, 1), .012, .085);
       for (const [k, at] of [[.75, t], [1, t + gap]]) {
         const thump = ctx.createOscillator(), tg = ctx.createGain();
