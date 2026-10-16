@@ -5695,6 +5695,33 @@ function whyFormType(moras) {
   }
   return "root";
 }
+// 2026-10-16: 「語に出た音だけを語る」— 軸の傾向を言うだけの行を出さない。各理由は、その語に実際に
+// 現れた音 (heard = モーラ) を持ち、現れていなければ理由そのものを出さない (例: 「大→あ」と言った語に
+// あ が無い 11/12 本があった)。鋭い子音 = 破裂・破擦 + 歯擦 (か・た・さ・つ系) / 柔らかい子音 = ま・わ・な・ら・や系。
+const WHY_SHARP_ONSETS = new Set(["k", "g", "t", "d", "p", "b", "ky", "gy", "kw", "gw", "py", "ts", "ch", "j",
+                                  "s", "sh", "z", "sw", "zw"]);
+const WHY_SOFT_ONSETS = new Set(["m", "n", "r", "w", "y", "my", "ny", "ry"]);
+// 清濁の言い分は阻害音だけ。manner class では y/ny/iy が "f" (うねりの証拠・P6) に入っているので使わない
+// (旧: ゆー に「大きい=重い → 濁音」が出ていた)。
+const WHY_VOICED_OBSTRUENTS = new Set(["g", "d", "b", "gy", "gw", "j", "z", "zw"]);
+const WHY_VOICELESS_OBSTRUENTS = new Set(["k", "t", "p", "ky", "kw", "py", "ts", "ch", "s", "sh", "sw", "h", "hy", "f"]);
+const WHY_MOUTH_VOWELS = { open: ["a", "e"], closed: ["i", "u"], pursed: ["u", "o"], spread: ["i", "e"], big: ["a"] };
+function whyHeard(moras, keep) {   // 条件に合うモーラを語の順に・重複なし・4 つまで
+  const seen = new Set(), out = [];
+  for (const m of moras) {
+    if (m.isN || m.isQ || !keep(m)) continue;
+    const key = (m.onset ?? "") + m.nucleus;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push({ onset: m.onset ?? null, nucleus: m.nucleus });
+    if (out.length === 4) break;
+  }
+  return out;
+}
+function whyMoraLabel(m, ja) {
+  if (!ja) return (m.onset ?? "") + m.nucleus;
+  const row = NAMING_KANA_ROWS[m.onset ?? ""] ?? NAMING_KANA_ROWS[""];
+  return row[NAMING_VOWEL_INDEX[m.nucleus] ?? 0];
+}
 function whyReasons(ax, moras, vocabReason = null, shape = null) {
   const voiced = moras.filter(m => !m.isSilentRest);
   if (!voiced.length) return [];
@@ -5702,24 +5729,29 @@ function whyReasons(ax, moras, vocabReason = null, shape = null) {
   const reasons = shape ? whyShapeReasons(shape) : [];
   // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
   if (vocabReason) return [...reasons, { code: "vocab", layer: "convention", text: vocabReason }];
-  const onsets = voiced.map(m => m.onset).filter(c => c);
-  // 子音の性格 ← sharpness
-  if (ax.sharp > 0.25) reasons.push({ code: "consonantSharp", layer: "universal", sharp: ax.sharp });
-  else if (ax.sharp < -0.25) reasons.push({ code: "consonantSoft", layer: "universal", sharp: ax.sharp });
-  // 母音 ← 口の形
+  const push = (r, heard) => { if (heard.length) reasons.push({ ...r, heard }); };
+  // 子音の性格 ← sharpness (語に出た鋭い/柔らかい子音だけ)
+  if (ax.sharp > 0.25)
+    push({ code: "consonantSharp", layer: "universal", sharp: ax.sharp }, whyHeard(voiced, m => WHY_SHARP_ONSETS.has(m.onset)));
+  else if (ax.sharp < -0.25)
+    push({ code: "consonantSoft", layer: "universal", sharp: ax.sharp }, whyHeard(voiced, m => WHY_SOFT_ONSETS.has(m.onset)));
+  // 母音 ← 口の形 (語に出た母音だけ)
   const parts = [];
   if ((ax.open ?? 0) > 0.3) parts.push("open");
   else if ((ax.open ?? 0) < -0.3) parts.push("closed");
   if ((ax.round ?? 0) > 0.25) parts.push("pursed");
   else if ((ax.round ?? 0) < -0.25) parts.push("spread");
   if (!parts.length && ax.size > 0.3) parts.push("big");
-  if (parts.length) reasons.push({ code: "vowelMouth", layer: "universal", parts });
-  // 清濁 ← size (重さ)。阻害音 = 破裂/破擦/摩擦 (manner class)
-  const OBS = new Set(["p", "a", "f"]);
-  const hasVoicedObs = onsets.some(c => VOICED.has(c) && OBS.has(mannerClassOf(c)));
-  const hasVoicelessObs = onsets.some(c => !VOICED.has(c) && OBS.has(mannerClassOf(c)));
-  if (ax.size > 0.5 && hasVoicedObs) reasons.push({ code: "voicedBySize", layer: "universal", size: ax.size });
-  else if (ax.size < -0.5 && hasVoicelessObs) reasons.push({ code: "voicelessBySize", layer: "universal", size: ax.size });
+  const nuclei = new Set(voiced.filter(m => !m.isN && !m.isQ).map(m => m.nucleus));
+  const mouth = parts.map(part => ({ part, vowels: WHY_MOUTH_VOWELS[part].filter(v => nuclei.has(v)) }))
+                     .filter(x => x.vowels.length);
+  if (mouth.length) reasons.push({ code: "vowelMouth", layer: "universal", parts: mouth });
+  // 清濁 ← size (重さ)。原理12 の運用 (10-16): 大きさは濁りやすさの傾向 (普遍層) で、形の強さが
+  // 濁りを許すかを決めることもある → 「濁りやすい」と言い、断定しない。
+  if (ax.size > 0.5)
+    push({ code: "voicedBySize", layer: "universal", size: ax.size }, whyHeard(voiced, m => WHY_VOICED_OBSTRUENTS.has(m.onset)));
+  else if (ax.size < -0.5)
+    push({ code: "voicelessBySize", layer: "universal", size: ax.size }, whyHeard(voiced, m => WHY_VOICELESS_OBSTRUENTS.has(m.onset)));
   reasons.push({ code: "form", layer: "universal", type: whyFormType(voiced), tex: ax.tex, size: ax.size });
   // Web は平坦音程。軸からピッチが変わるという説明は出さない。
   return reasons;
@@ -5727,6 +5759,7 @@ function whyReasons(ax, moras, vocabReason = null, shape = null) {
 // 研究ノートの口調 (今の なぜ? 欄)。理由 1 つ → 1 行。
 function whyLineLab(r, ja) {
   const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
+  const heard = x => x.heard.map(m => whyMoraLabel(m, ja)).join(ja ? "・" : ", ");
   switch (r.code) {
     case "retraced":
       return ja ? "なぞり直し → 1周の形として読んだ (何周でも同じ形)"
@@ -5753,19 +5786,20 @@ function whyLineLab(r, ja) {
     case "vocab":
       return r.text;
     case "consonantSharp":
-      return ja ? `鋭さ ${f(r.sharp)}（尖り）→ 鋭い子音（か・た・さ・つ系）` : `sharp ${f(r.sharp)} (spiky) → hard consonants (k/t/s/ts)`;
+      return ja ? `鋭さ ${f(r.sharp)}（尖り）→ 鋭い子音（${heard(r)}）` : `sharp ${f(r.sharp)} (spiky) → hard consonants (${heard(r)})`;
     case "consonantSoft":
-      return ja ? `鋭さ ${f(r.sharp)}（丸み）→ 柔らかい子音（ま・わ・な・ら系）` : `sharp ${f(r.sharp)} (rounded) → soft consonants (m/w/n/r)`;
+      return ja ? `鋭さ ${f(r.sharp)}（丸み）→ 柔らかい子音（${heard(r)}）` : `sharp ${f(r.sharp)} (rounded) → soft consonants (${heard(r)})`;
     case "vowelMouth": {
-      const label = { open: ja ? "開いた口→あ/え" : "open mouth→a/e", closed: ja ? "閉じた口→い/う" : "closed mouth→i/u",
-                      pursed: ja ? "すぼめ→う/お" : "pursed lips→u/o", spread: ja ? "横引き→い/え" : "spread lips→i/e",
-                      big: ja ? "大→あ" : "big→a" };
-      return (ja ? "口の形 → 母音 " : "mouth → vowels: ") + r.parts.map(p => label[p]).join(ja ? "・" : ", ");
+      const label = { open: ja ? "開いた口" : "open mouth", closed: ja ? "閉じた口" : "closed mouth",
+                      pursed: ja ? "すぼめ" : "pursed lips", spread: ja ? "横引き" : "spread lips", big: ja ? "大" : "big" };
+      const vowel = v => ja ? "あいうえお"["aiueo".indexOf(v)] : v;
+      return (ja ? "口の形 → 母音 " : "mouth → vowels: ")
+        + r.parts.map(x => `${label[x.part]}→${x.vowels.map(vowel).join("/")}`).join(ja ? "・" : ", ");
     }
     case "voicedBySize":
-      return ja ? "大きい=重い → 濁音（が・ば・ざ）" : "big = heavy → voiced (g/b/z)";
+      return ja ? `大きい=重い → 濁りやすい（${heard(r)}）` : `big = heavy → tends to voice (${heard(r)})`;
     case "voicelessBySize":
-      return ja ? "小さい=軽い → 清音（か・ぱ・さ）" : "small = light → voiceless (k/p/s)";
+      return ja ? `小さい=軽い → 清音（${heard(r)}）` : `small = light → voiceless (${heard(r)})`;
     case "form": {
       const t = {
         sustain: ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）" : "one held stroke → sustained vowel (aaaa-type)",

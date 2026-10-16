@@ -2,12 +2,12 @@
 //
 // 方針: 「なぜ?」欄の説明を、文ではなく「理由コード + 値」(whyReasons) で持ち、文にするのは口調ごとの表
 // (今の研究ノート口調 = whyLineLab)。表を替えても事実は同じところから出る。
-// 1) 文の不変: 今の なぜ? 欄の文 (日英) が、理由コード化の前と一字一句同じ (golden = fixtures/why_golden.json)
+// 1) 文の固定: なぜ? 欄の文 (日英) が golden (fixtures/why_golden.json) と一字一句同じ。文を意図して変えたら
+//    --diff で前後を目で確かめてから --write で作り直す (10-16 の作り直し = 「語に出た音だけを語る」)
 // 2) 理由と文が 1 対 1・理由には層 (universal / convention) が付く (立法の理由を表に出すかを機械的に選べる)
-// 3) 理由の裏付け (表示のみ): 文が言うことが語の実際の音に現れているかを数える (落ちない・報告だけ)
+// 3) 語に出た音だけを語る: 理由が名指す音 (heard) が全部その語にあり、言い分の種類に合っている
 //
-// golden の作り直し (理由コード化の前のコードでだけ使う): node test/why_reasons.mjs --write
-// 実行: node test/why_reasons.mjs
+// 実行: node test/why_reasons.mjs   (前後の比較: --diff・golden の作り直し: --write)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -19,6 +19,7 @@ const HTML_PATH = path.resolve(__dirname, "../iceface_onomatoi.html");
 const GOLDEN_PATH = path.join(__dirname, "fixtures/why_golden.json");
 const IMPURE = /\b(document|localStorage|sessionStorage|window|navigator|AudioContext|audioCtx|fetch\(|canvas|cctx|location|alert\(|requestAnimationFrame|history)\b/;
 const WRITE = process.argv.includes("--write");
+const DIFF = process.argv.includes("--diff");
 
 function extractEngine(html) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
@@ -144,13 +145,26 @@ function explainBoth(c) {
 const all = cases();
 if (WRITE) {
   const golden = all.map(c => { const { r, ja, en } = explainBoth(c); return { id: c.id, word: api.romajiOf(r.event), ja, en }; });
-  fs.writeFileSync(GOLDEN_PATH, JSON.stringify({ note: "「なぜ?」欄の文 (理由コード化の前) — test/why_reasons.mjs --write", cases: golden }, null, 0) + "\n");
+  fs.writeFileSync(GOLDEN_PATH, JSON.stringify({ note: "「なぜ?」欄の文の固定 — 作り直しは --diff で前後を確かめてから test/why_reasons.mjs --write", cases: golden }, null, 0) + "\n");
   console.log(`golden を書いた: ${golden.length} 本`);
   process.exit(0);
 }
 
 const golden = JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8")).cases;
-console.log("── 1) 文の不変 (理由コード化の前と一字一句同じ) ──");
+if (DIFF) {   // golden から変わった文を前後で並べる (日本語のみ)
+  let changed = 0;
+  all.forEach((c, i) => {
+    const g = golden[i], { r, ja } = explainBoth(c);
+    if (JSON.stringify(ja) === JSON.stringify(g.ja)) return;
+    changed++;
+    console.log(`\n${c.id}  ${api.romajiOf(r.event)}`);
+    for (const l of g.ja) if (!ja.includes(l)) console.log(`  - ${l}`);
+    for (const l of ja) if (!g.ja.includes(l)) console.log(`  + ${l}`);
+  });
+  console.log(`\n変わった線 ${changed} / ${all.length} 本`);
+  process.exit(0);
+}
+console.log("── 1) 文の固定 (golden と一字一句同じ) ──");
 {
   check("線の集め方が golden と同じ", golden.length === all.length && golden.every((g, i) => g.id === all[i].id),
         `${golden.length} vs ${all.length}`);
@@ -186,25 +200,33 @@ console.log("── 2) 理由と文が 1 対 1・層が付く ──");
   console.log("  理由の出現数: " + [...codes].map(([k, v]) => `${k} ${v}`).join(" · "));
 }
 
-console.log("── 3) 理由の裏付け (報告のみ・落ちない) ──");
+console.log("── 3) 語に出た音だけを語る ──");
 {
-  // 文が言う音が、語の実際の音に現れているか。現れない = 軸の傾向を言っているだけで、この語の説明になっていない。
-  const HARD = new Set(["k", "t", "s", "ts", "ch", "p", "sh", "g", "d", "z", "b", "j"]);
-  const SOFT = new Set(["m", "w", "n", "r", "y", "ny", "my", "ry", "h", "hy", "f"]);
-  const VOWELS = { open: ["a", "e"], closed: ["i", "u"], pursed: ["u", "o"], spread: ["i", "e"], big: ["a"] };
-  const tally = {};
-  const bump = (k, ok) => { tally[k] ??= { n: 0, ok: 0 }; tally[k].n++; if (ok) tally[k].ok++; };
+  const SHARP = new Set(["k", "g", "t", "d", "p", "b", "ky", "gy", "kw", "gw", "py", "ts", "ch", "j", "s", "sh", "z", "sw", "zw"]);
+  const SOFT = new Set(["m", "n", "r", "w", "y", "my", "ny", "ry"]);
+  const MOUTH = { open: ["a", "e"], closed: ["i", "u"], pursed: ["u", "o"], spread: ["i", "e"], big: ["a"] };
+  const VOICED_OBS = new Set(["g", "d", "b", "gy", "gw", "j", "z", "zw"]);
+  const VOICELESS_OBS = new Set(["k", "t", "p", "ky", "kw", "py", "ts", "ch", "s", "sh", "sw", "h", "hy", "f"]);
+  let claims = 0;
+  const bad = [];
   for (const c of all) {
     const { r } = explainBoth(c);
-    const ms = r.event.moras.filter(m => !m.isSilentRest);
-    const onsets = ms.map(m => m.onset).filter(Boolean), nuclei = ms.map(m => m.nucleus).filter(Boolean);
+    const ms = r.event.moras.filter(m => !m.isSilentRest && !m.isN && !m.isQ);
+    const has = h => ms.some(m => (m.onset ?? null) === h.onset && m.nucleus === h.nucleus);
     for (const x of api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx)) {
-      if (x.code === "consonantSharp") bump("鋭い子音 (か・た・さ・つ系) と言った語に、鋭い子音がある", onsets.some(o => HARD.has(o)));
-      if (x.code === "consonantSoft") bump("柔らかい子音 (ま・わ・な・ら系) と言った語に、柔らかい子音がある", onsets.some(o => SOFT.has(o)));
-      if (x.code === "vowelMouth") for (const p of x.parts) bump(`口の形「${p}」と言った語に、その母音がある`, nuclei.some(v => VOWELS[p].includes(v)));
+      const kind = { consonantSharp: h => SHARP.has(h.onset), consonantSoft: h => SOFT.has(h.onset),
+                     voicedBySize: h => VOICED_OBS.has(h.onset), voicelessBySize: h => VOICELESS_OBS.has(h.onset) }[x.code];
+      if (kind) {
+        claims++;
+        if (!x.heard.length || !x.heard.every(h => has(h) && kind(h))) bad.push(`${c.id}:${x.code}`);
+      }
+      if (x.code === "vowelMouth") for (const p of x.parts) {
+        claims++;
+        if (!p.vowels.length || !p.vowels.every(v => MOUTH[p.part].includes(v) && ms.some(m => m.nucleus === v))) bad.push(`${c.id}:mouth.${p.part}`);
+      }
     }
   }
-  for (const [k, v] of Object.entries(tally)) console.log(`  ${k}: ${v.ok}/${v.n} (${Math.round(100 * v.ok / v.n)}%)`);
+  check(`言い分 ${claims} 件の音が、全部その語にあり種類も合う`, bad.length === 0, bad.slice(0, 5).join(", "));
 }
 
 console.log(`\n${pass} passed / ${fail} failed`);
