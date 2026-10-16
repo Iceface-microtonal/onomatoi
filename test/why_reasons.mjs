@@ -6,8 +6,10 @@
 //    --diff で前後を目で確かめてから --write で作り直す (10-16 の作り直し = 「語に出た音だけを語る」)
 // 2) 理由と文が 1 対 1・理由には層 (universal / convention) が付く (立法の理由を表に出すかを機械的に選べる)
 // 3) 語に出た音だけを語る: 理由が名指す音 (heard) が全部その語にあり、言い分の種類に合っている
+// 4) 語りの口調 (whyNarrate・試作): 語は引用 (A) が基本・っ/ん/り/くり返しで終わる 4 拍までだけ「〜と、」(B)。
+//    使った言葉 (折れる・巻く・戻る・詰まる…) に、どれも理由コードの裏付けがある
 //
-// 実行: node test/why_reasons.mjs   (前後の比較: --diff・golden の作り直し: --write)
+// 実行: node test/why_reasons.mjs   (前後の比較: --diff・golden の作り直し: --write・語りの見本: --samples)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -77,7 +79,7 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const BASE = ["interpretStroke", "densified", "explainEvent", "romajiOf"];
-const CODED = ["whyReasons", "whyLineLab"];
+const CODED = ["whyReasons", "whyLineLab", "whyNarrate", "namingKanaOf"];
 const EXPORTS = WRITE ? BASE : [...BASE, ...CODED];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`
@@ -184,9 +186,9 @@ console.log("── 2) 理由と文が 1 対 1・層が付く ──");
   for (const c of all) {
     const { r, rEn, ja, en } = explainBoth(c);
     const reasons = api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx);
-    const lab = reasons.map(x => api.whyLineLab(x, true));
+    const lab = reasons.map(x => api.whyLineLab(x, true)).filter(l => l !== "");
     const labEn = api.whyReasons(rEn.ax, rEn.event.moras, rEn.event.vocabReason ?? null, rEn.cx)
-      .map(x => api.whyLineLab(x, false));
+      .map(x => api.whyLineLab(x, false)).filter(l => l !== "");
     if (JSON.stringify(lab) !== JSON.stringify(ja) || JSON.stringify(labEn) !== JSON.stringify(en)) bad.push(c.id);
     for (const x of reasons) {
       codes.set(x.code, (codes.get(x.code) || 0) + 1);
@@ -227,6 +229,41 @@ console.log("── 3) 語に出た音だけを語る ──");
     }
   }
   check(`言い分 ${claims} 件の音が、全部その語にあり種類も合う`, bad.length === 0, bad.slice(0, 5).join(", "));
+}
+
+console.log("── 4) 語りの口調 (A 引用が基本・短い語だけ B) ──");
+{
+  const B_TYPES = new Set(["sokuon", "hatsuon", "ri", "redup"]);
+  const bad = [], samples = [];
+  let nB = 0, nA = 0;
+  for (const c of all) {
+    const { r } = explainBoth(c);
+    const reasons = api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx);
+    const kana = r.event.displayWordOverride ?? api.namingKanaOf(r.event.moras);
+    const text = api.whyNarrate(reasons, kana);
+    const path = reasons.find(x => x.code === "path"), end = reasons.find(x => x.code === "ending");
+    const ms = r.event.moras.filter(m => !m.isSilentRest), last = ms[ms.length - 1];
+    const fail = why => bad.push(`${c.id} ${why}: ${text}`);
+    if (!text) { fail("語りが空"); continue; }
+    const wantB = end.morae <= 4 && (last.isQ || last.isN || end.type === "ri" || end.type === "redup");
+    if (wantB) { nB++; if (!text.startsWith(kana + "と、")) fail("B のはず"); }
+    else { nA++; if (!text.includes(`「${kana}」`) || text.startsWith(kana + "と、")) fail("A のはず"); }
+    if (/折れ/.test(text) && !(path.corners >= 1)) fail("角が無いのに 折れ");
+    if (/巻い|ひと巻き/.test(text) && !(path.loops - (path.closed ? 1 : 0) >= 1)) fail("輪が無いのに 巻く");
+    if (/巡り/.test(text) && !path.closed) fail("閉じていないのに 巡る");
+    if (/戻/.test(text) && !path.closed) fail("閉じていないのに 戻る");
+    if (/まっすぐ/.test(text) && !(path.straight && path.corners === 0 && path.loops === 0)) fail("まっすぐでない");
+    if (/なぞり/.test(text) && !path.retraced) fail("なぞり直していない");
+    if (/詰まる/.test(text) && !last.isQ) fail("語末が っ でない");
+    if (/結ばれる|響きを残す/.test(text) && !last.isN) fail("語末が ん でない");
+    if (/くり返す/.test(text) && end.type !== "redup") fail("くり返しでない");
+    if (/大きく|長く/.test(text) && !(path.size > 0.5)) fail("大きくない");
+    if (/小さく|短く/.test(text) && !(path.size < -0.5)) fail("小さくない");
+    samples.push(`${c.id}  ${text}`);
+  }
+  check(`語りが全部の線に付き、A/B が規則どおり (A ${nA} / B ${nB})`, !bad.some(b => /空|のはず/.test(b)), bad.filter(b => /空|のはず/.test(b)).slice(0, 3).join(" | "));
+  check("語りの言葉に、どれも理由コードの裏付けがある", !bad.some(b => !/空|のはず/.test(b)), bad.filter(b => !/空|のはず/.test(b)).slice(0, 3).join(" | "));
+  if (process.argv.includes("--samples")) for (const t of samples) console.log("  " + t);
 }
 
 console.log(`\n${pass} passed / ${fail} failed`);

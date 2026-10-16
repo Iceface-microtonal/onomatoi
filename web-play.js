@@ -110,6 +110,7 @@
     const axes = explanation?.axes || event.axes;
     drawMouthIcon(axes.open ?? 0, axes.round ?? 0);
     updateWhy(axes, event.moras, event.vocabReason ?? null, explanation?.shape ?? null);
+    updateNarration(axes, event, explanation?.source === 'draw' ? explanation?.shape ?? null : null);
     // These sources do not use the ordinary stroke-to-word explanation.
     if (['preset', 'romaji', 'naming'].includes(explanation?.source)) {
       $('why-lines').textContent = explanation.source === 'preset'
@@ -202,6 +203,7 @@
     $('canvas-invitation').hidden = false;
     $('result-word').textContent = '…';
     $('why-panel').style.display = 'none';
+    $('result-narration').hidden = true;
     clearInterval(mouthTimelineTimer);
     $('mouth-timeline').replaceChildren();
     $('mouth-arrow').style.display = 'none';

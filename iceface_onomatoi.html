@@ -113,7 +113,7 @@
   .knob-row .knob { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--gray); }
   .knob-row input[type=range] { width: 110px; accent-color: var(--pink); }
 </style>
-<link rel="stylesheet" href="./web-play.css?v=beta1">
+<link rel="stylesheet" href="./web-play.css?v=narr1">
 <link rel="stylesheet" href="./reaction.css?v=twomodes1">
 </head>
 <body>
@@ -164,6 +164,8 @@
     </span>
     <div class="result-meta" id="result-meta"></div>
   </div>
+  <!-- 2026-10-16 試作: 線と語を一文で結ぶ語り (理由コードから・日本語のみ・API なし) -->
+  <p class="result-narration" id="result-narration" hidden></p>
   <!-- #5 多画=句 (2026-07-17): 短い間で描き継いだ複数の一筆が句として連なる。▶PLAY で通し再生 -->
   <div id="phrase-line" style="display:none; margin-top:4px; font-size:11px; color:var(--gray);
     font-family: 'SF Mono', Menlo, monospace;"></div>
@@ -5678,7 +5680,8 @@ function whyShapeReasons(cx) {
 // 語形の型 (実際の末尾から型を読む)。sustain = あーあー型 / redup = きらきら型 / sokuon = ぱっ型 /
 // hatsuon = どん型 / long = がーん型 / ri = きらり型 / root = 素の語根
 function whyFormType(moras) {
-  const loops = moras.filter(m => !m.isN);
+  // っ は母音を持たない (旧: ぎゃっ・かっ が「あーあー型」と読まれていた・10-16)
+  const loops = moras.filter(m => !m.isN && !m.isQ);
   if (loops.length >= 2 && loops.slice(1).every(m => m.onset === null && m.nucleus === loops[0].nucleus))
     return "sustain";
   if (loops.length >= 2 && loops.length % 2 === 0) {
@@ -5727,6 +5730,13 @@ function whyReasons(ax, moras, vocabReason = null, shape = null) {
   if (!voiced.length) return [];
   // Step1/2/3 の計測 (形をどう読んだか) は常に先頭に出す — 固定語彙 (P12) でも形が根拠。
   const reasons = shape ? whyShapeReasons(shape) : [];
+  // 語りの材料 (研究ノートの口調では文にしない): 線の道すじと語尾の型。固定語彙でも同じ。
+  if (shape) reasons.push({ code: "path", layer: "universal", corners: shape.corners ?? 0, loops: shape.loops ?? 0,
+    closed: !!shape.isClosed, retraced: !!shape.retraced, disorder: shape.disorder ?? 0, size: ax.size,
+    straight: (shape.pathRatio ?? 0) > 0 && (shape.sizeRatio ?? 0) / shape.pathRatio > 0.92 });
+  const lastMora = voiced[voiced.length - 1];
+  reasons.push({ code: "ending", layer: "universal", type: whyFormType(voiced), morae: voiced.length,
+                 last: lastMora.isQ ? "Q" : lastMora.isN ? "N" : "V" });
   // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
   if (vocabReason) return [...reasons, { code: "vocab", layer: "convention", text: vocabReason }];
   const push = (r, heard) => { if (heard.length) reasons.push({ ...r, heard }); };
@@ -5785,6 +5795,8 @@ function whyLineLab(r, ja) {
                 : `disorder ${r.disorder.toFixed(2)} (uneven turns, self-crossings) → voiced/palatalized (gucha-gucha zone)`;
     case "vocab":
       return r.text;
+    case "path": case "ending":   // 語りの材料 (この口調では言わない)
+      return "";
     case "consonantSharp":
       return ja ? `鋭さ ${f(r.sharp)}（尖り）→ 鋭い子音（${heard(r)}）` : `sharp ${f(r.sharp)} (spiky) → hard consonants (${heard(r)})`;
     case "consonantSoft":
@@ -5817,7 +5829,48 @@ function whyLineLab(r, ja) {
 }
 function explainEvent(ax, moras, vocabReason = null, shape = null) {
   const ja = uiLang === "ja";
-  return whyReasons(ax, moras, vocabReason, shape).map(r => whyLineLab(r, ja));
+  return whyReasons(ax, moras, vocabReason, shape).map(r => whyLineLab(r, ja)).filter(l => l !== "");
+}
+// 語りの口調 (2026-10-16・試作・日本語のみ): 線の動きにも音にも使える言葉で、描いた線と生まれた語を一文で結ぶ。
+// 語は引用 (A「…」と聞こえる) が基本。っ・ん・り・くり返しで終わる 4 拍までの語だけ、日本語のオノマトペ本来の
+// 「〜と、」(B)。前半 (折れる・巻く・まっすぐ…) は線の事実、後半 (詰まる・結ばれる・のびる…) は語の音の事実で、
+// どれも理由コードに裏付けがあるときだけ選ぶ。語の意味は言わない (翻訳期待を誘わない)。
+const WHY_COUNT_JA = ["", "一", "二", "三", "四", "五"];
+function whyNarrate(reasons, kana) {
+  const path = reasons.find(r => r.code === "path"), end = reasons.find(r => r.code === "ending");
+  if (!path || !end || !kana) return "";
+  const soft = reasons.some(r => r.code === "consonantSoft");
+  const big = path.size > 0.5, small = path.size < -0.5;
+  // 閉じた形の 1 周は輪に数えない (四角が「巻いて」にならない)。閉じたことは後半の「戻る」が言う。
+  const loops = Math.max(0, path.loops - (path.closed ? 1 : 0));
+  let move;
+  if (path.retraced) move = "なぞり重ねて";
+  else if (loops >= 1 && path.corners >= 1) move = "折れては巻いて";
+  else if (loops >= 1) move = loops === 1 ? "ひと巻きして" : loops <= 3 ? `${WHY_COUNT_JA[loops]}度巻いて` : "幾重にも巻いて";
+  else if (path.corners >= 1) move = path.corners <= 5 ? `${WHY_COUNT_JA[path.corners]}度折れて` : "細かく折れて";
+  else if (path.disorder >= 0.4) move = "ふぞろいに曲がって";   // 乱雑度 = 曲がりの不揃い。角や輪で言えないときだけ (整った星が「乱れ」にならない)
+  else if (path.closed) move = "ひと巡りして";
+  else if (path.straight) move = big ? "長くまっすぐ進んで" : small ? "短くまっすぐ進んで" : "まっすぐ進んで";
+  else move = soft ? "やわらかく曲がって" : "曲がりながら進んで";
+  if (!/まっすぐ/.test(move) && (big || small)) move = (big ? "大きく" : "小さく") + (/^(細かく|やわらかく|幾重にも)/.test(move) ? "、" : "") + move;
+  // 語尾は最後の音から読む (あーあーん は伸ばしより ん の結び)
+  const ending = end.last === "Q" ? "最後に詰まる"
+    : end.last === "N" ? (path.closed ? "元のところへ戻って結ばれる" : "響きを残す")
+    : { long: "のびていく", sustain: "ひと息にのびる", ri: "軽く抜ける", redup: "同じ動きをくり返す",
+        root: path.closed ? "元のところへ戻る" : "ひらいたまま終わる",
+        sokuon: "最後に詰まる", hatsuon: "響きを残す" }[end.type];
+  if (end.morae <= 4 && (end.last !== "V" || end.type === "ri" || end.type === "redup")) return `${kana}と、${move}、${ending}。`;
+  let h = 0;
+  for (const ch of kana) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return h % 2 ? `${move}、${ending}線。「${kana}」と聞こえる。` : `「${kana}」。${move}、${ending}線。`;
+}
+function updateNarration(ax, event, shape) {
+  const el = document.getElementById("result-narration");
+  if (!el) return;
+  const kana = event.displayWordOverride ?? namingKanaOf(event.moras);
+  const text = shape && uiLang === "ja" ? whyNarrate(whyReasons(ax, event.moras, event.vocabReason ?? null, shape), kana) : "";
+  el.textContent = text;
+  el.hidden = !text;
 }
 function updateWhy(ax, moras, vocabReason = null, shape = null) {
   const panel = document.getElementById("why-panel");
@@ -5879,6 +5932,7 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
   showResult(event);
   // なぜ? (native の explain と同じ「測って見せる」説明)。P12 語彙語は立法の理由を示す。
   updateWhy(axesUsed, event.moras, event.vocabReason ?? null, extra.shape ?? null);
+  updateNarration(axesUsed, event, src === "draw" ? extra.shape ?? null : null);
   playEvent(event);
   if (log) appendLog(event);
   const viewRect = canvas.getBoundingClientRect();
@@ -6792,7 +6846,7 @@ function unlockAudio() {
 }
 for (const ev of UNLOCK_EVENTS) document.addEventListener(ev, unlockAudio);
 </script>
-<script src="./web-play.js?v=beta1"></script>
+<script src="./web-play.js?v=narr1"></script>
 <script src="./reaction.js?v=twomodes1"></script>
 </body>
 </html>
