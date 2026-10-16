@@ -17,6 +17,11 @@
         Array.isArray(s.points) && s.points.length >= 2 && s.points.length <= 600 &&
         s.points.every(p => Array.isArray(p) && p.length === 2 && p.every(n => Number.isFinite(n) && n >= 0 && n <= 1)) &&
         s.event && Array.isArray(s.event.moras) && s.event.moras.length < 80).slice(-24);
+      for (const s of stops) {   // Luna のひとことは駅ごとに積む (古い履歴は luna 1 つ)
+        const list = Array.isArray(s.lunas) ? s.lunas : (typeof s.luna === 'string' ? [s.luna] : []);
+        s.lunas = list.filter(t => typeof t === 'string' && t.length < 400).slice(-5);
+        s.luna = s.lunas[s.lunas.length - 1];
+      }
       total = Math.max(stops.length, Number.isSafeInteger(stored.total) ? stored.total : stops.length);
     }
   } catch (_) {}
@@ -57,14 +62,12 @@
       if (k === 'fold' && parts.move.n >= 3) return 'ギザギザ急行線';
       if (k === 'straight') return 'まっすぐ本線';
       if (parts.move.size === 'small') return 'しーん支線';
-      if (k === 'soft') return 'ぽよぽよ線';
       return 'くねくね本線';
     }
     const axes = entry.axes || {}, shape = entry.shape || {};
     if (shape.loops > 0 || shape.isClosed) return 'ぐるぐる環状線';
     if (shape.corners >= 3 || axes.sharp > .45) return 'ギザギザ急行線';
     if (axes.bright < -.45) return 'しーん支線';
-    if (axes.round > .4) return 'ぽよぽよ線';
     return 'くねくね本線';
   }
   function officeMessage(entry) {
@@ -101,6 +104,7 @@
     $('board-caption').textContent = label;
     $('line-name').textContent = lineName(entry);
     $('conductor-text').textContent = entry.luna || officeMessage(entry);
+    renderLunaPast(entry);
     $('rail-replay').disabled = false;
     $('luna-ask').disabled = false;
     $('journey-count').textContent = String(total).padStart(2, '0');
@@ -112,6 +116,13 @@
     if (!soundOn) { voiceEndsAt = 0; return; }
     const ctx = ensureCtx();
     voiceEndsAt = ctx.currentTime + .1 + event.moras.length * .25;
+  }
+  // この駅で前に聞いた Luna のひとこと (新しい順・最大 4)
+  function renderLunaPast(entry) {
+    const box = $('luna-past');
+    const past = (entry?.lunas || []).slice(0, -1).reverse();
+    box.replaceChildren(...past.map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
+    box.hidden = !past.length;
   }
   function chime(at = 0) {
     if (!soundOn) return;
@@ -206,6 +217,7 @@
     const history = $('station-history');
     history.replaceChildren();
     $('route-caption').textContent = stops.length ? `${total}駅の旅。駅名を押すと、もう一度。` : 'あなたの路線図は、ここから。';
+    $('route-clear').hidden = !stops.length;
     $('journey-count').textContent = String(total).padStart(2, '0');
     if (!stops.length) {
       const p = document.createElement('p'); p.className = 'empty-route'; p.textContent = 'ひと筆ごとに、あなただけの駅が増えていきます。'; history.append(p); return;
@@ -264,6 +276,7 @@
     if (current) park(current);
     else { $('rail-invitation').hidden = false; $('btn-clear').click(); }
     $('travel-status').textContent = message;
+    notify(message);   // 状況の行だけだと見落とされる (Grok の試乗 10-16)
   }
   window.addEventListener('onomatoi-utterance', ({detail}) => accept(detail));
   canvas.addEventListener('pointerdown', () => {
@@ -291,7 +304,17 @@
     $('line-name').textContent = 'ひらめき本線';
     $('operation').textContent = '本日も、自由な線で運行しています。';
     $('conductor-text').textContent = 'ご乗車ありがとうございます。行き先は、あなたの一筆におまかせします。';
+    $('luna-past').replaceChildren(); $('luna-past').hidden = true;
     setProvider(); renderHistory();
+  };
+  // 路線図 (停車駅の履歴と駅の数) を消す。「敷き直す」は線路だけ (Grok の試乗 10-16: 全部消えると思う人もいる)
+  $('route-clear').onclick = () => {
+    if (!stops.length || !confirm(`これまでの停車駅 ${stops.length} 駅と、駅の数を消します。よろしいですか？`)) return;
+    stops = []; total = 0; activeIndex = -1;
+    persist();
+    $('rail-clear').click();
+    $('station-number').textContent = 'OT —';
+    notify('路線図を消しました。また、はじまりの駅から。');
   };
   $('rail-replay').onclick = () => {
     if (!current) return;
@@ -345,8 +368,9 @@
         const message = response.status === 429 ? '本日のLuna車掌の乗務は終了しました。また明日、ご乗車ください。' : 'Luna車掌はただいま接続できません。駅務室の案内で運行を続けます。';
         notify(message); provider = 'unavailable'; return;
       }
+      entry.lunas = [...(entry.lunas || []), data.text].slice(-5);   // 前のひとことは消さずに積む
       entry.luna = data.text; provider = 'ready';
-      $('conductor-text').textContent = data.text; persist();
+      $('conductor-text').textContent = data.text; renderLunaPast(entry); persist();
     } catch (error) {
       if (token !== requestVersion) return;
       provider = 'unavailable';
