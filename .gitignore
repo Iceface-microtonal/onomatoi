@@ -5,3 +5,9 @@ test/native_render/.build/
 test/parity_out/
 reaction-worker/node_modules/
 reaction-worker/.wrangler/
+# 環境変数・シークレット（AIのうっかりPush防止）
+.env
+.env.*
+.dev.vars
+**/.env
+**/.dev.vars
