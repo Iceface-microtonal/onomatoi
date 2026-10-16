@@ -3517,6 +3517,159 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
 }
 
 // 密化済みの一筆 → 解析 → 制定語／構造単位／通常生成。iPadの共有入口に対応する。
+// ─── 族の語の規則 (2026-10-16 コウさん確認済み・Core FamilyRules.swift の移植) ───
+// 固有語の後・かたち辞書と生成の前。波 = 山 (∩) にゅ・谷 (∪) も を描いた順に (山と谷が 3 つ以上の横向きの開いた線) /
+// 2 周以上の渦 = 生成した語の前半 2 音をくり返す (い が入るときはくり返さない) / 並ぶ輪 = 輪ごとに むう。
+function familyMaxLocalTurn(points, span = 18) {
+  let best = 0, j = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (j < i) j = i;
+    while (j < points.length - 1 && Math.hypot(points[j].x - points[i].x, points[j].y - points[i].y) < span) j++;
+    let k = j;
+    while (k < points.length - 1 && Math.hypot(points[k].x - points[j].x, points[k].y - points[j].y) < span) k++;
+    if (!(k > j && j > i)) continue;
+    const a1 = Math.atan2(points[j].y - points[i].y, points[j].x - points[i].x);
+    const a2 = Math.atan2(points[k].y - points[j].y, points[k].x - points[j].x);
+    let d = Math.abs(a2 - a1);
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    best = Math.max(best, d);
+  }
+  return best;
+}
+function familySpiralTurns(points, cx) {
+  if (!(cx.rotationFraction >= 1.8 && cx.curveConsistency >= 0.8)) return null;
+  const gx = points.reduce((a, p) => a + p.x, 0) / points.length, gy = points.reduce((a, p) => a + p.y, 0) / points.length;
+  const first = points[0], last = points[points.length - 1];
+  const dg = p => Math.hypot(p.x - gx, p.y - gy);
+  const inner = dg(first) <= dg(last) ? first : last;
+  const r = points.map(p => Math.hypot(p.x - inner.x, p.y - inner.y));
+  const rMax = Math.max(...r);
+  if (!(rMax > 1e-6 && dg(inner) <= 0.35 * rMax)) return null;
+  const ordered = inner === last ? r : r.slice().reverse();
+  const third = Math.floor(ordered.length / 3);
+  if (third < 2) return null;
+  const m = [0, 1, 2].map(k => Math.max(...ordered.slice(k * third, k === 2 ? ordered.length : (k + 1) * third)));
+  if (!(m[1] <= 0.9 * m[0] && m[2] <= 0.9 * m[1])) return null;
+  return cx.rotationFraction;
+}
+// 並ぶ輪 (Core FamilyRules.loopRowCount と同じ): 交点の輪が 2 つ以上・大きさの比 ≤ 2・中心どうしの間 ≥ 直径の 0.5 倍・
+// 構造単位の輪が線の 6 割以上・渦でない・両端が離れている・輪の中心が描いた順に進む (一つごとに広がりの 15% 以上)。最大 4。
+function familyCrossingLoops(pts) {
+  const n = pts.length;
+  if (n < 4) return [];
+  const cr = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const pairs = [];
+  for (let i = 0; i < n - 2; i++) {
+    for (let j = i + 2; j < n - 1; j++) {
+      if (cr(pts[j], pts[j + 1], pts[i]) * cr(pts[j], pts[j + 1], pts[i + 1]) < 0
+          && cr(pts[i], pts[i + 1], pts[j]) * cr(pts[i], pts[i + 1], pts[j + 1]) < 0) pairs.push([i, j]);
+    }
+  }
+  pairs.sort((p, q) => (p[1] - p[0]) - (q[1] - q[0]));
+  const used = new Array(n).fill(false), loops = [];
+  for (const [i, j] of pairs) {
+    if (j - i < 6) continue;
+    let clash = false;
+    for (let k = i; k <= j; k++) if (used[k]) { clash = true; break; }
+    if (clash) continue;
+    for (let k = i; k <= j; k++) used[k] = true;
+    loops.push([i, j]);
+  }
+  return loops.sort((p, q) => p[0] - q[0]).map(([i, j]) => pts.slice(i + 1, j + 1));
+}
+function familyLoopRowCount(points, cx, seg) {
+  if (familySpiralTurns(points, cx) != null) return null;
+  const total = seg.units.reduce((a, u) => a + u.arcLength, 0);
+  const unitLoops = seg.units.filter(u => u.kind === "loop").reduce((a, u) => a + u.arcLength, 0);
+  if (!(total > 1e-9 && unitLoops / total >= 0.6)) return null;
+  const loops = familyCrossingLoops(points);
+  if (loops.length < 2) return null;
+  const boxes = loops.map(pts => {
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const mnx = Math.min(...xs), mxx = Math.max(...xs), mny = Math.min(...ys), mxy = Math.max(...ys);
+    return { c: { x: (mxx + mnx) / 2, y: (mxy + mny) / 2 }, d: Math.max(mxx - mnx, mxy - mny) };
+  });
+  const ds = boxes.map(b => b.d), dMin = Math.min(...ds), dMax = Math.max(...ds);
+  if (!(dMin > 1e-6 && dMax / dMin <= 2)) return null;
+  const meanD = ds.reduce((a, v) => a + v, 0) / ds.length;
+  for (let i = 1; i < boxes.length; i++)
+    if (Math.hypot(boxes[i].c.x - boxes[i - 1].c.x, boxes[i].c.y - boxes[i - 1].c.y) < 0.5 * meanD) return null;   // 重なる輪
+  const a = points[0], b = points[points.length - 1];
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const chord = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!(extent > 1e-6 && chord >= 0.5 * extent)) return null;
+  const along = boxes.map(box => ((box.c.x - a.x) * (b.x - a.x) + (box.c.y - a.y) * (b.y - a.y)) / chord / extent);
+  if (!(along[0] >= -0.05 && along[along.length - 1] <= 1.05)) return null;
+  for (let i = 1; i < along.length; i++) if (along[i] - along[i - 1] < 0.15) return null;
+  return Math.min(loops.length, 4);
+}
+function familyWaveCrests(points, cx) {
+  // 角の数ではなく「短い区間で急に折れるか」で見る。70°: 浅いジグザグ (74°) ととがった波 (79°) は重なる → 今の読みに残す
+  if (!(cx.loops === 0 && familyMaxLocalTurn(points) <= 70 * Math.PI / 180)) return null;
+  const a = points[0], b = points[points.length - 1];
+  const dx = b.x - a.x, dy = b.y - a.y, chord = Math.hypot(dx, dy);
+  if (!(chord > 1e-6 && Math.abs(dy) <= Math.abs(dx) * Math.tan(35 * Math.PI / 180))) return null;   // 横向きだけ
+  let lastT = -Infinity;
+  const offsets = [];
+  for (const p of points) {
+    const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / chord;
+    if (t < lastT - 0.08 * chord) return null;   // 行ったり来たりしない
+    lastT = Math.max(lastT, t);
+    offsets.push(a.y + dy * (t / chord) - p.y);   // 弦から上が正
+  }
+  const h = 0.10 * chord;
+  const crests = [];
+  let dirUp = null, hi = offsets[0], lo = offsets[0], extreme = offsets[0], lastCounted = offsets[0];
+  for (const o of offsets.slice(1)) {
+    if (dirUp === null) {
+      hi = Math.max(hi, o); lo = Math.min(lo, o);
+      if (hi - offsets[0] >= h / 2 && hi - o >= h) { crests.push(true); lastCounted = hi; dirUp = false; extreme = o; }
+      else if (offsets[0] - lo >= h / 2 && o - lo >= h) { crests.push(false); lastCounted = lo; dirUp = true; extreme = o; }
+    } else if (dirUp) {
+      if (o > extreme) extreme = o;
+      else if (extreme - o >= h) { crests.push(true); lastCounted = extreme; dirUp = false; extreme = o; }
+    } else {
+      if (o < extreme) extreme = o;
+      else if (o - extreme >= h) { crests.push(false); lastCounted = extreme; dirUp = true; extreme = o; }
+    }
+  }
+  if (dirUp !== null && Math.abs(extreme - lastCounted) >= h && (dirUp ? extreme : -extreme) >= h / 2) crests.push(dirUp);
+  return crests.length >= 3 ? crests : null;
+}
+function familyMatch(points, cx) {
+  if (points.length < 8 || cx.isClosed || cx.retraced) return null;
+  const turns = familySpiralTurns(points, cx);
+  if (turns != null) return { kind: "spiral", turns };
+  const count = familyLoopRowCount(points, cx, segmentStroke(points));
+  if (count != null) return { kind: "loopRow", count };
+  const crests = familyWaveCrests(points, cx);
+  if (crests) return { kind: "wave", crests };
+  return null;
+}
+const FAMILY_LOOP_SYLLABLE = { romaji: "muu", display: "むう" };   // 輪 1 つ = くるんの語 (10-06 シート Q3・未確定) に従う
+function familyWord(match) {
+  if (match.kind === "wave") {
+    const c = match.crests.slice(0, 8);
+    return { romaji: c.map(x => x ? "nyu" : "mo").join(""), display: c.map(x => x ? "にゅ" : "も").join("") };
+  }
+  if (match.kind === "loopRow")
+    return { romaji: FAMILY_LOOP_SYLLABLE.romaji.repeat(match.count), display: FAMILY_LOOP_SYLLABLE.display.repeat(match.count) };
+  return null;
+}
+function familySpiralEvent(base) {
+  const head = base.moras.filter(m => !m.isSilentRest && !m.isN && !m.isQ).slice(0, 2);
+  if (head.length < 2 || head.some(m => m.nucleus === "i")) return null;
+  const once = head.map(m => ({ ...m }));
+  once[0].gapMs = 0;
+  return { ...base, moras: [...once, ...once.map(m => ({ ...m }))], isRedup: true };
+}
+const FAMILY_REASON = {
+  wave: { ja: "波: 山 (∩) を にゅ・谷 (∪) を も として、描いた順につなぐ", en: "wave: each crest (∩) is nyu and each trough (∪) is mo, in drawing order" },
+  loopRow: { ja: "並ぶ輪: 輪ごとに同じ音 (むう) を並べる", en: "a row of loops: the same sound (muu) for each loop" },
+  spiral: { ja: "二周以上の渦: 前の二音をもう一度くり返す", en: "a spiral of two or more turns: the first two sounds repeat" },
+};
+
 function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" } = {}) {
   if (inkPts.length < 2 || w <= 0 || h <= 0) return null;
   let ax = applyHandCorrection(extractAxes(inkPts, w, h), hc, !coarse);
@@ -3534,11 +3687,19 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
   // かたち辞書 (2026-10-06・計画の 2 段目): 型を照合して記録。語を出すのは enabled の族で words があるときだけ (固有語の後・生成の前)
   const katachi = katachiMatch(katachiOf(inkPts, !!cx.isClosed, cx.loops | 0, cx.corners | 0));
   let event, route;
+  // 族の語の規則 (固有語の後・かたち辞書と生成の前)
+  const family = selection.vocabWord ? null : familyMatch(inkPts, cx);
+  const familyFixed = family ? familyWord(family) : null;
   if (selection.vocabWord) {
     event = vocabEvent(selection.vocabWord, ax);
     event.vocabReason = selection.vocabReason;
     event.displayWordOverride = selection.displayWordOverride;
     route = "vocabulary";
+  } else if (familyFixed) {
+    event = vocabEvent(familyFixed.romaji, ax);
+    event.displayWordOverride = familyFixed.display;
+    event.vocabReason = FAMILY_REASON[family.kind][language === "ja" ? "ja" : "en"];
+    route = "family";
   } else if (katachi && katachi.words && katachi.words.sizes && katachi.words.sizes.length) {
     // かたち辞書の語 (enabled の族だけ・大きさの区分 = 角度の語彙と同じ arcSizeClass)
     const sizes = katachi.words.sizes;
@@ -3554,6 +3715,15 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
         kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
         forceConsonantOnset: selection.openChevron, disorder });
       route = "generated";
+    }
+  }
+  // 渦 (2 周以上): 生成した語の前半 2 音をくり返す (い が入るときはくり返さない)
+  if (family && family.kind === "spiral" && route !== "vocabulary") {
+    const redup = familySpiralEvent(event);
+    if (redup) {
+      event = redup;
+      event.vocabReason = FAMILY_REASON.spiral[language === "ja" ? "ja" : "en"];
+      route = "family";
     }
   }
   // 録音を一時停止している音節 (ぎぃ 等) は語から除く (iOS PhonosymbolicEvent.init の SuspendedCV.removing と同じ)。
