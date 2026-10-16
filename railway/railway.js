@@ -39,7 +39,27 @@
   function pathData(points, width, height) {
     return points.map((p, i) => `${i ? 'L' : 'M'}${(p[0] * width).toFixed(2)},${(p[1] * height).toFixed(2)}`).join(' ');
   }
+  // 路線名と車掌の案内は、本家の「なぜ?」と同じ理由コード (whyNarrateParts) から選ぶ (2026-10-16)。
+  // 古い履歴 (parts の無い駅) だけ、従来の見立てに戻る。
+  const CONDUCTOR_END = { Q: '最後に詰まって停車します', Nclosed: '元の場所へ戻って結ばれます', Nopen: '響きを残して到着します',
+    long: 'のびやかに到着します', sustain: 'ひと息にのびて到着します', ri: '軽く抜けて到着します',
+    redup: '同じ動きをくり返して到着します', return: '元の場所へ戻ってきます', open: 'ひらいたまま到着します' };
+  function partsOf(detail, event) {
+    if (typeof whyReasons !== 'function' || typeof whyNarrateParts !== 'function' || !detail.explanation?.shape) return null;
+    const reasons = whyReasons(detail.explanation.axes || event.axes, event.moras, event.vocabReason ?? null, detail.explanation.shape);
+    return whyNarrateParts(reasons);
+  }
   function lineName(entry) {
+    const parts = entry.parts;
+    if (parts?.move) {
+      const k = parts.move.kind;
+      if (parts.closed || k === 'loop' || k === 'foldLoop' || k === 'circle') return 'ぐるぐる環状線';
+      if (k === 'fold' && parts.move.n >= 3) return 'ギザギザ急行線';
+      if (k === 'straight') return 'まっすぐ本線';
+      if (parts.move.size === 'small') return 'しーん支線';
+      if (k === 'soft') return 'ぽよぽよ線';
+      return 'くねくね本線';
+    }
     const axes = entry.axes || {}, shape = entry.shape || {};
     if (shape.loops > 0 || shape.isClosed) return 'ぐるぐる環状線';
     if (shape.corners >= 3 || axes.sharp > .45) return 'ギザギザ急行線';
@@ -50,6 +70,8 @@
   function officeMessage(entry) {
     const shape = entry.shape || {}, axes = entry.axes || {};
     const w = entry.word;
+    const move = entry.parts?.move && typeof whyMoveJa === 'function' ? whyMoveJa(entry.parts.move) : null;
+    if (move && CONDUCTOR_END[entry.parts.ending]) return `次は、${w}。この線路は${move}、${CONDUCTOR_END[entry.parts.ending]}。`;
     if (shape.loops > 0 || shape.isClosed) return `${w}駅に到着です。くるりと巡って、はじめの気持ちに戻ってきました。`;
     if (shape.corners >= 3 || axes.sharp > .45) return `次は、${w}。少々カーブが続きますので、ひらめきをしっかりお持ちください。`;
     if (axes.bright < -.45) return `${w}駅です。静かな車窓を、どうぞそのままお楽しみください。`;
@@ -210,7 +232,8 @@
       points: detail.points.filter(p => p.every(Number.isFinite)).map(p => p.map(v => Math.max(0, Math.min(1, v)))),
       axes: structuredClone(detail.explanation?.axes || event.axes || {}),
       shape: Object.fromEntries(['corners','loops','isClosed'].map(k => [k, detail.explanation?.shape?.[k] ?? (k === 'isClosed' ? false : 0)])),
-      number: ++total, previous: stops[stops.length - 1]?.word || 'はじまり'
+      number: ++total, previous: stops[stops.length - 1]?.word || 'はじまり',
+      parts: partsOf(detail, event)
     };
     if (entry.points.length < 2) return;
     laying = false;
@@ -348,6 +371,6 @@
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(data => { provider = ['configured','luna'].includes(data.mode) ? 'ready' : 'unavailable'; setProvider(); })
     .catch(() => { provider = 'unavailable'; setProvider(); });
-  // Narrow testable view helpers; the phonetic generator stays in /iceface_onomatoi.html.
+  // Narrow testable view helpers; the phonetic generator and the reasons stay in /iceface_onomatoi.html.
   window.RailwayView = {lineName, officeMessage, pathData};
 })();

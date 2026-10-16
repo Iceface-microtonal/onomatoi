@@ -166,6 +166,7 @@
   </div>
   <!-- 2026-10-16 試作: 線と語を一文で結ぶ語り (理由コードから・日本語のみ・API なし) -->
   <p class="result-narration" id="result-narration" hidden></p>
+  <p class="result-compare" id="result-compare" hidden></p>
   <!-- #5 多画=句 (2026-07-17): 短い間で描き継いだ複数の一筆が句として連なる。▶PLAY で通し再生 -->
   <div id="phrase-line" style="display:none; margin-top:4px; font-size:11px; color:var(--gray);
     font-family: 'SF Mono', Menlo, monospace;"></div>
@@ -5736,7 +5737,8 @@ function whyReasons(ax, moras, vocabReason = null, shape = null) {
     straight: (shape.pathRatio ?? 0) > 0 && (shape.sizeRatio ?? 0) / shape.pathRatio > 0.92 });
   const lastMora = voiced[voiced.length - 1];
   reasons.push({ code: "ending", layer: "universal", type: whyFormType(voiced), morae: voiced.length,
-                 last: lastMora.isQ ? "Q" : lastMora.isN ? "N" : "V" });
+                 last: lastMora.isQ ? "Q" : lastMora.isN ? "N" : "V",
+                 voicedObs: voiced.some(m => WHY_VOICED_OBSTRUENTS.has(m.onset)) });
   // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
   if (vocabReason) return [...reasons, { code: "vocab", layer: "convention", text: vocabReason }];
   const push = (r, heard) => { if (heard.length) reasons.push({ ...r, heard }); };
@@ -5831,46 +5833,124 @@ function explainEvent(ax, moras, vocabReason = null, shape = null) {
   const ja = uiLang === "ja";
   return whyReasons(ax, moras, vocabReason, shape).map(r => whyLineLab(r, ja)).filter(l => l !== "");
 }
-// 語りの口調 (2026-10-16・試作・日本語のみ): 線の動きにも音にも使える言葉で、描いた線と生まれた語を一文で結ぶ。
-// 語は引用 (A「…」と聞こえる) が基本。っ・ん・り・くり返しで終わる 4 拍までの語だけ、日本語のオノマトペ本来の
-// 「〜と、」(B)。前半 (折れる・巻く・まっすぐ…) は線の事実、後半 (詰まる・結ばれる・のびる…) は語の音の事実で、
-// どれも理由コードに裏付けがあるときだけ選ぶ。語の意味は言わない (翻訳期待を誘わない)。
-const WHY_COUNT_JA = ["", "一", "二", "三", "四", "五"];
-function whyNarrate(reasons, kana) {
+// 語りの口調 (2026-10-16・試作): 線の動きにも音にも使える言葉で、描いた線と生まれた語を一文で結ぶ。
+// whyNarrateParts が理由コードから「何を言うか」(言い方の種類) だけを選び、口調の表 (日本語・英語・鉄道の車掌…)
+// が文にする — どの口調も同じ選択から話す。語は引用 (A「…」と聞こえる) が基本。っ・ん・り・くり返しで終わる
+// 4 拍までの語だけ、日本語のオノマトペ本来の「〜と、」(B)。前半 (折れる・巻く・まっすぐ…) は線の事実、後半
+// (詰まる・結ばれる・のびる…) は語の音の事実で、どれも理由コードに裏付けがあるときだけ選ぶ。語の意味は言わない。
+function whyNarrateParts(reasons) {
   const path = reasons.find(r => r.code === "path"), end = reasons.find(r => r.code === "ending");
-  if (!path || !end || !kana) return "";
-  const soft = reasons.some(r => r.code === "consonantSoft");
-  const big = path.size > 0.5, small = path.size < -0.5;
+  if (!path || !end) return null;
   // 閉じた形の 1 周は輪に数えない (四角が「巻いて」にならない)。閉じたことは後半の「戻る」が言う。
   const loops = Math.max(0, path.loops - (path.closed ? 1 : 0));
-  let move;
-  if (path.retraced) move = "なぞり重ねて";
-  else if (loops >= 1 && path.corners >= 1) move = "折れては巻いて";
-  else if (loops >= 1) move = loops === 1 ? "ひと巻きして" : loops <= 3 ? `${WHY_COUNT_JA[loops]}度巻いて` : "幾重にも巻いて";
-  else if (path.corners >= 1) move = path.corners <= 5 ? `${WHY_COUNT_JA[path.corners]}度折れて` : "細かく折れて";
-  else if (path.disorder >= 0.4) move = "ふぞろいに曲がって";   // 乱雑度 = 曲がりの不揃い。角や輪で言えないときだけ (整った星が「乱れ」にならない)
-  else if (path.closed) move = "ひと巡りして";
-  else if (path.straight) move = big ? "長くまっすぐ進んで" : small ? "短くまっすぐ進んで" : "まっすぐ進んで";
-  else move = soft ? "やわらかく曲がって" : "曲がりながら進んで";
-  if (!/まっすぐ/.test(move) && (big || small)) move = (big ? "大きく" : "小さく") + (/^(細かく|やわらかく|幾重にも)/.test(move) ? "、" : "") + move;
+  const size = path.size > 0.5 ? "big" : path.size < -0.5 ? "small" : null;
+  const move = path.retraced ? { kind: "retraced" }
+    : loops >= 1 && path.corners >= 1 ? { kind: "foldLoop" }
+    : loops >= 1 ? { kind: "loop", n: loops }
+    : path.corners >= 1 ? { kind: "fold", n: path.corners }
+    : path.disorder >= 0.4 ? { kind: "uneven" }   // 乱雑度 = 曲がりの不揃い。角や輪で言えないときだけ
+    : path.closed ? { kind: "circle" }
+    : path.straight ? { kind: "straight" }
+    : { kind: reasons.some(r => r.code === "consonantSoft") ? "soft" : "curve" };
+  move.size = size;
   // 語尾は最後の音から読む (あーあーん は伸ばしより ん の結び)
-  const ending = end.last === "Q" ? "最後に詰まる"
-    : end.last === "N" ? (path.closed ? "元のところへ戻って結ばれる" : "響きを残す")
-    : { long: "のびていく", sustain: "ひと息にのびる", ri: "軽く抜ける", redup: "同じ動きをくり返す",
-        root: path.closed ? "元のところへ戻る" : "ひらいたまま終わる",
-        sokuon: "最後に詰まる", hatsuon: "響きを残す" }[end.type];
-  if (end.morae <= 4 && (end.last !== "V" || end.type === "ri" || end.type === "redup")) return `${kana}と、${move}、${ending}。`;
+  const ending = end.last === "Q" ? "Q" : end.last === "N" ? (path.closed ? "Nclosed" : "Nopen")
+    : end.type === "ri" || end.type === "redup" || end.type === "long" || end.type === "sustain" ? end.type
+    : path.closed ? "return" : "open";
+  const frame = end.morae <= 4 && (end.last !== "V" || end.type === "ri" || end.type === "redup") ? "B" : "A";
+  return { move, ending, frame, closed: path.closed };
+}
+const WHY_COUNT_JA = ["", "一", "二", "三", "四", "五"];
+function whyMoveJa(m) {
+  let t = { retraced: "なぞり重ねて", foldLoop: "折れては巻いて",
+            loop: m.n === 1 ? "ひと巻きして" : m.n <= 3 ? `${WHY_COUNT_JA[m.n]}度巻いて` : "幾重にも巻いて",
+            fold: m.n <= 5 ? `${WHY_COUNT_JA[m.n]}度折れて` : "細かく折れて", uneven: "ふぞろいに曲がって",
+            circle: "ひと巡りして", soft: "やわらかく曲がって", curve: "曲がりながら進んで",
+            straight: m.size === "big" ? "長くまっすぐ進んで" : m.size === "small" ? "短くまっすぐ進んで" : "まっすぐ進んで" }[m.kind];
+  if (m.kind !== "straight" && m.size) t = (m.size === "big" ? "大きく" : "小さく") + (/^(細かく|やわらかく|幾重にも)/.test(t) ? "、" : "") + t;
+  return t;
+}
+const WHY_END_JA = { Q: "最後に詰まる", Nclosed: "元のところへ戻って結ばれる", Nopen: "響きを残す", long: "のびていく",
+  sustain: "ひと息にのびる", ri: "軽く抜ける", redup: "同じ動きをくり返す", return: "元のところへ戻る", open: "ひらいたまま終わる" };
+const WHY_COUNT_EN = ["", "once", "twice", "three times", "four times", "five times"];
+function whyMoveEn(m) {
+  return { retraced: "retraces itself", foldLoop: "bends and loops",
+           loop: m.n === 1 ? "loops once" : m.n <= 3 ? `loops ${WHY_COUNT_EN[m.n]}` : "loops over and over",
+           fold: m.n <= 5 ? `bends ${WHY_COUNT_EN[m.n]}` : "bends in small zigzags", uneven: "curves unevenly",
+           circle: "circles once", soft: "curves softly", curve: "curves along", straight: "runs straight" }[m.kind];
+}
+const WHY_END_EN = { Q: "and stops short at the end", Nclosed: "and comes back to close", Nopen: "and leaves a resonance",
+  long: "and stretches on", sustain: "in one long breath", ri: "and slips lightly away", redup: "and repeats the same motion",
+  return: "and returns to where it began", open: "and ends open" };
+function whyNarrate(reasons, kana, lang = "ja", romaji = "") {
+  const parts = whyNarrateParts(reasons);
+  if (!parts || !kana) return "";
+  if (lang !== "ja") {
+    const adj = parts.move.size === "big" ? (parts.move.kind === "straight" ? "long " : "large ")
+              : parts.move.size === "small" ? (parts.move.kind === "straight" ? "short " : "small ") : "";
+    const line = `${adj}line that ${whyMoveEn(parts.move)} ${WHY_END_EN[parts.ending]}`;
+    const word = romaji || kana;
+    return parts.frame === "B" ? `“${word}” — a ${line}.` : `A ${line}. It sounds like “${word}”.`;
+  }
+  const move = whyMoveJa(parts.move), ending = WHY_END_JA[parts.ending];
+  if (parts.frame === "B") return `${kana}と、${move}、${ending}。`;
   let h = 0;
   for (const ch of kana) h = (h * 31 + ch.codePointAt(0)) >>> 0;
   return h % 2 ? `${move}、${ending}線。「${kana}」と聞こえる。` : `「${kana}」。${move}、${ending}線。`;
 }
-function updateNarration(ax, event, shape) {
+// ひとつ前の一筆と比べる一言 (2026-10-16・試作): 線の違いを 1 つ、語の音の違いを 1 つ、並べて言う。
+// 「〜ので」とは言わない (並べるだけ・因果は聞く人が見つける)。同じ語が返ってきたら、それを言う (再現性)。
+function whyCompare(prevReasons, curReasons, prevKana, curKana, lang = "ja") {
+  const pp = prevReasons?.find(r => r.code === "path"), cp = curReasons?.find(r => r.code === "path");
+  const pe = prevReasons?.find(r => r.code === "ending"), ce = curReasons?.find(r => r.code === "ending");
+  if (!pp || !cp || !pe || !ce || !prevKana || !curKana) return "";
+  const ja = lang === "ja";
+  const loopsOf = p => Math.max(0, p.loops - (p.closed ? 1 : 0));
+  const sameLine = pp.closed === cp.closed && loopsOf(pp) === loopsOf(cp) && pp.corners === cp.corners;
+  if (prevKana === curKana)
+    return sameLine ? (ja ? "さっきと同じ道すじで、同じ声が返ってきた。" : "The same path brought back the same voice.")
+                    : (ja ? "さっきと少しちがう線でも、同じ声が返ってきた。" : "A slightly different line, yet the same voice came back.");
+  const num = n => ja ? `${WHY_COUNT_JA[Math.min(n, 5)] || n}つ` : String(n);
+  const sizeOf = p => p.size > 0.5 ? 1 : p.size < -0.5 ? -1 : 0;
+  let line = null;
+  const enNum = n => ["", "One", "Two", "Three", "Four", "Five"][n] || String(n);
+  const dl = loopsOf(cp) - loopsOf(pp), dc = cp.corners - pp.corners, ds = sizeOf(cp) - sizeOf(pp);
+  if (pp.closed !== cp.closed)
+    line = cp.closed ? (ja ? "さっきは開いていた線が閉じて" : "The line now closes") : (ja ? "さっきは閉じていた線がひらいて" : "The line now stays open");
+  else if (dl) line = ja ? `さっきより輪が${num(Math.abs(dl))}${dl > 0 ? "多く" : "少なく"}` : `${enNum(Math.abs(dl))} ${dl > 0 ? "more" : "fewer"} loop${Math.abs(dl) > 1 ? "s" : ""} than before`;
+  else if (dc) line = ja ? `さっきより角が${num(Math.abs(dc))}${dc > 0 ? "多く" : "少なく"}` : `${enNum(Math.abs(dc))} ${dc > 0 ? "more" : "fewer"} corner${Math.abs(dc) > 1 ? "s" : ""} than before`;
+  else if (ds) line = ja ? `さっきより${ds > 0 ? "大きく" : "小さく"}描いて` : `Drawn ${ds > 0 ? "larger" : "smaller"} than before`;
+  else if (pp.straight !== cp.straight) line = ja ? `さっきより${cp.straight ? "まっすぐに" : "曲げて"}描いて` : `Drawn ${cp.straight ? "straighter" : "more curved"} than before`;
+  let sound;
+  if (pe.last !== ce.last)
+    sound = ce.last === "Q" ? (ja ? "語は「っ」で詰まった" : "the word now stops short")
+          : ce.last === "N" ? (ja ? "語は「ん」で終わった" : "the word now ends in n")
+          : (ja ? "語の終わりがひらいた" : "the word's end opened");
+  else if (pe.morae !== ce.morae) {
+    const d = ce.morae - pe.morae;
+    sound = ja ? `語は${WHY_COUNT_JA[Math.min(Math.abs(d), 5)] || Math.abs(d)}拍${d > 0 ? "長く" : "短く"}なった`
+               : `the word is ${Math.abs(d)} mora${Math.abs(d) > 1 ? "e" : ""} ${d > 0 ? "longer" : "shorter"}`;
+  } else if (pe.voicedObs !== ce.voicedObs)
+    sound = ce.voicedObs ? (ja ? "語に濁りが入った" : "voicing came into the word") : (ja ? "語から濁りが消えた" : "the voicing left the word");
+  else sound = ja ? "語の音が入れ替わった" : "the sounds of the word changed";
+  if (!line) return ja ? `さっきと似た線でも、${sound}。` : `A similar line, yet ${sound}.`;
+  return ja ? `${line}、${sound}。` : `${line}, and ${sound}.`;
+}
+function updateNarration(ax, event, shape, prev = null) {
   const el = document.getElementById("result-narration");
   if (!el) return;
-  const kana = event.displayWordOverride ?? namingKanaOf(event.moras);
-  const text = shape && uiLang === "ja" ? whyNarrate(whyReasons(ax, event.moras, event.vocabReason ?? null, shape), kana) : "";
+  const lang = uiLang === "ja" ? "ja" : "en";
+  const kanaOf = e => e.displayWordOverride ?? namingKanaOf(e.moras);
+  const reasons = shape ? whyReasons(ax, event.moras, event.vocabReason ?? null, shape) : null;
+  const text = reasons ? whyNarrate(reasons, kanaOf(event), lang, romajiOf(event)) : "";
   el.textContent = text;
   el.hidden = !text;
+  const cmp = document.getElementById("result-compare");
+  if (!cmp) return;
+  const prevReasons = prev?.shape ? whyReasons(prev.ax, prev.event.moras, prev.event.vocabReason ?? null, prev.shape) : null;
+  const c = reasons && prevReasons ? whyCompare(prevReasons, reasons, kanaOf(prev.event), kanaOf(event), lang) : "";
+  cmp.textContent = c;
+  cmp.hidden = !c;
 }
 function updateWhy(ax, moras, vocabReason = null, shape = null) {
   const panel = document.getElementById("why-panel");

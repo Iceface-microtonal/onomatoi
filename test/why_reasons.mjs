@@ -7,9 +7,10 @@
 // 2) 理由と文が 1 対 1・理由には層 (universal / convention) が付く (立法の理由を表に出すかを機械的に選べる)
 // 3) 語に出た音だけを語る: 理由が名指す音 (heard) が全部その語にあり、言い分の種類に合っている
 // 4) 語りの口調 (whyNarrate・試作): 語は引用 (A) が基本・っ/ん/り/くり返しで終わる 4 拍までだけ「〜と、」(B)。
-//    使った言葉 (折れる・巻く・戻る・詰まる…) に、どれも理由コードの裏付けがある
+//    使った言葉 (折れる・巻く・戻る・詰まる…) に、どれも理由コードの裏付けがある・英語も全部に付く
+// 5) ひとつ前と比べる一言 (whyCompare): 言った違い (閉じた・輪/角の数・大きさ・拍・っ/ん・濁り) が本当にある
 //
-// 実行: node test/why_reasons.mjs   (前後の比較: --diff・golden の作り直し: --write・語りの見本: --samples)
+// 実行: node test/why_reasons.mjs   (前後の比較: --diff・golden の作り直し: --write・語りの見本: --samples・英語: --samples-en・比べる一言: --samples-cmp)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -79,7 +80,7 @@ function extractEngine(html) {
 
 const engineSrc = extractEngine(fs.readFileSync(HTML_PATH, "utf8"));
 const BASE = ["interpretStroke", "densified", "explainEvent", "romajiOf"];
-const CODED = ["whyReasons", "whyLineLab", "whyNarrate", "namingKanaOf"];
+const CODED = ["whyReasons", "whyLineLab", "whyNarrate", "whyNarrateParts", "whyCompare", "namingKanaOf"];
 const EXPORTS = WRITE ? BASE : [...BASE, ...CODED];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(engineSrc + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`
@@ -264,6 +265,49 @@ console.log("── 4) 語りの口調 (A 引用が基本・短い語だけ B) �
   check(`語りが全部の線に付き、A/B が規則どおり (A ${nA} / B ${nB})`, !bad.some(b => /空|のはず/.test(b)), bad.filter(b => /空|のはず/.test(b)).slice(0, 3).join(" | "));
   check("語りの言葉に、どれも理由コードの裏付けがある", !bad.some(b => !/空|のはず/.test(b)), bad.filter(b => !/空|のはず/.test(b)).slice(0, 3).join(" | "));
   if (process.argv.includes("--samples")) for (const t of samples) console.log("  " + t);
+}
+
+console.log("── 5) 英語の語り・ひとつ前と比べる一言 ──");
+{
+  const badEn = [], badCmp = [], seen = [];
+  let prev = null, nCmp = 0;
+  const loopsOf = p => Math.max(0, p.loops - (p.closed ? 1 : 0));
+  const JA_NUM = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5 };
+  for (const c of all) {
+    const { r } = explainBoth(c);
+    const reasons = api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx);
+    const kana = r.event.displayWordOverride ?? api.namingKanaOf(r.event.moras), romaji = api.romajiOf(r.event);
+    const en = api.whyNarrate(reasons, kana, "en", romaji);
+    if (!en || !en.includes(`“${romaji}”`) || /undefined/.test(en)) badEn.push(`${c.id}: ${en}`);
+    if (prev) {
+      const t = api.whyCompare(prev.reasons, reasons, prev.kana, kana, "ja");
+      const tEn = api.whyCompare(prev.reasons, reasons, prev.kana, kana, "en");
+      const pp = prev.reasons.find(x => x.code === "path"), cp = reasons.find(x => x.code === "path");
+      const pe = prev.reasons.find(x => x.code === "ending"), ce = reasons.find(x => x.code === "ending");
+      const fail = why => badCmp.push(`${prev.id}→${c.id} ${why}: ${t}`);
+      nCmp++;
+      if (!t || !tEn || /undefined/.test(t + tEn)) fail("空");
+      if (/同じ声/.test(t) !== (prev.kana === kana)) fail("同じ声");
+      if (/開いていた線が閉じて/.test(t) && !(cp.closed && !pp.closed)) fail("閉じた");
+      if (/閉じていた線がひらいて/.test(t) && !(!cp.closed && pp.closed)) fail("ひらいた");
+      for (const [re, d] of [[/輪が(.)つ(多く|少なく)/, loopsOf(cp) - loopsOf(pp)], [/角が(.)つ(多く|少なく)/, cp.corners - pp.corners]]) {
+        const m = t.match(re);
+        if (m && (JA_NUM[m[1]] !== Math.min(Math.abs(d), 5) || (m[2] === "多く") !== (d > 0))) fail(re.source);
+      }
+      const mm = t.match(/(.)拍(長く|短く)/);
+      if (mm && (JA_NUM[mm[1]] !== Math.min(Math.abs(ce.morae - pe.morae), 5) || (mm[2] === "長く") !== (ce.morae > pe.morae))) fail("拍");
+      if (/「っ」で詰まった/.test(t) && !(ce.last === "Q" && pe.last !== "Q")) fail("っ");
+      if (/「ん」で終わった/.test(t) && !(ce.last === "N" && pe.last !== "N")) fail("ん");
+      if (/濁りが入った/.test(t) && !(ce.voicedObs && !pe.voicedObs)) fail("濁り入");
+      if (/濁りが消えた/.test(t) && !(!ce.voicedObs && pe.voicedObs)) fail("濁り消");
+      if (seen.length < 1000) seen.push(`${prev.id}→${c.id}  ${t}  /  ${tEn}`);
+    }
+    if (process.argv.includes("--samples-en") && badEn.length === 0 && c.id.endsWith("clean")) console.log("  " + en);
+    prev = { id: c.id, reasons, kana };
+  }
+  check("英語の語りが全部の線に付く (ローマ字で引用)", badEn.length === 0, badEn.slice(0, 3).join(" | "));
+  check(`ひとつ前と比べる一言 ${nCmp} 組: 言った違いが本当にある`, badCmp.length === 0, badCmp.slice(0, 3).join(" | "));
+  if (process.argv.includes("--samples-cmp")) for (const t of seen) console.log("  " + t);
 }
 
 console.log(`\n${pass} passed / ${fail} failed`);

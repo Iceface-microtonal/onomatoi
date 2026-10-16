@@ -105,12 +105,14 @@
     $('previous-word').textContent = previousDrawing ? kana(previousDrawing.event) : '—';
     $('play-previous').setAttribute('aria-label', previousDrawing ? `${ja ? 'ひとつ前の声' : 'Previous voice'}: ${kana(previousDrawing.event)}` : (ja ? 'ひとつ前の声はまだありません' : 'No previous voice yet'));
   }
-  function explain(entry) {
+  function explain(entry, prev = null) {
     const {event, explanation} = entry;
     const axes = explanation?.axes || event.axes;
     drawMouthIcon(axes.open ?? 0, axes.round ?? 0);
     updateWhy(axes, event.moras, event.vocabReason ?? null, explanation?.shape ?? null);
-    updateNarration(axes, event, explanation?.source === 'draw' ? explanation?.shape ?? null : null);
+    const drawn = e => e?.explanation?.source === 'draw' && e.explanation.shape;
+    updateNarration(axes, event, drawn(entry) ? explanation.shape : null,
+      drawn(prev) ? { ax: prev.explanation.axes || prev.event.axes, event: prev.event, shape: prev.explanation.shape } : null);
     // These sources do not use the ordinary stroke-to-word explanation.
     if (['preset', 'romaji', 'naming'].includes(explanation?.source)) {
       $('why-lines').textContent = explanation.source === 'preset'
@@ -163,7 +165,7 @@
     const {event,src,points,aspect,presetPoints,explanation,utterance} = e.detail;
     selected = {event:structuredClone(event),points,aspect,presetPoints,explanation:structuredClone(explanation),utterance};
     displayed = selected;
-    explain(selected);
+    explain(selected, src === 'draw' ? currentDrawing : null);   // 新しい一筆はひとつ前の一筆と比べる
     if (src === 'draw') {
       previousDrawing = currentDrawing;
       currentDrawing = selected;
@@ -204,6 +206,7 @@
     $('result-word').textContent = '…';
     $('why-panel').style.display = 'none';
     $('result-narration').hidden = true;
+    $('result-compare').hidden = true;
     clearInterval(mouthTimelineTimer);
     $('mouth-timeline').replaceChildren();
     $('mouth-arrow').style.display = 'none';
