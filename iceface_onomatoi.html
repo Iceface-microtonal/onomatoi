@@ -5653,103 +5653,137 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ─── なぜ? (Onomatopoeia.explain の移植・日英) — 測って見せる説明 ───
-// ─── Step1/2/3 の「計測」を人に見える言葉にする (2026-07-17) ───
-// 確定▲は角の**位置と向き**しか見せない。ここは「形をどう読んで、その形からどう音色を決めたか」
-// の数値を出す (依頼: Step1,2 の計測を結果から見えるように)。
-function shapeMeasureLines(cx, ja) {
+// 2026-10-16: 説明を「理由コード + 値」(whyReasons) と「文にする表」(whyLineLab = 今の研究ノート口調) に分けた。
+// 理由は言語に依らない事実だけを持ち、口調 (研究ノート / 鉄道の車掌 / 将来のキャラ) は表を替えるだけ —
+// どの口調も同じ事実から話すので食い違わない。layer: universal = 普遍層 (音象徴の傾向・計測) /
+// convention = 慣習層 (立法の語・コウさん/作者の制定)。立法の理由を表に出すかは、この層で選べる。
+// 試験 = test/why_reasons.mjs (文が理由コード化の前と一字一句同じ・層・裏付けの報告)。
+// Step1/2/3 の計測 (2026-07-17): 確定▲は角の位置と向きしか見せない。ここは「形をどう読んで、
+// その形からどう音色を決めたか」の数値を出す (依頼: Step1,2 の計測を結果から見えるように)。
+function whyShapeReasons(cx) {
   const out = [];
-  const n2 = v => (v >= 0 ? "+" : "") + v.toFixed(2);
-  if (cx.retraced) {   // Step3
-    out.push(ja ? "なぞり直し → 1周の形として読んだ (何周でも同じ形)"
-                : "retraced → read as a single lap (same shape however many laps)");
-  }
+  if (cx.retraced) out.push({ code: "retraced", layer: "universal" });   // Step3
   if (cx.formK !== null) {   // Step1 (形の認識) + Step2 (形→音色)
-    const knot = cx.corners > 0 ? (ja ? " (結び目も含む)" : " (incl. the knot)") : "";
-    out.push(ja ? `形: 閉じた輪郭・角 ${cx.corners}個${knot}`
-                : `form: closed contour, ${cx.corners} corner(s)${knot}`);
-    const tc = cx.turnConcentration ?? 0;
-    const zone = cx.formK > 0.3 ? (ja ? "破裂圏 (か・た・ぱ系)" : "plosive zone (k/t/p)")
-               : cx.formK < -0.3 ? (ja ? "ブーバ圏 (ま・わ・な系)" : "bouba zone (m/w/n)")
-               : (ja ? "中間" : "middle");
-    out.push(ja ? `転回の集中度 ${tc.toFixed(2)} (角に集中=1 / 全周に分散=0)・角の鋭さ ${cx.cornerSharpness.toFixed(2)} → 形のK ${n2(cx.formK)} = ${zone}`
-                : `turn concentration ${tc.toFixed(2)} (at corners=1 / spread=0), corner sharpness ${cx.cornerSharpness.toFixed(2)} → form K ${n2(cx.formK)} = ${zone}`);
+    out.push({ code: "closedContour", layer: "universal", corners: cx.corners });
+    out.push({ code: "formTone", layer: "universal", turnConcentration: cx.turnConcentration ?? 0,
+               cornerSharpness: cx.cornerSharpness, formK: cx.formK,
+               zone: cx.formK > 0.3 ? "plosive" : cx.formK < -0.3 ? "bouba" : "middle" });
   } else {
-    const why = cx.isClosed ? (ja ? "閉じているが単純な輪郭でない (渦/連ループ)" : "closed but not a simple contour (spiral/chain)")
-                            : (ja ? "開いた線" : "open line");
-    out.push(ja ? `形: ${why} → 音色は軌跡から読む`
-                : `form: ${why} → tone is read from the trajectory`);
+    out.push({ code: "trajectoryForm", layer: "universal", closed: !!cx.isClosed });
   }
   // #4 乱雑度 (立法提案): 閾値 0.4 以上のときだけ効く・表示する
-  if ((cx.disorder ?? 0) >= 0.4) {
-    out.push(ja ? `乱雑度 ${cx.disorder.toFixed(2)} (曲がりの不揃い・自己交差) → 濁音・拗音寄り (ぐちゃぐちゃ系)`
-                : `disorder ${cx.disorder.toFixed(2)} (uneven turns, self-crossings) → voiced/palatalized (gucha-gucha zone)`);
-  }
+  if ((cx.disorder ?? 0) >= 0.4) out.push({ code: "disorder", layer: "universal", disorder: cx.disorder });
   return out;
 }
-
-function explainEvent(ax, moras, vocabReason = null, shape = null) {
+// 語形の型 (実際の末尾から型を読む)。sustain = あーあー型 / redup = きらきら型 / sokuon = ぱっ型 /
+// hatsuon = どん型 / long = がーん型 / ri = きらり型 / root = 素の語根
+function whyFormType(moras) {
+  const loops = moras.filter(m => !m.isN);
+  if (loops.length >= 2 && loops.slice(1).every(m => m.onset === null && m.nucleus === loops[0].nucleus))
+    return "sustain";
+  if (loops.length >= 2 && loops.length % 2 === 0) {
+    const h = loops.length / 2;
+    const key = m => (m.onset ?? "_") + m.nucleus;
+    if (loops.slice(0, h).map(key).join() === loops.slice(h).map(key).join()) return "redup";
+  }
+  const last = moras[moras.length - 1];
+  if (last) {
+    if (last.isQ) return "sokuon";
+    if (last.isN) return "hatsuon";
+    if (last.onset === null && moras.length >= 2 && last.nucleus === moras[moras.length - 2].nucleus) return "long";
+    if (last.onset === "r" && last.nucleus === "i") return "ri";
+  }
+  return "root";
+}
+function whyReasons(ax, moras, vocabReason = null, shape = null) {
   const voiced = moras.filter(m => !m.isSilentRest);
   if (!voiced.length) return [];
-  const ja = uiLang === "ja";
   // Step1/2/3 の計測 (形をどう読んだか) は常に先頭に出す — 固定語彙 (P12) でも形が根拠。
-  const measured = shape ? shapeMeasureLines(shape, ja) : [];
+  const reasons = shape ? whyShapeReasons(shape) : [];
   // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
-  if (vocabReason) return [...measured, vocabReason];
-  const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
+  if (vocabReason) return [...reasons, { code: "vocab", layer: "convention", text: vocabReason }];
   const onsets = voiced.map(m => m.onset).filter(c => c);
-  const lines = [...measured];
   // 子音の性格 ← sharpness
-  if (ax.sharp > 0.25) lines.push(ja ? `鋭さ ${f(ax.sharp)}（尖り）→ 鋭い子音（か・た・さ・つ系）`
-                                     : `sharp ${f(ax.sharp)} (spiky) → hard consonants (k/t/s/ts)`);
-  else if (ax.sharp < -0.25) lines.push(ja ? `鋭さ ${f(ax.sharp)}（丸み）→ 柔らかい子音（ま・わ・な・ら系）`
-                                           : `sharp ${f(ax.sharp)} (rounded) → soft consonants (m/w/n/r)`);
+  if (ax.sharp > 0.25) reasons.push({ code: "consonantSharp", layer: "universal", sharp: ax.sharp });
+  else if (ax.sharp < -0.25) reasons.push({ code: "consonantSoft", layer: "universal", sharp: ax.sharp });
   // 母音 ← 口の形
-  const vr = [];
-  if ((ax.open ?? 0) > 0.3) vr.push(ja ? "開いた口→あ/え" : "open mouth→a/e");
-  else if ((ax.open ?? 0) < -0.3) vr.push(ja ? "閉じた口→い/う" : "closed mouth→i/u");
-  if ((ax.round ?? 0) > 0.25) vr.push(ja ? "すぼめ→う/お" : "pursed lips→u/o");
-  else if ((ax.round ?? 0) < -0.25) vr.push(ja ? "横引き→い/え" : "spread lips→i/e");
-  if (!vr.length && ax.size > 0.3) vr.push(ja ? "大→あ" : "big→a");
-  if (vr.length) lines.push((ja ? "口の形 → 母音 " : "mouth → vowels: ") + vr.join(ja ? "・" : ", "));
+  const parts = [];
+  if ((ax.open ?? 0) > 0.3) parts.push("open");
+  else if ((ax.open ?? 0) < -0.3) parts.push("closed");
+  if ((ax.round ?? 0) > 0.25) parts.push("pursed");
+  else if ((ax.round ?? 0) < -0.25) parts.push("spread");
+  if (!parts.length && ax.size > 0.3) parts.push("big");
+  if (parts.length) reasons.push({ code: "vowelMouth", layer: "universal", parts });
   // 清濁 ← size (重さ)。阻害音 = 破裂/破擦/摩擦 (manner class)
   const OBS = new Set(["p", "a", "f"]);
   const hasVoicedObs = onsets.some(c => VOICED.has(c) && OBS.has(mannerClassOf(c)));
   const hasVoicelessObs = onsets.some(c => !VOICED.has(c) && OBS.has(mannerClassOf(c)));
-  if (ax.size > 0.5 && hasVoicedObs)
-    lines.push(ja ? "大きい=重い → 濁音（が・ば・ざ）" : "big = heavy → voiced (g/b/z)");
-  else if (ax.size < -0.5 && hasVoicelessObs)
-    lines.push(ja ? "小さい=軽い → 清音（か・ぱ・さ）" : "small = light → voiceless (k/p/s)");
-  // 語形 (実際の末尾から型を読む)
-  lines.push((ja ? "語形: " : "form: ") + whyFormReason(ax, voiced, ja));
+  if (ax.size > 0.5 && hasVoicedObs) reasons.push({ code: "voicedBySize", layer: "universal", size: ax.size });
+  else if (ax.size < -0.5 && hasVoicelessObs) reasons.push({ code: "voicelessBySize", layer: "universal", size: ax.size });
+  reasons.push({ code: "form", layer: "universal", type: whyFormType(voiced), tex: ax.tex, size: ax.size });
   // Web は平坦音程。軸からピッチが変わるという説明は出さない。
-  return lines;
+  return reasons;
 }
-function whyFormReason(ax, moras, ja) {
+// 研究ノートの口調 (今の なぜ? 欄)。理由 1 つ → 1 行。
+function whyLineLab(r, ja) {
   const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
-  const loops = moras.filter(m => !m.isN);
-  if (loops.length >= 2 && loops.slice(1).every(m => m.onset === null && m.nucleus === loops[0].nucleus))
-    return ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）"
-              : "one held stroke → sustained vowel (aaaa-type)";
-  if (loops.length >= 2 && loops.length % 2 === 0) {
-    const h = loops.length / 2;
-    const key = m => (m.onset ?? "_") + m.nucleus;
-    if (loops.slice(0, h).map(key).join() === loops.slice(h).map(key).join())
-      return ja ? `反復（texture ${f(ax.tex)}）→ 畳語ABAB（きらきら型）`
-                : `repetition (texture ${f(ax.tex)}) → reduplication ABAB (kira-kira type)`;
+  switch (r.code) {
+    case "retraced":
+      return ja ? "なぞり直し → 1周の形として読んだ (何周でも同じ形)"
+                : "retraced → read as a single lap (same shape however many laps)";
+    case "closedContour": {
+      const knot = r.corners > 0 ? (ja ? " (結び目も含む)" : " (incl. the knot)") : "";
+      return ja ? `形: 閉じた輪郭・角 ${r.corners}個${knot}` : `form: closed contour, ${r.corners} corner(s)${knot}`;
+    }
+    case "formTone": {
+      const zone = { plosive: ja ? "破裂圏 (か・た・ぱ系)" : "plosive zone (k/t/p)",
+                     bouba: ja ? "ブーバ圏 (ま・わ・な系)" : "bouba zone (m/w/n)",
+                     middle: ja ? "中間" : "middle" }[r.zone];
+      return ja ? `転回の集中度 ${r.turnConcentration.toFixed(2)} (角に集中=1 / 全周に分散=0)・角の鋭さ ${r.cornerSharpness.toFixed(2)} → 形のK ${f(r.formK)} = ${zone}`
+                : `turn concentration ${r.turnConcentration.toFixed(2)} (at corners=1 / spread=0), corner sharpness ${r.cornerSharpness.toFixed(2)} → form K ${f(r.formK)} = ${zone}`;
+    }
+    case "trajectoryForm": {
+      const why = r.closed ? (ja ? "閉じているが単純な輪郭でない (渦/連ループ)" : "closed but not a simple contour (spiral/chain)")
+                           : (ja ? "開いた線" : "open line");
+      return ja ? `形: ${why} → 音色は軌跡から読む` : `form: ${why} → tone is read from the trajectory`;
+    }
+    case "disorder":
+      return ja ? `乱雑度 ${r.disorder.toFixed(2)} (曲がりの不揃い・自己交差) → 濁音・拗音寄り (ぐちゃぐちゃ系)`
+                : `disorder ${r.disorder.toFixed(2)} (uneven turns, self-crossings) → voiced/palatalized (gucha-gucha zone)`;
+    case "vocab":
+      return r.text;
+    case "consonantSharp":
+      return ja ? `鋭さ ${f(r.sharp)}（尖り）→ 鋭い子音（か・た・さ・つ系）` : `sharp ${f(r.sharp)} (spiky) → hard consonants (k/t/s/ts)`;
+    case "consonantSoft":
+      return ja ? `鋭さ ${f(r.sharp)}（丸み）→ 柔らかい子音（ま・わ・な・ら系）` : `sharp ${f(r.sharp)} (rounded) → soft consonants (m/w/n/r)`;
+    case "vowelMouth": {
+      const label = { open: ja ? "開いた口→あ/え" : "open mouth→a/e", closed: ja ? "閉じた口→い/う" : "closed mouth→i/u",
+                      pursed: ja ? "すぼめ→う/お" : "pursed lips→u/o", spread: ja ? "横引き→い/え" : "spread lips→i/e",
+                      big: ja ? "大→あ" : "big→a" };
+      return (ja ? "口の形 → 母音 " : "mouth → vowels: ") + r.parts.map(p => label[p]).join(ja ? "・" : ", ");
+    }
+    case "voicedBySize":
+      return ja ? "大きい=重い → 濁音（が・ば・ざ）" : "big = heavy → voiced (g/b/z)";
+    case "voicelessBySize":
+      return ja ? "小さい=軽い → 清音（か・ぱ・さ）" : "small = light → voiceless (k/p/s)";
+    case "form": {
+      const t = {
+        sustain: ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）" : "one held stroke → sustained vowel (aaaa-type)",
+        redup: ja ? `反復（texture ${f(r.tex)}）→ 畳語ABAB（きらきら型）` : `repetition (texture ${f(r.tex)}) → reduplication ABAB (kira-kira type)`,
+        sokuon: ja ? "鋭く単発（鋭さ高・反復低）→ 促音っ（ぱっ型）" : "sharp one-shot → geminate Q (paQ-type)",
+        hatsuon: ja ? "重・鋭・単発の衝撃 → 撥音ん（どん型）" : "heavy sharp impact → moraic N (doN-type)",
+        long: ja ? `大きい（size ${f(r.size)}）→ 長音ー（がーん型）` : `big (size ${f(r.size)}) → long vowel (gaan-type)`,
+        ri: ja ? "小・柔・単発 → り（きらり型）" : "small soft one-shot → -ri (kirari-type)",
+        root: ja ? "素の語根" : "plain root",
+      }[r.type];
+      return (ja ? "語形: " : "form: ") + t;
+    }
   }
-  const last = moras[moras.length - 1];
-  if (last) {
-    if (last.isQ) return ja ? "鋭く単発（鋭さ高・反復低）→ 促音っ（ぱっ型）"
-                            : "sharp one-shot → geminate Q (paQ-type)";
-    if (last.isN) return ja ? "重・鋭・単発の衝撃 → 撥音ん（どん型）"
-                            : "heavy sharp impact → moraic N (doN-type)";
-    if (last.onset === null && moras.length >= 2 && last.nucleus === moras[moras.length - 2].nucleus)
-      return ja ? `大きい（size ${f(ax.size)}）→ 長音ー（がーん型）`
-                : `big (size ${f(ax.size)}) → long vowel (gaan-type)`;
-    if (last.onset === "r" && last.nucleus === "i")
-      return ja ? "小・柔・単発 → り（きらり型）" : "small soft one-shot → -ri (kirari-type)";
-  }
-  return ja ? "素の語根" : "plain root";
+  return "";
+}
+function explainEvent(ax, moras, vocabReason = null, shape = null) {
+  const ja = uiLang === "ja";
+  return whyReasons(ax, moras, vocabReason, shape).map(r => whyLineLab(r, ja));
 }
 function updateWhy(ax, moras, vocabReason = null, shape = null) {
   const panel = document.getElementById("why-panel");
