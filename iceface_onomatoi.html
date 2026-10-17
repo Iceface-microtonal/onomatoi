@@ -3537,6 +3537,18 @@ function connectorSyllables(u, index, scale, w, h, disorder) {
   const ev = generateEvent(ax, index + 7, { moraCountOverride: count, kiki: k, manner, disorder, rawOnly: true });
   return ev.moras.filter(m => !m.isN && !m.isQ && !m.isSilentRest);
 }
+// 子音の無い同じ母音の拍の前の「っ」を外す (長音にする)。2026-10-17 作者・案 A (Core の
+// CVGenerator.droppingSokuonBeforeSameBareVowel と同じ)。促音は次の子音を詰める音 — 母音の前では
+// 表記 (ー) と音 (っう) が食い違っていた (ぎゃぬっうずーにー)。polishUnits が子音を外すこともあるので最後に見る
+function droppingSokuonBeforeSameBareVowel(moras) {
+  let prevVowel = null;
+  return moras.map(m => {
+    if (m.isSilentRest || m.isN || m.isQ) { prevVowel = null; return m; }
+    const out = (m.onset === null && m.gapMs > 0 && m.nucleus === prevVowel) ? { ...m, gapMs: 0 } : m;
+    prevVowel = m.nucleus;
+    return out;
+  });
+}
 function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0.4, manner = null,
                            disorder = null, maxMoras = null) {   // #4 乱雑度 (null=従来と厳密互換)
   const step = 0.0001 + 0.7 * 0.4;   // tuning.repetition 0.7: 同じループ = 同じ音節
@@ -3570,8 +3582,10 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
         const vowel = pickVowel(ax, null, temperature, restrict, rand);
         const onset = expressiveOnset(primaryOnset, vowel, ax, temperature, idx);
+        // 2026-10-17 (作者・案 A): 子音の無い同じ母音の拍には「っ」を付けない (長音にする・Core と同じ)
+        const gapApplies = pendingGap && !(onset === null && vowel === prevVowel);
         out.push({ onset, nucleus: vowel, durationMs: 170 + ax.size * 20,
-                   gapMs: pendingGap ? geminateGapMs(onset) : 0,
+                   gapMs: gapApplies ? geminateGapMs(onset) : 0,
                    amplitude: 1.0, isN: false, isQ: false });
         pendingGap = false;
         prevVowel = vowel;
@@ -3587,7 +3601,8 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
           // (旧: 角がいくつあっても「っ」1 つ — 「これだけ描いたのに にっ」)。
           const syl = connectorScale !== null ? connectorSyllables(u, idx, connectorScale, w, h, disorder) : [];
           if (syl.length) {
-            if (prevVowel !== null) syl[0] = { ...syl[0], gapMs: geminateGapMs(syl[0].onset) };
+            if (prevVowel !== null && !(syl[0].onset === null && syl[0].nucleus === prevVowel))
+              syl[0] = { ...syl[0], gapMs: geminateGapMs(syl[0].onset) };
             out.push(...syl);
             prevVowel = syl[syl.length - 1].nucleus;
             pendingGap = false;
@@ -3596,7 +3611,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         }
       }
     });
-    return polishUnits(out, globalAxes, kiki);
+    return droppingSokuonBeforeSameBareVowel(polishUnits(out, globalAxes, kiki));
   };
   const build = connectorScale => {
     if (kiki === null) return makeMoras(0, connectorScale);
