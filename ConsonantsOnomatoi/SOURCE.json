@@ -1436,6 +1436,14 @@
    "trimStart": 22,
    "encoding": "mp3_80k",
    "outputSha256": "4a2d49006ccff719f08c295e595b5286a696cd767bcd6976e2c841d750be6574"
+  },
+  "diph_iu.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_iu.wav",
+   "sha256": "7820dce7f52ac9238dc5b195f20db4fd91bddb778c01f5effeaab27f9b6c5fa6",
+   "frames": 23196,
+   "trimStart": 0,
+   "encoding": "pcm_s16le",
+   "outputSha256": "41637c1befd4c19a4bf79139296944cf1fe1d01b3df81fc659356a41b64f3c61"
   }
  }
 }

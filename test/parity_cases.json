@@ -1967,6 +1967,114 @@
    "tokens": "ta ka",
    "moraMs": 250,
    "cat": "onset"
+  },
+  {
+   "id": "iu__ki_u__250",
+   "tokens": "ki u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u__500",
+   "tokens": "ki u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ni_u__250",
+   "tokens": "ni u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ni_u__500",
+   "tokens": "ni u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ri_u__250",
+   "tokens": "ri u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ri_u__500",
+   "tokens": "ri u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__shi_u__250",
+   "tokens": "shi u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__shi_u__500",
+   "tokens": "shi u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__i_u__250",
+   "tokens": "i u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__i_u__500",
+   "tokens": "i u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_u__250",
+   "tokens": "ki u u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_u__500",
+   "tokens": "ki u u",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_n__250",
+   "tokens": "ki u n",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_n__500",
+   "tokens": "ki u n",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_q__250",
+   "tokens": "ki u q",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_q__500",
+   "tokens": "ki u q",
+   "moraMs": 500,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_ki_u__250",
+   "tokens": "ki u ki u",
+   "moraMs": 250,
+   "cat": "iu"
+  },
+  {
+   "id": "iu__ki_u_ki_u__500",
+   "tokens": "ki u ki u",
+   "moraMs": 500,
+   "cat": "iu"
   }
  ]
 }
