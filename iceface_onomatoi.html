@@ -3766,7 +3766,8 @@ function sampleKeys(legacy = false) {
 // diph_* と伸ばし録音は WAV を優先し、録音ごとの頭の無音トリム位置は SOURCE.json から読む。
 function sampleUrlCandidates(key) {
   const names = [];
-  if (key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key)) names.push(key + ".wav");
+  // 継続撥音 v_<v>_nn も wav (切り出し位置を音量で決めるので mp3 の誤差で iOS とずれる・2026-10-17)
+  if (key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key) || /^v_[aiueo]_nn$/.test(key)) names.push(key + ".wav");
   names.push(key + SAMPLE_EXT);
   if (key.startsWith("v_") && key.endsWith("_nn")) {
     const vowel = key.slice(2, -3);   // "v_a_nn" → "a"

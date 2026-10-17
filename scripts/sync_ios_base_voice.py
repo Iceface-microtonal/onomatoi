@@ -10,7 +10,8 @@
 - 元   = /Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants/*.wav のうち base の録音
          (予備 *.orig1.wav / *_origi.wav・Finder の複製「diph_ao 2.wav」「cv_maのコピー.wav」・
           高さ違い *_m300.wav / *_p200.wav / *_m300b.wav などは使わない)
-- wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音)
+- wav  = diph_* と伸ばしの録音 v_aaaa 等 (録音の途中から読む・つなぐ音)・継続撥音 v_<v>_nn
+         (頭の母音を切り落とす位置を音量で決めるので、mp3 の誤差で切る位置が iOS とずれる・2026-10-17)
 - mp3  = それ以外。48kHz・モノラル・80kbps
 - base に無いファイルは Web 側から消す。どの録音から作ったかは SOURCE.json (sha256) に残す
 - SOURCE.json には元 wav の長さ (frames) と、iOS のロード時と同じ判定で求めた頭の無音トリム位置
@@ -32,7 +33,7 @@ from pathlib import Path
 SRC = Path("/Volumes/Expansion/MacAPP/Onomatoi/Resources/Consonants")
 DST = Path(__file__).resolve().parent.parent / "ConsonantsOnomatoi"
 NOT_BASE = re.compile(r"(\.orig\d*|_orig\w*|_[mp]\d{3}[a-z]?)$|\s|のコピー")
-KEEP_WAV = re.compile(r"^(diph_.+|v_([aiueo])\2\2\2)$")
+KEEP_WAV = re.compile(r"^(diph_.+|v_([aiueo])\2\2\2|v_[aiueo]_nn)$")
 VOWEL_ONLY = re.compile(r"^v_([aiueo])(\1\1\1)?$")
 
 
