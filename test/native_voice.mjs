@@ -561,7 +561,12 @@ console.log("── 7. Base追加音源と連続接続 ──");
     const m = key.match(/^cv_([a-z]+?)([aiueo])$/);
     return !!m && !!api.RECORDED_EXTENDED_CVS[m[1]] && !api.RECORDED_EXTENDED_CVS[m[1]].has(m[2]);
   };
-  const preloadKeys = new Set(api.sampleKeys());
+  // 旧い声 (?voice=legacy) だけが使う録音 (長い diph・cv_nye・cv_tsQts) も含めて到達を見る
+  const preloadKeys = new Set(api.sampleKeys(true));
+  const nativeKeys = new Set(api.sampleKeys());
+  check("native では旧い声だけの録音を読まない (長い diph 6・cv_nye・cv_tsQts)",
+        !["diph_aaii", "diph_aauu", "diph_eeii", "diph_ooii", "diph_oouu", "diph_uuii", "cv_nye", "cv_tsQts"]
+          .some(k => nativeKeys.has(k)) && preloadKeys.has("diph_aaii") && preloadKeys.has("cv_tsQts"));
   const canonicalAssets = fs.readdirSync(assetDir)
     .map(name => name.replace(/\.(?:wav|mp3)$/, ""))
     .filter(key => /^cv_[A-Za-z]+$/.test(key) || /^diph_[aeiou]{2}$/.test(key) || /^v_[aeiou]_Q$/.test(key));
@@ -571,7 +576,7 @@ console.log("── 7. Base追加音源と連続接続 ──");
         ignoredAssets.join(", "));
 
   const missing = [];
-  for (const key of api.sampleKeys()) {
+  for (const key of api.sampleKeys(true)) {
     const candidates = api.sampleUrlCandidates(key);
     if (!candidates.some(name => fs.existsSync(path.join(assetDir, name))))
       missing.push(`${key} (${candidates.join(" | ")})`);
@@ -606,8 +611,8 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     check(`${p}: 接続素材が120ms超`, bank.cvDiph.get(p)?.length > SR * 0.12,
       `${bank.cvDiph.get(p)?.length / SR * 1000}ms`);
   }
-  check("促音テイクがバンクへ載る (v_<v>_Q 5本・摩擦延長 3本)",
-        bank.vQ.size === 5 && ["s", "sh", "ts"].every(c => bank.fricQ.has(c)));
+  check("促音テイクがバンクへ載る (v_<v>_Q 5本・摩擦延長 s / sh・ts は旧い声だけ)",
+        bank.vQ.size === 5 && ["s", "sh"].every(c => bank.fricQ.has(c)) && !bank.fricQ.has("ts"));
   check("停止中の nye は鳴らさない", api.nvRenderEvent([{ onset: "ny", nucleus: "e", durationMs: 180,
         gapMs: 0, amplitude: 1, isN: false, isQ: false }], bank, SR, 250) === null);
   let patrolled = 0;

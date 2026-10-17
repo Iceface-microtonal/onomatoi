@@ -3716,7 +3716,8 @@ const DIPH_PAIRS = ["ai", "au", "ao", "ei", "oi", "ou", "ui", "uo",
 // iOS と同じく全12ペアで短尺録音を使い、語末専用 _fin も使わない (prefersShortCvDiphForCV) ので読まない。
 const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
 
-function sampleKeys() {
+// legacy = 旧い声 (?voice=legacy) だけが使う録音も読むか (native では鳴らない・約 560KB)
+function sampleKeys(legacy = false) {
   const keys = [];
   for (const c of CONSONANTS) {
     let vs = VOWELS;
@@ -3732,12 +3733,13 @@ function sampleKeys() {
   for (const v of CONTN_VOWELS) keys.push("v_" + v + "_nn");
   // 促音: 前母音の閉鎖 v_<v>_Q (e は base に録音なし) と、s/sh/ts の摩擦延長テイク
   for (const v of VQ_VOWELS) keys.push("v_" + v + "_Q");
-  for (const c of ["s", "sh", "ts"]) keys.push("cv_" + c + "Q" + c);
+  // ts の摩擦延長テイクは native では使わない (usesFricativeQTake は s / sh だけ・iOS の録音も無い)
+  for (const c of legacy ? ["s", "sh", "ts"] : ["s", "sh"]) keys.push("cv_" + c + "Q" + c);
   for (const p of DIPH_PAIRS) keys.push("diph_" + p);
-  for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
+  if (legacy) for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
   // 一次子音確率を増やさず、表情CVまたは直接入力として使うBase新録。
   // nye は既存 ny onset の追加母音なので別に登録する。
-  keys.push("cv_nye");
+  if (legacy) keys.push("cv_nye");   // ny + e は iOS も Web も綴り・生成とも出さない (iOS の録音も無い)
   for (const [c, vowels] of Object.entries(RECORDED_EXTENDED_CVS))
     for (const v of vowels) keys.push("cv_" + c + v);
   return keys;
@@ -3794,7 +3796,7 @@ async function fetchSample(key) {
 let fetchAllPromise = null;
 function fetchAllSamples() {
   if (!fetchAllPromise) {
-    const keys = sampleKeys();
+    const keys = sampleKeys(nativeVoiceMode() === "legacy");
     samplesTotal = keys.length;
     fetchAllPromise = loadVoiceSource().then(() => Promise.all(keys.map(fetchSample)));
   }
@@ -3823,7 +3825,7 @@ async function decodeSample(key) {
 }
 async function preloadAll() {
   await fetchAllSamples();
-  await Promise.all(sampleKeys().map(decodeSample));
+  await Promise.all(sampleKeys(nativeVoiceMode() === "legacy").map(decodeSample));
   const ok = [...sampleBank.values()].filter(Boolean).length;
   document.getElementById("status").textContent = `samples ready (${ok}/${samplesTotal})`;
 }
@@ -7002,7 +7004,7 @@ document.getElementById("fb-count").textContent = feedbackLog.length;
 // その明示タップで AudioContext を resume (確実な user gesture) → 以降は描いた瞬間に鳴る。
 (async () => {
   await fetchAllSamples();
-  try { await Promise.all(sampleKeys().map(decodeSample)); } catch (e) {}
+  try { await Promise.all(sampleKeys(nativeVoiceMode() === "legacy").map(decodeSample)); } catch (e) {}
   const ok = [...sampleBank.values()].filter(Boolean).length;
   document.getElementById("status").textContent = `samples ready (${ok}/${samplesTotal})`;
   showStartButton();
