@@ -314,16 +314,12 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
   check("rooooon: ん直前の持続は維持", !api.nvSameVowelRunReattacks(4, q("rooooon")));
   check("iii: 5モーラ未満は従来どおり ii|i",
         api.nvSameVowelRunReattacks(2, q("iii")));
+  // 2026-10-17: iu も二重母音になった (Base 新録 diph_iu) → bouuuu と同じ diph 後の言い直し (iOS と同じ)
   const piuuuu = q("piuuuu");
-  check("piuuuu: 非diphのi→u後を pi|uu|uu にする",
-        piuuuu.length === 5 && !api.nvDiphReattackBreaks(2, piuuuu)
-          && api.nvSameVowelRunReattacks(3, piuuuu)
-          && !api.nvSameVowelRunReattacks(4, piuuuu));
-  const piuuuuTail = api.nvLongVowelExtension(4, piuuuu);
-  check("piuuuu: 最後のuは単独再アタックにならない",
-        !!piuuuuTail && piuuuuTail.baseMs === MORA_MS
-          && piuuuuTail.totalMs === 2 * MORA_MS,
-        JSON.stringify(piuuuuTail));
+  check("piuuuu: diph 後も piu|uu|u と言い直す",
+        piuuuu.length === 5 && api.nvDiphReattackBreaks(2, piuuuu)
+          && api.nvSameVowelRunReattacks(4, piuuuu));
+  check("piuuuu: 最後は延長しない", api.nvLongVowelExtension(4, piuuuu) === null);
   const bouuuu = q("bouuuu");
   check("bouuuu: diph後も bou|uu|u と言い直す",
         bouuuu.length === 5 && api.nvDiphReattackBreaks(2, bouuuu)
@@ -475,7 +471,7 @@ console.log("── 6.2. 言い直す母音を明記し、長音符は連続さ�
   const want = { aaa: "あーあ", aaaeee: "あーあえーえ", reeeyuuuu: "れーえゆーうー",
                  aaaa: "あーあー", kaaa: "かーあ", nyoooo: "にょーおー",
                  kaii: "かいい", uii: "ういい", gaa: "がー", zaazaa: "ざーざー", aaan: "あーあん",
-                 aiin: "あいーん", aaaaa: "あーあーあ", piuuuu: "ぴうーうー" };
+                 aiin: "あいーん", aaaaa: "あーあーあ", piuuuu: "ぴううーう" };   // iu が二重母音になって bouuuu と同じ表記 (iOS も ぴううーう・2026-10-17)
   for (const [w, kana] of Object.entries(want)) {
     const got = api.namingKanaOf(api.segmentWord(w));
     check(`${w} → ${kana}`, got === kana, `got ${got}`);
@@ -522,9 +518,10 @@ console.log("── 6.5. 表情CVと母音順序 ──");
 
 console.log("── 7. Base追加音源と連続接続 ──");
 {
-  check("二重母音12種を登録 (ao = 2026-10-03 Core と同期)",
+  check("二重母音20種を登録 (ao = 2026-10-03・iu と 7 組 = 2026-10-17 Core と同期)",
         JSON.stringify(Array.from(api.DIPH_PAIRS)) === JSON.stringify([
-          "ai", "au", "ao", "ei", "oi", "ou", "ui", "uo", "ea", "eo", "oa", "ua"
+          "ai", "au", "ao", "ei", "oi", "ou", "ui", "uo", "ea", "eo", "oa", "ua",
+          "iu", "ae", "eu", "ia", "ie", "io", "oe", "ue"
         ]), JSON.stringify(Array.from(api.DIPH_PAIRS)));
 
   const constant = (durSec, value) => {
