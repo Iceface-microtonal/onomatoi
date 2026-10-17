@@ -555,11 +555,11 @@
   },
   "cv_ni.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_ni.wav",
-   "sha256": "c132332d9b9ea2ca3bc306fffb7f4054469d693c9268c3cf97acb8de22b640c0",
-   "frames": 28639,
-   "trimStart": 140,
+   "sha256": "394058a25772453f7369464f1167dce276600b69a61b92f42e9d22e12d149586",
+   "frames": 26951,
+   "trimStart": 17,
    "encoding": "mp3_80k",
-   "outputSha256": "2b33199e7df86f2541d8464c59f066276f9daf90249653b6434e6b5074624934"
+   "outputSha256": "3c447bee653595044315f33a59f4303c2e60dd46819e02a5776ba748cb7c2118"
   },
   "cv_no.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_no.wav",
