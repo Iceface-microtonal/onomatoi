@@ -4223,7 +4223,7 @@ function nvDiphReattackBreaks(idx, moras) {
   return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus);
 }
 
-// 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの run は持続を保つ。
+// 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの 3 モーラまでの run は持続を保つ。
 // 5モーラ以上も根から数え、3・5・7…モーラ目で新しく開始する（2026-10-01）。
 function nvSameVowelRunReattacks(idx, moras) {
   if (idx < 2 || idx >= moras.length) return false;
@@ -4235,7 +4235,6 @@ function nvSameVowelRunReattacks(idx, moras) {
     if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== cur.nucleus) break;
     end++;
   }
-  if (end + 1 < moras.length && moras[end + 1].isN) return false;
   let start = idx;
   while (start > 0) {
     const p = moras[start - 1];
@@ -4243,6 +4242,8 @@ function nvSameVowelRunReattacks(idx, moras) {
     if (nvDiphReattackBreaks(start, moras) || nvExtendedRunBoundaryReattacks(start, moras)) break;
     start--;
   }
+  // ん の前の持続 (例外) は根を含めて 3 モーラまで。4 モーラ以上は ん の前でも言い直す (uuuun = うー・うーん・2026-10-18 作者)
+  if (end + 1 < moras.length && moras[end + 1].isN && end - start + 1 <= 3) return false;
   const pos = idx - start;
   return pos >= 2 && pos % 2 === 0;
 }
