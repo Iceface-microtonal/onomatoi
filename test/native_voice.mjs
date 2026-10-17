@@ -311,7 +311,12 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
     }
   }
   check("rooooo: 最後のおは新しい発音", api.nvLongVowelExtension(4, q("rooooo")) === null);
-  check("rooooon: ん直前の持続は維持", !api.nvSameVowelRunReattacks(4, q("rooooon")));
+  // 2026-10-18 作者 (案 A): ん の前の持続は根を含めて 3 モーラまで。4 モーラ以上は ん の前でも言い直す
+  check("rooooon: 5 モーラは ん の前でも 2 モーラごとに言い直す", api.nvSameVowelRunReattacks(4, q("rooooon")));
+  check("uuuun: 4 モーラは ん の前でも うー・うーん", api.nvSameVowelRunReattacks(2, q("uuuun"))
+        && !api.nvSameVowelRunReattacks(3, q("uuuun")));
+  check("kooon / aaan: 3 モーラまでは ん の前で持続 (コウさん正本の例外)",
+        !api.nvSameVowelRunReattacks(2, q("kooon")) && !api.nvSameVowelRunReattacks(2, q("aaan")));
   check("iii: 5モーラ未満は従来どおり ii|i",
         api.nvSameVowelRunReattacks(2, q("iii")));
   const piuuuu = q("piuuuu");
@@ -333,7 +338,7 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
                  amplitude: 0, isN: false, isSilentRest: true };
   check("bouuuu+休符: COMPOSE内でも最後を言い直す",
         api.nvSameVowelRunReattacks(4, [...bouuuu, rest]));
-  check("iiiin: 直後がんのrunは第3法の例外", !api.nvSameVowelRunReattacks(2, q("iiiin")));
+  check("iiiin: 4 モーラは ん の前でも言い直す (2026-10-18)", api.nvSameVowelRunReattacks(2, q("iiiin")));
   check("kooon: 子音接頭でもん例外", !api.nvSameVowelRunReattacks(2, q("kooon")));
 
   check("CV→V pre-roll: BPM120は40ms", api.nvCvDiphPreRollMs(250) === 40);
@@ -706,7 +711,7 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
 
 {
   const bank=makeBank();
-  for(const [word,index,expected] of [["yuukaaa",4,null],["yuukaaaan",4,2],["kaaan",2,0],["yuukaaaa",4,null],
+  for(const [word,index,expected] of [["yuukaaa",4,null],["yuukaaaan",4,null],["kaaan",2,0],["yuukaaaa",4,null],
       ["yuukaaaa",5,null],["yuukaii",4,null],["aauuu",4,null]])
     check(`CV clock boundary ${word}/${index}`,api.nvLongVowelCVJoinRoot(index,api.segmentWord(word),bank)===expected);
 }
