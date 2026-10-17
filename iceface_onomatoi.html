@@ -3923,11 +3923,44 @@ function nvInterp(arr, sr, tSec) {
 }
 function nvDur(arr, sr) { return arr ? arr.length / sr : 0; }
 
-function nvSampleEnvelope(timeMs, totalMs) {
+function nvSampleEnvelope(timeMs, totalMs, fadeOutMs = NV_SAMPLE_FADE_OUT_MS) {
   if (timeMs < NV_SAMPLE_FADE_IN_MS) return Math.max(0, timeMs / NV_SAMPLE_FADE_IN_MS);
   const remaining = totalMs - timeMs;
-  if (remaining < NV_SAMPLE_FADE_OUT_MS) return Math.max(0, remaining / NV_SAMPLE_FADE_OUT_MS);
+  if (remaining < fadeOutMs) return Math.max(0, remaining / fadeOutMs);
   return 1.0;
+}
+
+// ─── Onomatoi 本体の試聴設定 (2026-10-16〜17・Shared/UI/ContentView.swift の FormantRenderer 初期化) ───
+// 作者が頭を手で整えた通常の CV は頭を切らない (preservedCVHeadPitchCents・Web は Base だけ)
+const NV_PRESERVES_CV_HEAD = true;
+// 語頭の通常の CV は 1ms の半正弦で開く (initialRecordedCVFadeInMs・頭 5ms のフェード 2 つの代わり)
+const NV_INITIAL_RECORDED_CV_FADE_IN_MS = 1;
+// Base / BPM120: 伸ばす CV は CV 録音だけで鳴らし、伸ばし録音を混ぜない (baseCVOnlyLongVowelMoraMs)
+const NV_BASE_CV_ONLY_LONG_VOWEL_MORA_MS = 250;
+// Base の myu は my の聞き分けの部分を 200ms 保ってから長母音へ (baseMinimumHeldVowelJoinStartMs)
+const NV_BASE_MIN_HELD_JOIN_START_MS = { "my|u": 200 };
+// Base の mu は作者の Cubase 配置 (baseHeldVowelJoinLayouts・語末の終わり 410ms)
+const NV_BASE_HELD_JOIN_CUSTOM = {
+  "m|u": { startMs: 85, vowelRiseMs: 270, cvHoldMs: 109, cvZeroMs: 1000, terminalReleaseMs: 410 },
+};
+function nvIsPreservedCVHeadKey(key) { return NV_PRESERVES_CV_HEAD && /^cv_/.test(key) && !/Q/.test(key); }
+// Swift の .rounded(.toNearestOrEven)
+function nvRoundHalfEven(x) {
+  const f = Math.floor(x), d = x - f;
+  if (d > 0.5) return f + 1;
+  if (d < 0.5) return f;
+  return f % 2 === 0 ? f : f + 1;
+}
+// 語末の ん (後ろに休符しかない) — FormantSynth.isWordFinalMoraicN
+function nvIsWordFinalMoraicN(idx, moras) {
+  if (idx < 0 || idx >= moras.length || !moras[idx].isN) return false;
+  for (let j = idx + 1; j < moras.length; j++) if (!moras[j].isSilentRest) return false;
+  return true;
+}
+// 録音を読み切って最後 15ms で 0 へ閉じる (往復しない・EOF は 0) — cvDiphNaturalEndGain と同じ形
+function nvNaturalEndRead(arr, sr, t) {
+  const duration = nvDur(arr, sr);
+  return (nvInterp(arr, sr, t) ?? 0) * Math.min(1, Math.max(0, (duration - t) / 0.015));
 }
 
 // 録音長を超えた時刻を母音定常部で往復 (ピンポン) — FormantSynth.sustainWrap
@@ -4477,7 +4510,25 @@ const NV_BASE_HELD_JOIN_LAYOUT = {
   u: { startMs: 56, vowelRiseMs: 113, cvHoldMs: 90, cvZeroMs: 216 },
   e: { startMs: 69, vowelRiseMs: 121, cvHoldMs: 95, cvZeroMs: 223 },
 };
-function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false) {
+// Base / BPM120 の試行: 伸ばす CV を CV 録音だけで鳴らす run か — usesCVOnlyLongVowelRun
+// (diph へ渡す run・Q テイク・表示 BPM が違う拍を含む run は従来どおり。Web は音程が平らで Base だけ)
+function nvUsesCVOnlyLongVowelRun(root, moras, bank) {
+  const target = NV_BASE_CV_ONLY_LONG_VOWEL_MORA_MS;
+  if (!(target > 0) || root < 0 || root >= moras.length) return false;
+  if (!nvUsesLongVowelCVJoin(root, moras, bank) || nvUsesFricativeQTake(moras[root], bank)) return false;
+  const source = moras[root];
+  for (let i = root; ; i++) {
+    const m = moras[i];
+    if (!(m.durationMs > 0) || nvRoundHalfEven(30000 / m.durationMs) !== nvRoundHalfEven(30000 / target)) return false;
+    if (nvNextUsesCVtoVDiph(i, moras, bank) || nvNextTakenByVVDiph(i, moras, bank)) return false;
+    if (i + 1 >= moras.length) break;
+    const next = moras[i + 1];
+    if (next.onset !== null || next.isN || next.isSilentRest) break;
+    if (next.nucleus !== source.nucleus) return false;
+  }
+  return true;
+}
+function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false, cvOnly = false) {
   const t = runTimeMs / 1000;
   let cv, cvRemainingSec;
   if (fricativeQ) {
@@ -4491,15 +4542,26 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
     cv = nvInterp(arr, bank.sr, t) ?? 0;
     cvRemainingSec = nvDur(arr, bank.sr) - t;
   }
+  // CV だけで伸ばす: 一度だけ読み、往復も別テイクも無し (末端だけ 8ms で閉じる)
+  if (cvOnly && !fricativeQ) return cv * Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   // テイクの母音は拍の長さに関わらず ~0.2s で減衰する → 継ぎの時刻は 250ms 拍の値で止める
   const proportional = nvLongVowelCVJoinTiming(fricativeQ
     ? Math.min(rootDurationMs, NV_FRICQ_JOIN_MAX_ROOT_MS)
     : vowel === "u" ? Math.max(rootDurationMs, NV_U_JOIN_MIN_ROOT_MS) : rootDurationMs);
   const layout = fricativeQ ? null : NV_BASE_HELD_JOIN_LAYOUT[vowel] ?? null;
-  const timing = layout
+  let timing = layout
     ? { startMs: layout.startMs, vowelRiseMs: layout.vowelRiseMs, cvHoldMs: layout.cvHoldMs,
         cvFallMs: layout.cvZeroMs - layout.cvHoldMs }
     : { ...proportional, cvHoldMs: proportional.startMs };
+  // CV ごとの作者の配置 (母音ごとの配置より優先) と、CV の聞き分けの部分を保つ最小の入り
+  const custom = fricativeQ ? null : NV_BASE_HELD_JOIN_CUSTOM[onset + "|" + vowel];
+  if (custom) timing = { startMs: custom.startMs, vowelRiseMs: custom.vowelRiseMs, cvHoldMs: custom.cvHoldMs,
+                         cvFallMs: custom.cvZeroMs - custom.cvHoldMs };
+  const minimumStart = fricativeQ ? undefined : NV_BASE_MIN_HELD_JOIN_START_MS[onset + "|" + vowel];
+  if (Number.isFinite(minimumStart)) {
+    const delay = Math.max(0, minimumStart - timing.startMs);
+    timing = { ...timing, startMs: timing.startMs + delay, cvHoldMs: timing.cvHoldMs + delay };
+  }
   // 短く切れた CV ファイルの EOF でクリックを出さない最後の 8ms ガード
   const cvTailGain = Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   const cvGain = Math.max(0, 1 - Math.max(0, runTimeMs - timing.cvHoldMs) / Math.max(1, timing.cvFallMs));
@@ -4512,6 +4574,29 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
   const vowelGain = Math.min(1, elapsed / Math.max(1, timing.vowelRiseMs))
     * (heldGainDb === 0 ? 1 : Math.pow(10, -heldGainDb / 20));
   return cv * cvGain * cvTailGain + vowelSample * vowelGain;
+}
+// 読み切った diph の後に、別テイク (v_<v>_Q) の閉鎖音を足さない — diphOmitsAdditionalQTail。
+// 延長 run と通常の CV→Q は従来どおり。diph がまだ続いても、実音の無い小さい Q 末尾は足さない
+function nvDiphOmitsAdditionalQTail(idx, moras, bank) {
+  if (idx < 0 || idx >= moras.length) return false;
+  const previous = moras[idx];
+  const cvd = nvCvDiphPrev(idx, moras, bank);
+  if (cvd && !nvCvDiphRunShape(idx, moras).hasExtension) {
+    if (bank.quietVQ?.has(previous.nucleus)) return true;
+    const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
+    const time = (timing.offset + timing.pre + cvd.timeOffsetMs + previous.durationMs) / 1000;
+    const duration = nvDur(nvCvDiphArr(bank, cvd.v1 + cvd.v2), bank.sr);
+    return duration > 0 && time >= duration;
+  }
+  if (nvRawVVDiphPart2Takes(idx, moras, bank)) {
+    const context = nvDiphContext(idx, moras, bank);
+    const arr = context ? bank.diph.get(context.v1 + context.v2) : null;
+    if (context && arr) {
+      const t = (context.baseMs + previous.gapMs + previous.durationMs) / 1000;
+      return nvInterp(arr, bank.sr, t) === null || !!bank.quietVQ?.has(previous.nucleus);
+    }
+  }
+  return false;
 }
 // 摩擦延長テイク (Stage 2b) を使う拍か: 促音 + s/sh + a (ts は除外) — usesFricativeQTake
 function nvUsesFricativeQTake(m, bank) {
@@ -4648,6 +4733,13 @@ function nvLeadingSilenceStart(arr, sr, vowelOnly) {
 // 目録なし) ときだけ、その場で判定する。
 const NV_SOURCE_SR = 48000;
 function nvLeadingTrimStart(arr, sr, key, meta) {
+  // 頭を保つ CV: デコード後の長さが元 wav と同じ (mp3 の符号化の遅れが除かれている) なら頭から読む。
+  // 長さが合わないデコーダでは遅れが残っている → 従来の判定で切る
+  if (nvIsPreservedCVHeadKey(key)) {
+    if (!meta || !(meta.frames > 0)) return 0;
+    const scale = sr / NV_SOURCE_SR;
+    if (Math.abs(arr.length - meta.frames * scale) <= 64 * scale) return 0;
+  }
   if (meta && meta.frames > 0 && meta.trimStart >= 0) {
     const scale = sr / NV_SOURCE_SR;
     if (Math.abs(arr.length - meta.frames * scale) <= 64 * scale) return Math.round(meta.trimStart * scale);
@@ -4748,7 +4840,12 @@ function nvSpectralNasalOnsetIdx(samples, sr, envPeakIdx, thresholdDb = -15) {
     if (headEnd < confirmation) return null;
     let confirmedEnd = null;
     for (let i = 0; i <= headEnd - confirmation; i++) {
-      if (all(i, i + confirmation, v => v >= confirmDb)) { confirmedEnd = i + confirmation; break; }
+      // 2026-10-13 (Core): 3 窓の平均で母音の証拠を見る。各窓は鼻音の閾以上 (短い高域の突起を除く)
+      let sum = 0;
+      for (let k = i; k < i + confirmation; k++) sum += vowelness[k];
+      if (all(i, i + confirmation, v => v >= thresholdDb) && sum / confirmation >= confirmDb) {
+        confirmedEnd = i + confirmation; break;
+      }
     }
     if (confirmedEnd === null) return null;
     searchStart = confirmedEnd;
@@ -4903,11 +5000,13 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
   const plans = moras.map((m, i) => {
     if (m.isSilentRest) return { kind: "silent" };
     if (m.isQ) {
-      return { kind: "finalQ", arr: i > 0 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
+      return { kind: "finalQ", arr: i > 0 && !nvDiphOmitsAdditionalQTail(i - 1, moras, bank)
+                 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
                prevAmp: i > 0 ? moras[i - 1].amplitude : 0 };
     }
     const plan = { kind: "silent", fricQ: null,
-                   gapQ: m.gapMs > 0 && i > 0 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
+                   gapQ: m.gapMs > 0 && i > 0 && !nvDiphOmitsAdditionalQTail(i - 1, moras, bank)
+                     ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
                    gapQAmp: i > 0 ? moras[i - 1].amplitude : 0 };
     if (m.isN) {
       const contV = nvContinuationNVowel(i, moras);
@@ -4929,8 +5028,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         plan.fricQ = { join: nvUsesLongVowelCVJoin(i, moras, bank) };
       }
       if (!nvCvResolvedKey(bank, m.onset, m.nucleus)) return plan;
+      const join = nvUsesLongVowelCVJoin(i, moras, bank);
       return { ...plan, kind: "cv",
-               join: nvUsesLongVowelCVJoin(i, moras, bank),
+               join, cvOnly: join && nvUsesCVOnlyLongVowelRun(i, moras, bank),
                naturalEnd: nvEndsRecordedAttackNaturally(i, moras),
                earlierDiphHandoff: m.durationMs > 30000 / 90 && nvNextUsesCVtoVDiph(i, moras, bank),
                suppressTail: (nvNextUsesLongVowelExtension(i, moras) && !nvNextTakenByVVDiph(i, moras, bank))
@@ -4945,8 +5045,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const continuesRun = !!(next && next.onset === null && !next.isN &&
                                 !next.isSilentRest && next.nucleus === m.nucleus &&
                                 !nvDiphReattackBreaks(i + 1, moras));
+        const runShape = nvCvDiphRunShape(i, moras);
+        // 延長の無い diph は録音を読み切って閉じる (往復で声尾が戻らない・2026-10-12)
         return { ...plan, kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
-                 runShape: nvCvDiphRunShape(i, moras), continuesRun };
+                 runShape, closesNaturally: !runShape.hasExtension, continuesRun };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
@@ -4960,9 +5062,15 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     const joinRoot = ext ? nvLongVowelCVJoinRoot(i, moras, bank) : null;
     if (joinRoot !== null) {
       // 子音+同母音の長音: 根 CV と伸ばし録音の2本の時間軸とフェードを境界の後もそのまま続ける
+      const joinFricQ = nvUsesFricativeQTake(moras[joinRoot], bank);
+      const cvOnly = nvUsesCVOnlyLongVowelRun(joinRoot, moras, bank);
+      // 作者の配置の柔らかい語末 (mu 410ms) は本当の語末だけ (ん・CV・diph の前では使わない)
+      const custom = NV_BASE_HELD_JOIN_CUSTOM[moras[joinRoot].onset + "|" + ext.sourceNucleus];
+      const customReleaseMs = !cvOnly && !joinFricQ && !extSuppressTail && custom
+        && nvEndsRecordedAttackNaturally(i, moras) ? Math.min(custom.terminalReleaseMs, m.durationMs) : null;
       return { ...plan, kind: "cvJoinExt", ext, joinOnset: moras[joinRoot].onset,
                rootDurMs: moras[joinRoot].durationMs, suppressTail: extSuppressTail,
-               joinFricQ: nvUsesFricativeQTake(moras[joinRoot], bank) };
+               joinFricQ, cvOnly, customReleaseMs };
     }
     if (ext) {
       const cvXfade = ext.sourceOnset !== null && moras[i - 1].onset !== null &&
@@ -4992,9 +5100,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       post.contNArr = bank.contN.get(m.nucleus);
       post.contNAmplitude = next.amplitude;
       post.contNRise = nvContNRiseCompletionFraction(m.onset, m.nucleus);
+      post.contNNaturalEnd = nvIsWordFinalMoraicN(i + 1, moras);
     }
     if (nvNextUsesCVtoVDiph(i, moras, bank)) {
       post.cvDiphArr = bank.cvDiph.get(m.nucleus + next.nucleus) || null;
+      post.cvDiphClosesNaturally = !nvCvDiphRunShape(i + 1, moras).hasExtension;
     }
     post.nextHasQ = next.gapMs > 0;
     return post;
@@ -5049,7 +5159,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     } else if (plan.kind === "contN") {
       const preRoll = nvContNPreRollMs(plan.prevDurMs);
       const dur = nvDur(plan.arr, sr);
-      let value = nvInterp(plan.arr, sr, nvSustainWrap((preRoll + phoneT) / 1000, dur));
+      // 語末の ん は選んだ録音を読み切る (往復しない・EOF は 0 = 別の音へ落ちない・2026-10-12)
+      let value = plan.isWordFinalN
+        ? nvNaturalEndRead(plan.arr, sr, (preRoll + phoneT) / 1000)
+        : nvInterp(plan.arr, sr, nvSustainWrap((preRoll + phoneT) / 1000, dur));
       if (value === null) value = 0;
       let env = nvSampleEnvelope(phoneT + NV_SAMPLE_FADE_IN_MS,
                                  m.durationMs + NV_SAMPLE_FADE_IN_MS);
@@ -5066,17 +5179,28 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = value * amp * nvSampleEnvelope(phoneT, m.durationMs) * eventFade;
     } else if (plan.kind === "cv") {
       const value = plan.join
-        ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs)
+        ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, false, plan.cvOnly)
         : nvReadRootCVSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, plan.earlierDiphHandoff, plan.naturalEnd);
       const envTotal = plan.suppressTail
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
-      val = (value === null ? 0 : value) * amp * nvSampleEnvelope(cvPhoneT, envTotal) * eventFade;
+      let envelope;
+      if (mi === 0 && NV_INITIAL_RECORDED_CV_FADE_IN_MS > 0) {
+        // 語頭の CV: 弱い my / t の手がかりを残す (立ち上がりだけ変え、終わりと継ぎは従来どおり)
+        const attack = Math.sin(Math.min(1, Math.max(0, cvPhoneT) / Math.max(0.1, NV_INITIAL_RECORDED_CV_FADE_IN_MS)) * Math.PI / 2);
+        const release = Math.min(1, Math.max(0, (envTotal - cvPhoneT) / NV_SAMPLE_FADE_OUT_MS));
+        envelope = attack * release;
+      } else {
+        envelope = nvSampleEnvelope(cvPhoneT, envTotal) * eventFade;
+      }
+      val = (value === null ? 0 : value) * amp * envelope;
     } else if (plan.kind === "cvDiph") {
       const cvd = plan.cvd;
       const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
       const preRoll = timing.pre;
-      let value = nvInterp(plan.arr, sr,
-        nvSustainWrap((timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000, plan.dur));
+      const diphT = (timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000;
+      let value = plan.closesNaturally
+        ? nvNaturalEndRead(plan.arr, sr, diphT)
+        : nvInterp(plan.arr, sr, nvSustainWrap(diphT, plan.dur));
       if (value === null) value = 0;
       const envTotal = plan.continuesRun
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
@@ -5127,10 +5251,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const ext = plan.ext;
       const timeMs = ext.baseMs + tin;
       const value = nvReadLongVowelCVJoinSample(bank, plan.joinOnset, ext.sourceNucleus,
-                                                timeMs, plan.rootDurMs, plan.joinFricQ);
+                                                timeMs, plan.rootDurMs, plan.joinFricQ, plan.cvOnly);
       const envTotal = plan.suppressTail ? ext.totalMs + NV_SAMPLE_FADE_OUT_MS + 5 : ext.totalMs;
       const gain = nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs);
-      val = (value === null ? 0 : value) * gain * nvSampleEnvelope(timeMs, envTotal) * eventFade;
+      val = (value === null ? 0 : value) * gain
+        * nvSampleEnvelope(timeMs, envTotal, plan.customReleaseMs ?? NV_SAMPLE_FADE_OUT_MS) * eventFade;
     } else if (plan.kind === "ext") {
       const ext = plan.ext;
       const timeMs = ext.baseMs + tin;
@@ -5173,7 +5298,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const preRoll = nvContNPreRollMs(m.durationMs);
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
-        const cv = nvInterp(post.contNArr, sr, tailT / 1000);
+        const cv = post.contNNaturalEnd
+          ? nvNaturalEndRead(post.contNArr, sr, tailT / 1000)
+          : nvInterp(post.contNArr, sr, tailT / 1000);
         if (cv !== null) {
           const u = tailT / preRoll;
           const riseU = Math.min(1, u / post.contNRise);
@@ -5190,8 +5317,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const preRoll = timing.pre;
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
-        const dv = nvInterp(post.cvDiphArr, sr,
-          nvSustainWrap((timing.offset + tailT) / 1000, nvDur(post.cvDiphArr, sr)));
+        const dv = post.cvDiphClosesNaturally
+          ? nvNaturalEndRead(post.cvDiphArr, sr, (timing.offset + tailT) / 1000)
+          : nvInterp(post.cvDiphArr, sr,
+              nvSustainWrap((timing.offset + tailT) / 1000, nvDur(post.cvDiphArr, sr)));
         if (dv !== null) {
           const gains = nvCvDiphGains(timing, tailT);
           const balance = m.nucleus === "e" && next.nucleus === "a" && ["p", "t", "k"].includes(m.onset)
@@ -5238,7 +5367,7 @@ function nvChan(key) { const b = sampleBank.get(key); return b ? b.getChannelDat
 function buildNativeVoiceBank(sr) {
   const bank = { sr, cv: new Map(), vGainDb: new Map(), cvHandoff: new Map(),
                  v: new Map(), shortV: new Map(), shortVHandoff: new Map(),
-                 vQ: new Map(), fricQ: new Map(), fricQOnset: new Map(),
+                 vQ: new Map(), quietVQ: new Set(), fricQ: new Map(), fricQOnset: new Map(),
                  nN: null, contN: new Map(), diph: new Map(), cvDiph: new Map() };
   const trimGate = arr => nvTrimTrailingSilence(arr, 0.004, Math.trunc(sr * 0.01));
   for (const [key, buf] of sampleBank) {
@@ -5271,7 +5400,14 @@ function buildNativeVoiceBank(sr) {
     }
     if (arr) bank.v.set(v, trimGate(arr));
     const q = nvChan("v_" + v + "_Q");
-    if (q) bank.vQ.set(v, q);
+    if (q) {
+      bank.vQ.set(v, q);
+      // 末尾 100ms が全部 |x| < 0.01 = 実音の無い小さい Q 末尾 (ConsonantSampleBank.quietVowelQTails)
+      const n = Math.max(1, Math.trunc(sr * 0.1));
+      let quiet = q.length > 0;
+      for (let k = Math.max(0, q.length - n); k < q.length && quiet; k++) if (Math.abs(q[k]) >= 0.01) quiet = false;
+      if (quiet) bank.quietVQ.add(v);
+    }
     const nn = nvChan("v_" + v + "_nn");
     if (nn) {
       const prepared = nvPrepared(nn, "contN", () => nvPrepareContN(nn, sr));

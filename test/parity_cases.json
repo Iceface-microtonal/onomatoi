@@ -1781,6 +1781,192 @@
    "tokens": "u a a n",
    "moraMs": 500,
    "cat": "rawheld"
+  },
+  {
+   "id": "cvonly__ku_u__250",
+   "tokens": "ku u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ku_u__500",
+   "tokens": "ku u",
+   "moraMs": 500,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__su_u__250",
+   "tokens": "su u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__mu_u__250",
+   "tokens": "mu u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__mu_u__500",
+   "tokens": "mu u",
+   "moraMs": 500,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__pu_u__250",
+   "tokens": "pu u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__myu_u__250",
+   "tokens": "myu u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ka_a__250",
+   "tokens": "ka a",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ki_i__250",
+   "tokens": "ki i",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ke_e__250",
+   "tokens": "ke e",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ko_o__250",
+   "tokens": "ko o",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ku_u_u__250",
+   "tokens": "ku u u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__sa_a_a__250",
+   "tokens": "sa a a",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__to_o__250",
+   "tokens": "to o",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__nyo_o__250",
+   "tokens": "nyo o",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ku_u_n__250",
+   "tokens": "ku u n",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ka_a_q__250",
+   "tokens": "ka a q",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__ki_i_ka__250",
+   "tokens": "ki i ka",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "cvonly__mu_u_mu_u__250",
+   "tokens": "mu u mu u",
+   "moraMs": 250,
+   "cat": "cvonly"
+  },
+  {
+   "id": "finaln__ka_n__250",
+   "tokens": "ka n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__ki_n__250",
+   "tokens": "ki n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__ju_ki_n__250",
+   "tokens": "ju ki n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__ko_n__250",
+   "tokens": "ko n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__pa_n__250",
+   "tokens": "pa n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__do_o_n__250",
+   "tokens": "do o n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "finaln__hi_n__250",
+   "tokens": "hi n",
+   "moraMs": 250,
+   "cat": "finaln"
+  },
+  {
+   "id": "onset__te__250",
+   "tokens": "te",
+   "moraMs": 250,
+   "cat": "onset"
+  },
+  {
+   "id": "onset__tsa__250",
+   "tokens": "tsa",
+   "moraMs": 250,
+   "cat": "onset"
+  },
+  {
+   "id": "onset__myu__250",
+   "tokens": "myu",
+   "moraMs": 250,
+   "cat": "onset"
+  },
+  {
+   "id": "onset__pi_ka__250",
+   "tokens": "pi ka",
+   "moraMs": 250,
+   "cat": "onset"
+  },
+  {
+   "id": "onset__ta_ka__250",
+   "tokens": "ta ka",
+   "moraMs": 250,
+   "cat": "onset"
   }
  ]
 }
