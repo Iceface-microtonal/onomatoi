@@ -3712,7 +3712,9 @@ const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同�
 const VQ_VOWELS = ["a", "i", "u", "e", "o"];   // 促音前の母音 v_<v>_Q (iOS base に e も揃った・2026-10-03)
 const DIPH_PAIRS = ["ai", "au", "ao", "ei", "oi", "ou", "ui", "uo",
                     "ea", "eo", "oa", "ua",
-                    "iu"];   // ao = 2026-10-01〜02 新録・iu = 2026-10-17 新録 (Core diphPairs と同期)
+                    "iu",
+                    // 2026-10-17 新録 (ae / ia / ie / io / oe = 既存の逆再生 + 頭に母音・ue / eu = 新録)
+                    "ae", "eu", "ia", "ie", "io", "oe", "ue"];   // ao = 2026-10-01〜02 新録・iu = 2026-10-17 新録 (Core diphPairs と同期)
 // 長尺録音 (diph_aaii 等) は legacy 経路 (?voice=legacy) の cvDiphExt だけが使う。native レンダラは
 // iOS と同じく全12ペアで短尺録音を使い、語末専用 _fin も使わない (prefersShortCvDiphForCV) ので読まない。
 const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
@@ -4023,6 +4025,10 @@ function nvCvDiphTiming(pair, durationMs) {
     oa: [140, 210, 100, 45, 115], ua: [140, 210, 100, 45, 115],
     // iu (2026-10-17 新録・483ms): 同じ形の短尺録音なので ea 系と同じ配置のまま (作者の調整待ち)
     iu: [140, 210, 100, 45, 115],
+    // 2026-10-17 の 7 組も同じ形の短尺録音 (370〜470ms) なので iu と同じ配置のまま (作者の調整待ち)
+    ae: [140, 210, 100, 45, 115], eu: [140, 210, 100, 45, 115], ia: [140, 210, 100, 45, 115],
+    ie: [140, 210, 100, 45, 115], io: [140, 210, 100, 45, 115], oe: [140, 210, 100, 45, 115],
+    ue: [140, 210, 100, 45, 115],
     ei: [190, 190, 100, 40, 150], oi: [172, 172, 67, 0, 47],
     au: [160, 160, 170, 5, 85], ai: [40, 40, 25, 10, 28],
     uo: [170, 170, 110, 80, 140], ui: [180, 180, 120, 90, 150],
@@ -5221,8 +5227,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
             const c = Math.cos(r * Math.PI / 2);
             env *= c * c;
           }
-        } else if (!["ei", "au", "ao", "ea", "eo", "oa", "ua", "iu"].includes(cvd.v1 + cvd.v2)) {
-          // 語末は 22% から cos² で閉じる (素材の自然な閉じを持つ8ペアは録音の包絡のまま)
+        } else if (!["ei", "au", "ao", "ea", "eo", "oa", "ua", "iu",
+                     "ae", "eu", "ia", "ie", "io", "oe", "ue"].includes(cvd.v1 + cvd.v2)) {
+          // 語末は 22% から cos² で閉じる (素材の自然な閉じを持つ15ペアは録音の包絡のまま)
           const u = phoneT / m.durationMs;
           if (u > 0.22) {
             const r = Math.min(1, (u - 0.22) / 0.73);

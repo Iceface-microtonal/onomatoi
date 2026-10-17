@@ -1444,6 +1444,62 @@
    "trimStart": 0,
    "encoding": "pcm_s16le",
    "outputSha256": "41637c1befd4c19a4bf79139296944cf1fe1d01b3df81fc659356a41b64f3c61"
+  },
+  "diph_ae.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_ae.wav",
+   "sha256": "3b61327c8f97100377bd361df9016ef0346f2005c64f0e9c34531fe25a57507c",
+   "frames": 22462,
+   "trimStart": 313,
+   "encoding": "pcm_s16le",
+   "outputSha256": "df85c70388191ce2ca5c3ee4e9fedfd94b91aa8662886255efb582261b03037e"
+  },
+  "diph_eu.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_eu.wav",
+   "sha256": "bbb11f47ec00848e0a374198985018a1a736d088aa3cfd94eb8638060a33957b",
+   "frames": 22462,
+   "trimStart": 46,
+   "encoding": "pcm_s16le",
+   "outputSha256": "83778e5287d299ba7c57cb3ffec3f6130326bac14aa0cd144075e23e86a5c264"
+  },
+  "diph_ia.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_ia.wav",
+   "sha256": "9ae777fcf1d44f5b0d7319faffdb61fd75905654d4e2fd17de8bce38ef63a784",
+   "frames": 22462,
+   "trimStart": 0,
+   "encoding": "pcm_s16le",
+   "outputSha256": "2d19ff9db39f5f03e18778d3d05e79b3de86572bcc6ca4afcdb2fd1295e2549e"
+  },
+  "diph_ie.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_ie.wav",
+   "sha256": "60ed2384d48809a74a20d0fa1280b477ef74fdb3359eaf0149b1e8769a20d048",
+   "frames": 17938,
+   "trimStart": 0,
+   "encoding": "pcm_s16le",
+   "outputSha256": "cbf708c8a56c13b3178f1c18c278b83f5b238df0720f341537c3faaa90d9bf7f"
+  },
+  "diph_io.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_io.wav",
+   "sha256": "f2c1b5847f668f1ef582326d5d7a6ae1df2948e5e074f716e5f169c7ce49d8e4",
+   "frames": 22215,
+   "trimStart": 0,
+   "encoding": "pcm_s16le",
+   "outputSha256": "c32ae99e0dc051ef6e64379be539d565a7d2aac328c5e808c115eaffcaa1d297"
+  },
+  "diph_oe.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_oe.wav",
+   "sha256": "78ac81778ea470ab6de729f3145ab9d29b277913ee559c8cba781c9b6373a9c5",
+   "frames": 22462,
+   "trimStart": 0,
+   "encoding": "pcm_s16le",
+   "outputSha256": "1b32d2d4d464038b7550b3a2f33137b571653af3a4d43080003fea6d4a3f424d"
+  },
+  "diph_ue.wav": {
+   "source": "Onomatoi/Resources/Consonants/diph_ue.wav",
+   "sha256": "daf282131020efb04d39f6287878cb9a131692a4269ba71f652f4e4db67cde90",
+   "frames": 22462,
+   "trimStart": 130,
+   "encoding": "pcm_s16le",
+   "outputSha256": "07a45f5779ce1308bbf7d2e5bdae902596e5f529cd2d75d63fafa45aef4486b4"
   }
  }
 }
