@@ -310,5 +310,35 @@ console.log("── 5) 英語の語り・ひとつ前と比べる一言 ──")
   if (process.argv.includes("--samples-cmp")) for (const t of seen) console.log("  " + t);
 }
 
+console.log("── 6) 弧や波を「まっすぐ」と語らない ──");
+if (!WRITE) {
+  // 2026-10-18: 対角 ÷ 長さ > 0.92 だけで決めていたため、浅い弧 ∩ とゆるい波まで「まっすぐ進んで」と語っていた
+  const W = 1000, H = 561;
+  const narrate = norm => {
+    const r = api.interpretStroke(api.densified(norm.map(([x, y]) => ({ x: x * W, y: y * H })), 6), W, H, { coarse: true, hc: 0, language: "ja" });
+    const kana = r.event.displayWordOverride ?? api.namingKanaOf(r.event.moras);
+    const reasons = api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx);
+    return { kind: api.whyNarrateParts(reasons)?.move?.kind, text: api.whyNarrate(reasons, kana, "ja", api.romajiOf(r.event)) };
+  };
+  const arc = (hgt) => Array.from({ length: 40 }, (_, i) => [0.3 + 0.4 * i / 39, 0.5 - hgt * Math.sin(i / 39 * Math.PI)]);
+  const wave = (amp, n) => Array.from({ length: 90 }, (_, i) => [0.1 + 0.8 * i / 89, 0.5 + amp * Math.sin(i / 89 * Math.PI * 2 * n)]);
+  for (const [name, pts] of [["浅い弧 ∩", arc(0.12)], ["やや浅い弧 ∩", arc(0.08)], ["弧 ∪", arc(-0.12)], ["ゆるい波", wave(0.04, 3)]]) {
+    const r = narrate(pts);
+    check(`${name} を「まっすぐ」と語らない`, r.kind !== "straight" && !/まっすぐ/.test(r.text), r.text);
+  }
+  const line = narrate([[0.2, 0.5], [0.8, 0.52]]);
+  check("まっすぐな線は「まっすぐ」と語る", line.kind === "straight" && /まっすぐ/.test(line.text), line.text);
+  // 手描きと合成の線で、語りが「まっすぐ」から変わった本数 (前の決め方 = 対角 ÷ 長さだけ)
+  let was = 0, now = 0;
+  for (const c of all) {
+    const r = api.interpretStroke(c.ink, c.w, c.h, { coarse: true, hc: 0, language: "ja" });
+    const old = (r.cx.pathRatio ?? 0) > 0 && (r.cx.sizeRatio ?? 0) / r.cx.pathRatio > 0.92;
+    const p = api.whyReasons(r.ax, r.event.moras, r.event.vocabReason ?? null, r.cx).find(x => x.code === "path");
+    if (old) was++;
+    if (p?.straight) now++;
+  }
+  console.log(`  まっすぐと語る線: ${was} → ${now} 本 (全 ${all.length} 本)`);
+}
+
 console.log(`\n${pass} passed / ${fail} failed`);
 process.exit(fail ? 1 : 0);

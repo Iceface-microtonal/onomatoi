@@ -5899,7 +5899,10 @@ function whyReasons(ax, moras, vocabReason = null, shape = null) {
   // 語りの材料 (研究ノートの口調では文にしない): 線の道すじと語尾の型。固定語彙でも同じ。
   if (shape) reasons.push({ code: "path", layer: "universal", corners: shape.corners ?? 0, loops: shape.loops ?? 0,
     closed: !!shape.isClosed, retraced: !!shape.retraced, disorder: shape.disorder ?? 0, size: ax.size,
-    straight: (shape.pathRatio ?? 0) > 0 && (shape.sizeRatio ?? 0) / shape.pathRatio > 0.92 });
+    // まっすぐ = 外接箱の対角 ≈ 線の長さ・向きがほとんど回らない・揺れていない。
+    // 対角と長さだけだと、浅い弧 ∩ (回り 0.11〜) やゆるい波 (揺れ 6 回) まで「まっすぐ」と語っていた (2026-10-18)
+    straight: (shape.pathRatio ?? 0) > 0 && (shape.sizeRatio ?? 0) / shape.pathRatio > 0.92
+      && Math.abs(shape.rotationFraction ?? 0) < 0.09 && (shape.trajectoryDescriptor?.oscillationCount ?? 0) === 0 });
   const lastMora = voiced[voiced.length - 1];
   reasons.push({ code: "ending", layer: "universal", type: whyFormType(voiced), morae: voiced.length,
                  last: lastMora.isQ ? "Q" : lastMora.isN ? "N" : "V",
