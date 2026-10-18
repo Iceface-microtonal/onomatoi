@@ -2687,6 +2687,24 @@
    "tokens": "nu nu q i ya nya i nu u",
    "moraMs": 250,
    "cat": "qv"
+  },
+  {
+   "id": "qv__ho_q_i__250",
+   "tokens": "ho q i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__su_q_i__250",
+   "tokens": "su q i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__re_q_i_n__250",
+   "tokens": "re q i n",
+   "moraMs": 250,
+   "cat": "qv"
   }
  ]
 }
