@@ -4184,6 +4184,7 @@ function nvMemo(moras, bank, key, compute) {
 // 語末促音・休符は母音と見なさない (ikiQ が「いき + 小さいい」になる経路を断つ)。
 function nvIsLongVowelStep(prev, cur) {
   if (prev.isN || prev.isQ || prev.isSilentRest || cur.isQ || cur.isSilentRest) return false;
+  if (cur.gapMs > 0) return false;   // っ の後の母音は前の母音の伸ばしにしない (2026-10-19・iOS と同じ)
   return prev.nucleus === cur.nucleus ||
          (prev.nucleus === "e" && cur.nucleus === "i") ||
          (prev.nucleus === "o" && cur.nucleus === "u");
@@ -4281,6 +4282,7 @@ function nvVvDiphPart1Takes(idx, moras, bank) {
     const cur = moras[idx], next = moras[idx + 1];
     if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
     if (next.onset !== null || next.isN || next.isSilentRest) return false;
+    if (next.gapMs > 0) return false;   // っ を挟む母音 (あっい) は diph でつながない (2026-10-19)
     if (!bank.diph.has(cur.nucleus + next.nucleus)) return false;
     if (nvCvDiphPrev(idx, moras, bank) !== null || nvRawVVDiphPart2Takes(idx, moras, bank)) return false;
     if (nvExtendedRunBoundaryReattacks(idx + 1, moras)) return false;
@@ -4303,12 +4305,14 @@ function nvCvDiphPrev(idx, moras, bank) {
     if (m.onset !== null || m.isN || m.isSilentRest) return null;
     if (nvDiphReattackBreaks(idx, moras)) return null;
     let first = idx;
-    while (first > 0 && !nvDiphReattackBreaks(first, moras)) {
+    while (first > 0 && !(moras[first].gapMs > 0) && !nvDiphReattackBreaks(first, moras)) {
       const p = moras[first - 1];
       if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== m.nucleus) break;
       first--;
     }
     if (first <= 0) return null;
+    // っ の後の母音は二重母音でつながず、素の母音で言い直す (2026-10-19・iOS cvDiphPrev と同じ)
+    if (moras[first].gapMs > 0) return null;
     const prev = moras[first - 1];
     if (prev.isN || prev.isSilentRest || prev.nucleus === m.nucleus) return null;
     if (!nvHasUsableCvDiph(bank, prev.nucleus + m.nucleus)) return null;

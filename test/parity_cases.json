@@ -2627,6 +2627,66 @@
    "tokens": "di i",
    "moraMs": 250,
    "cat": "rec1018"
+  },
+  {
+   "id": "qv__re_q_i__125",
+   "tokens": "re q i",
+   "moraMs": 125,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__re_q_i__250",
+   "tokens": "re q i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__re_q_i__500",
+   "tokens": "re q i",
+   "moraMs": 500,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__ke_q_i__250",
+   "tokens": "ke q i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__ka_q_u__250",
+   "tokens": "ka q u",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__so_q_a__250",
+   "tokens": "so q a",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__a_q_i__250",
+   "tokens": "a q i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__o_q_u__250",
+   "tokens": "o q u",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__re_q_i_i__250",
+   "tokens": "re q i i",
+   "moraMs": 250,
+   "cat": "qv"
+  },
+  {
+   "id": "qv__nu_nu_q_i_ya_nya_i_nu_u__250",
+   "tokens": "nu nu q i ya nya i nu u",
+   "moraMs": 250,
+   "cat": "qv"
   }
  ]
 }
