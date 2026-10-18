@@ -282,6 +282,7 @@
     <input id="romaji-input" type="text" value="bouba" autocapitalize="off" autocomplete="off" spellcheck="false">
     <button id="btn-romaji" class="primary">▶ PLAY</button>
   </div>
+  <div class="hint" id="romaji-reading" style="margin-top:4px; min-height:1em;"></div>
   <div class="chips" id="romaji-chips"></div>
 </div>
 
@@ -406,7 +407,7 @@ const T = uiLang === "ja" ? {
   loadingInitial: "声を準備しています…",
   voice: "Voice(声): PuppeTwin",
   romajiTitle: "ROMAJI 直接入力",
-  romajiHint: "空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
+  romajiHint: "かな (れっい・ぼーん) かローマ字。空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
   fbHint: "👍👎 = イメージ通りか記録。送る で開発者に届きます (COPY でも渡せます)",
   researchLabel: "研究に参加する",
   researchHint: "ON にすると 👍👎 で「イメージ通りか」を記録できます (この端末に保存・「送る」を押したときだけ開発者に届きます)",
@@ -427,7 +428,7 @@ const T = uiLang === "ja" ? {
   loadingInitial: "Getting your voice ready…",
   voice: "Voice: PuppeTwin",
   romajiTitle: "ROMAJI input",
-  romajiHint: "space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
+  romajiHint: "kana (れっい) or romaji, space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
   fbHint: "👍👎 = did it sound like your shape? SEND delivers it to the developer (or COPY)",
   researchLabel: "Join the research",
   researchHint: "Turn on to rate words with 👍👎 (stored on this device; sent to the developer only when you press SEND)",
@@ -6876,10 +6877,59 @@ function segmentWord(word) {
 // ─── ROMAJI 直接入力の再生 (v11 で外し 2026-07-17 復活) ───
 // 空白/ハイフン区切りのトークン列。トークンが単一モーラでなければ segmentWord の
 // greedy CV 自動分割へフォールバック (bouba も bo u ba も同じ)。促音=Q・撥音=n。
+// かな入力 (dev の文字入力欄・2026-10-19): 結果のかな表記 (NAMING_KANA_ROWS) を逆に引いてローマ字のトークンにする。
+// 画面に出た語をそのまま貼れば同じ並びで鳴る。表の同じかなが複数の行にあるとき (き = k / ky) は表の先の行。
+// ローマ字に戻せない (エンジンが鳴らせない) 音節は unknown に返す。っ = q・ん = n・ー = 直前の母音。
+let NV_KANA_TO_ROMAJI = null;
+function nvKanaToRomajiTokens(text) {
+  if (!NV_KANA_TO_ROMAJI) {
+    NV_KANA_TO_ROMAJI = new Map();
+    for (const [onset, row] of Object.entries(NAMING_KANA_ROWS)) {
+      ["a", "i", "u", "e", "o"].forEach((v, k) => {
+        const m = parseMora(onset + v, false);
+        if (!m || (m.onset ?? "") !== onset || m.nucleus !== v) return;
+        if (!NV_KANA_TO_ROMAJI.has(row[k])) NV_KANA_TO_ROMAJI.set(row[k], onset + v);
+      });
+    }
+  }
+  const hira = text.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const tokens = [], unknown = [];
+  let prevVowel = null;
+  for (let i = 0; i < hira.length;) {
+    const c = hira[i];
+    if (/[\s、。・,.]/.test(c)) { i++; continue; }
+    if (c === "っ") { tokens.push("q"); prevVowel = null; i++; continue; }
+    if (c === "ん") { tokens.push("n"); prevVowel = null; i++; continue; }
+    if (c === "ー" || c === "〜") { if (prevVowel) tokens.push(prevVowel); i++; continue; }
+    const two = hira.slice(i, i + 2);
+    const smallNext = /[ぁぃぅぇぉゃゅょ]/.test(hira[i + 1] || "");
+    // 小さいかなが続くときは 2 文字で 1 音節 (きぇ を き + ぇ に割らない)
+    const hit = NV_KANA_TO_ROMAJI.has(two) ? two : !smallNext && NV_KANA_TO_ROMAJI.has(c) ? c : null;
+    if (!hit) {
+      const bad = smallNext ? two : c;
+      unknown.push(bad); i += bad.length; continue;
+    }
+    const romaji = NV_KANA_TO_ROMAJI.get(hit);
+    tokens.push(romaji);
+    prevVowel = romaji.slice(-1);
+    i += hit.length;
+  }
+  return { tokens, unknown };
+}
 function playRomaji() {
   ensureCtx();
-  const tokens = document.getElementById("romaji-input").value
-    .trim().toLowerCase().split(/[\s\-_]+/).filter(Boolean);
+  const raw = document.getElementById("romaji-input").value;
+  const reading = document.getElementById("romaji-reading");
+  let tokens;
+  if (/[\u3041-\u30ff]/.test(raw)) {
+    const k = nvKanaToRomajiTokens(raw);
+    tokens = k.tokens;
+    if (reading) reading.textContent = (tokens.length ? "読み: " + tokens.join(" ") : "")
+      + (k.unknown.length ? "　鳴らせないかな: " + k.unknown.join(" ") : "");
+  } else {
+    tokens = raw.trim().toLowerCase().split(/[\s\-_]+/).filter(Boolean);
+    if (reading) reading.textContent = "";
+  }
   const moras = [];
   let pendingQ = false;
   for (const tk of tokens) {
