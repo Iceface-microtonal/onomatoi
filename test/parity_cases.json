@@ -2495,6 +2495,138 @@
    "tokens": "ku e q",
    "moraMs": 500,
    "cat": "d7"
+  },
+  {
+   "id": "rec1018__bo__125",
+   "tokens": "bo",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__bo__250",
+   "tokens": "bo",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__bo__500",
+   "tokens": "bo",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__di__125",
+   "tokens": "di",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__di__250",
+   "tokens": "di",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__di__500",
+   "tokens": "di",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwi__125",
+   "tokens": "kwi",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwi__250",
+   "tokens": "kwi",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwi__500",
+   "tokens": "kwi",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwo__125",
+   "tokens": "kwo",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwo__250",
+   "tokens": "kwo",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__kwo__500",
+   "tokens": "kwo",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__na__125",
+   "tokens": "na",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__na__250",
+   "tokens": "na",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__na__500",
+   "tokens": "na",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__pe__125",
+   "tokens": "pe",
+   "moraMs": 125,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__pe__250",
+   "tokens": "pe",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__pe__500",
+   "tokens": "pe",
+   "moraMs": 500,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__bo_o__250",
+   "tokens": "bo o",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__na_a__250",
+   "tokens": "na a",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__pe_e__250",
+   "tokens": "pe e",
+   "moraMs": 250,
+   "cat": "rec1018"
+  },
+  {
+   "id": "rec1018__di_i__250",
+   "tokens": "di i",
+   "moraMs": 250,
+   "cat": "rec1018"
   }
  ]
 }
