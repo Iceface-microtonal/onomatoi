@@ -4077,9 +4077,12 @@ function nvCvDiphArr(bank, pair) {
 }
 
 // 後続モーラの弱め — FormantRenderer.eventApplyingFollowingMoraAttenuation。
+// 促音の無音の頭で鳴らす v_<母音>_Q の末尾の長さ (ms)。2026-10-20 作者: 0 = 鳴らさない (末尾 100ms は低いノイズで、
+// かっく・かった の無音に入っていた)。語末の っ (finalQ) は従来どおり。iOS FormantSynth.geminateGapVowelQTailMs と同じ。
+const NV_GEMINATE_GAP_VQ_TAIL_MS = 0;
 // っ の後で言い直す母音 (PD-022) のうち、単独の録音が小さい い だけを +2.5dB (2026-10-19 作者・案1)。
 // v_i の単独録音はほかの母音より約 2.4 LU 小さい。iOS FormantRenderer.sokuonVowelGainDB / eventApplyingSokuonVowelGain と同じ。
-// 言い直した い の伸ばしと続く ん にも同じ倍率 (一続きの中で段差を作らない)。
+// 言い直した い の伸ばしにも同じ倍率 (一続きの中で段差を作らない)。続く ん には掛けない (2026-10-20 作者)。
 const NV_SOKUON_VOWEL_GAIN_DB = { i: 2.5 };
 function nvApplySokuonVowelGain(moras) {
   let out = null;
@@ -4093,13 +4096,9 @@ function nvApplySokuonVowelGain(moras) {
     let j = i + 1;
     while (j < moras.length) {
       const n = moras[j];
-      const continuesVowel = n.onset === null && !n.isN && !n.isSilentRest && !n.isQ
-        && !(n.gapMs > 0) && n.nucleus === m.nucleus;
-      const endingN = n.isN && !(n.gapMs > 0);
-      if (!continuesVowel && !endingN) break;
+      if (n.onset !== null || n.isN || n.isSilentRest || n.isQ || n.gapMs > 0 || n.nucleus !== m.nucleus) break;
       out[j] = { ...n, amplitude: n.amplitude * gain };
       j++;
-      if (endingN) break;
     }
     i = j - 1;
   }
@@ -4724,6 +4723,7 @@ function nvStandaloneVowelReleaseTailMs(moras, bank) {
   // 語末で言い直す短母音は、余韻がもう一拍に聞こえないよう短く閉じる。
   // feedback mukfgx5x-2 / giQnuuu (2026-09-28)。一文字の母音の自然な減衰は維持。
   const reattacks = nvSameVowelRunReattacks(index, moras)
+    || last.gapMs > 0   // っ の後で言い直した語末の母音も短く閉じる (れっい が れっいー に聞こえた・2026-10-20 作者)
     || nvDiphReattackBreaks(index, moras)
     || nvExtendedRunBoundaryReattacks(index, moras);
   const maxReleaseMs = reattacks ? Math.min(50, last.durationMs * 0.2) : 350;
@@ -5197,7 +5197,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // 摩擦延長テイクを使う s/sh + a は gap も摩擦で埋める (gap を差し引かない)。
     if (!plan.fricQ && tin < m.gapMs) {
       let value = 0;
-      if (plan.gapQ && tin < 100) {
+      if (plan.gapQ && tin < NV_GEMINATE_GAP_VQ_TAIL_MS) {
         const qStart = Math.max(0, nvDur(plan.gapQ, sr) - 0.100);
         const q = nvInterp(plan.gapQ, sr, qStart + tin / 1000);
         if (q !== null) value = q * plan.gapQAmp * eventFade;
