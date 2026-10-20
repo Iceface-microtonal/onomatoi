@@ -113,7 +113,7 @@
   .knob-row .knob { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--gray); }
   .knob-row input[type=range] { width: 110px; accent-color: var(--pink); }
 </style>
-<link rel="stylesheet" href="./web-play.css">
+<link rel="stylesheet" href="./web-play.css?v=narr1">
 <link rel="stylesheet" href="./twins.css">
 <link rel="stylesheet" href="./reaction.css?v=twomodes1">
 </head>
@@ -126,6 +126,7 @@
 
 <main>
 <section class="play-intro" aria-labelledby="play-title">
+  <p class="beta-note"><span class="beta-pill" lang="en">beta</span><span data-copy="betaNote"><span class="ph">ベータ版。</span><span class="ph">毎日すこしずつ、</span><span class="ph">生き物のように変わり、</span><span class="ph">育っています。</span></span></p>
   <h1 id="play-title" class="product-name" lang="ja">おのまとい</h1>
   <p class="brand-tagline" data-copy="title">線が、ことばになる。</p>
   <p data-copy="intro">丸くても、ギザギザでも。ひと筆、どうぞ。</p>
@@ -164,6 +165,9 @@
     </span>
     <div class="result-meta" id="result-meta"></div>
   </div>
+  <!-- 2026-10-16 試作: 線と語を一文で結ぶ語り (理由コードから・日本語のみ・API なし) -->
+  <p class="result-narration" id="result-narration" hidden></p>
+  <p class="result-compare" id="result-compare" hidden></p>
   <!-- #5 多画=句 (2026-07-17): 短い間で描き継いだ複数の一筆が句として連なる。▶PLAY で通し再生 -->
   <div id="phrase-line" style="display:none; margin-top:4px; font-size:11px; color:var(--gray);
     font-family: 'SF Mono', Menlo, monospace;"></div>
@@ -216,6 +220,7 @@
   <section class="portal-card updates-card" aria-labelledby="updates-title">
     <span class="portal-kicker" data-copy="updatesKicker">おのまといのいま</span>
     <h2 id="updates-title" data-copy="updatesTitle">新しいこと</h2>
+    <p class="updates-lead" data-copy="updatesLead"><span class="ph">おのまといは、</span><span class="ph">日々変わっています。</span><span class="ph">声やことばが、</span><span class="ph">昨日と違うことも</span><span class="ph">あります。</span></p>
     <ol class="updates-list">
       <li><time datetime="2026-09-25">09.25</time><span data-copy="updateVoice">Web の声を更新しました。</span></li>
       <li><time datetime="2026-09-24">09.24</time><a href="./yama/" data-copy="updateYama">おのまといの山が加わりました ↗</a></li>
@@ -278,6 +283,7 @@
     <input id="romaji-input" type="text" value="bouba" autocapitalize="off" autocomplete="off" spellcheck="false">
     <button id="btn-romaji" class="primary">▶ PLAY</button>
   </div>
+  <div class="hint" id="romaji-reading" style="margin-top:4px; min-height:1em;"></div>
   <div class="chips" id="romaji-chips"></div>
 </div>
 
@@ -402,7 +408,7 @@ const T = uiLang === "ja" ? {
   loadingInitial: "声を準備しています…",
   voice: "Voice(声): PuppeTwin",
   romajiTitle: "ROMAJI 直接入力",
-  romajiHint: "空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
+  romajiHint: "かな (れっい・ぼーん) かローマ字。空白区切り、または語をそのまま (bouba も bo u ba も同じ)。促音=Q, 撥音=n (例 don), 拗音=kya 等",
   fbHint: "👍👎 = イメージ通りか記録。送る で開発者に届きます (COPY でも渡せます)",
   researchLabel: "研究に参加する",
   researchHint: "ON にすると 👍👎 で「イメージ通りか」を記録できます (この端末に保存・「送る」を押したときだけ開発者に届きます)",
@@ -423,7 +429,7 @@ const T = uiLang === "ja" ? {
   loadingInitial: "Getting your voice ready…",
   voice: "Voice: PuppeTwin",
   romajiTitle: "ROMAJI input",
-  romajiHint: "space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
+  romajiHint: "kana (れっい) or romaji, space-separated or as one word (bouba = bo u ba). geminate=Q, moraic nasal=n (e.g. don), kya/gyu etc.",
   fbHint: "👍👎 = did it sound like your shape? SEND delivers it to the developer (or COPY)",
   researchLabel: "Join the research",
   researchHint: "Turn on to rate words with 👍👎 (stored on this device; sent to the developer only when you press SEND)",
@@ -4033,12 +4039,16 @@ const CONTN_VOWELS = VOWELS;
 const CONTN_FALLBACK = { a: "v_a_N" };   // v_a_nn が無ければ v_a_N を同じキーで使う
 const VQ_VOWELS = ["a", "i", "u", "e", "o"];   // 促音前の母音 v_<v>_Q (iOS base に e も揃った・2026-10-03)
 const DIPH_PAIRS = ["ai", "au", "ao", "ei", "oi", "ou", "ui", "uo",
-                    "ea", "eo", "oa", "ua"];   // ao = 2026-10-01〜02 新録 (Core diphPairs と同期)
+                    "ea", "eo", "oa", "ua",
+                    "iu",
+                    // 2026-10-17 新録 (ae / ia / ie / io / oe = 既存の逆再生 + 頭に母音・ue / eu = 新録)
+                    "ae", "eu", "ia", "ie", "io", "oe", "ue"];   // ao = 2026-10-01〜02 新録・iu = 2026-10-17 新録 (Core diphPairs と同期)
 // 長尺録音 (diph_aaii 等) は legacy 経路 (?voice=legacy) の cvDiphExt だけが使う。native レンダラは
 // iOS と同じく全12ペアで短尺録音を使い、語末専用 _fin も使わない (prefersShortCvDiphForCV) ので読まない。
 const CV_DIPH_EXT_PAIRS = ["ai", "au", "ei", "oi", "ou", "ui"];   // ui は 2026-08-01 の新録 diph_uuii
 
-function sampleKeys() {
+// legacy = 旧い声 (?voice=legacy) だけが使う録音も読むか (native では鳴らない・約 560KB)
+function sampleKeys(legacy = false) {
   const keys = [];
   for (const c of CONSONANTS) {
     let vs = VOWELS;
@@ -4054,12 +4064,13 @@ function sampleKeys() {
   for (const v of CONTN_VOWELS) keys.push("v_" + v + "_nn");
   // 促音: 前母音の閉鎖 v_<v>_Q (e は base に録音なし) と、s/sh/ts の摩擦延長テイク
   for (const v of VQ_VOWELS) keys.push("v_" + v + "_Q");
-  for (const c of ["s", "sh", "ts"]) keys.push("cv_" + c + "Q" + c);
+  // ts の摩擦延長テイクは native では使わない (usesFricativeQTake は s / sh だけ・iOS の録音も無い)
+  for (const c of legacy ? ["s", "sh", "ts"] : ["s", "sh"]) keys.push("cv_" + c + "Q" + c);
   for (const p of DIPH_PAIRS) keys.push("diph_" + p);
-  for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
+  if (legacy) for (const p of CV_DIPH_EXT_PAIRS) keys.push("diph_" + p[0] + p[0] + p[1] + p[1]);
   // 一次子音確率を増やさず、表情CVまたは直接入力として使うBase新録。
   // nye は既存 ny onset の追加母音なので別に登録する。
-  keys.push("cv_nye");
+  if (legacy) keys.push("cv_nye");   // ny + e は iOS も Web も綴り・生成とも出さない (iOS の録音も無い)
   for (const [c, vowels] of Object.entries(RECORDED_EXTENDED_CVS))
     for (const v of vowels) keys.push("cv_" + c + v);
   return keys;
@@ -4068,7 +4079,8 @@ function sampleKeys() {
 // diph_* と伸ばし録音は WAV を優先し、録音ごとの頭の無音トリム位置は SOURCE.json から読む。
 function sampleUrlCandidates(key) {
   const names = [];
-  if (key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key)) names.push(key + ".wav");
+  // 継続撥音 v_<v>_nn も wav (切り出し位置を音量で決めるので mp3 の誤差で iOS とずれる・2026-10-17)
+  if (key.startsWith("diph_") || /^v_([aiueo])\1\1\1$/.test(key) || /^v_[aiueo]_nn$/.test(key)) names.push(key + ".wav");
   names.push(key + SAMPLE_EXT);
   if (key.startsWith("v_") && key.endsWith("_nn")) {
     const vowel = key.slice(2, -3);   // "v_a_nn" → "a"
@@ -4116,7 +4128,7 @@ async function fetchSample(key) {
 let fetchAllPromise = null;
 function fetchAllSamples() {
   if (!fetchAllPromise) {
-    const keys = sampleKeys();
+    const keys = sampleKeys(nativeVoiceMode() === "legacy");
     samplesTotal = keys.length;
     fetchAllPromise = loadVoiceSource().then(() => Promise.all(keys.map(fetchSample)));
   }
@@ -4145,7 +4157,7 @@ async function decodeSample(key) {
 }
 async function preloadAll() {
   await fetchAllSamples();
-  await Promise.all(sampleKeys().map(decodeSample));
+  await Promise.all(sampleKeys(nativeVoiceMode() === "legacy").map(decodeSample));
   const ok = [...sampleBank.values()].filter(Boolean).length;
   document.getElementById("status").textContent = `samples ready (${ok}/${samplesTotal})`;
 }
@@ -4245,11 +4257,44 @@ function nvInterp(arr, sr, tSec) {
 }
 function nvDur(arr, sr) { return arr ? arr.length / sr : 0; }
 
-function nvSampleEnvelope(timeMs, totalMs) {
+function nvSampleEnvelope(timeMs, totalMs, fadeOutMs = NV_SAMPLE_FADE_OUT_MS) {
   if (timeMs < NV_SAMPLE_FADE_IN_MS) return Math.max(0, timeMs / NV_SAMPLE_FADE_IN_MS);
   const remaining = totalMs - timeMs;
-  if (remaining < NV_SAMPLE_FADE_OUT_MS) return Math.max(0, remaining / NV_SAMPLE_FADE_OUT_MS);
+  if (remaining < fadeOutMs) return Math.max(0, remaining / fadeOutMs);
   return 1.0;
+}
+
+// ─── Onomatoi 本体の試聴設定 (2026-10-16〜17・Shared/UI/ContentView.swift の FormantRenderer 初期化) ───
+// 作者が頭を手で整えた通常の CV は頭を切らない (preservedCVHeadPitchCents・Web は Base だけ)
+const NV_PRESERVES_CV_HEAD = true;
+// 語頭の通常の CV は 1ms の半正弦で開く (initialRecordedCVFadeInMs・頭 5ms のフェード 2 つの代わり)
+const NV_INITIAL_RECORDED_CV_FADE_IN_MS = 1;
+// Base / BPM120: 伸ばす CV は CV 録音だけで鳴らし、伸ばし録音を混ぜない (baseCVOnlyLongVowelMoraMs)
+const NV_BASE_CV_ONLY_LONG_VOWEL_MORA_MS = 250;
+// Base の myu は my の聞き分けの部分を 200ms 保ってから長母音へ (baseMinimumHeldVowelJoinStartMs)
+const NV_BASE_MIN_HELD_JOIN_START_MS = { "my|u": 200 };
+// Base の mu は作者の Cubase 配置 (baseHeldVowelJoinLayouts・語末の終わり 410ms)
+const NV_BASE_HELD_JOIN_CUSTOM = {
+  "m|u": { startMs: 85, vowelRiseMs: 270, cvHoldMs: 109, cvZeroMs: 1000, terminalReleaseMs: 410 },
+};
+function nvIsPreservedCVHeadKey(key) { return NV_PRESERVES_CV_HEAD && /^cv_/.test(key) && !/Q/.test(key); }
+// Swift の .rounded(.toNearestOrEven)
+function nvRoundHalfEven(x) {
+  const f = Math.floor(x), d = x - f;
+  if (d > 0.5) return f + 1;
+  if (d < 0.5) return f;
+  return f % 2 === 0 ? f : f + 1;
+}
+// 語末の ん (後ろに休符しかない) — FormantSynth.isWordFinalMoraicN
+function nvIsWordFinalMoraicN(idx, moras) {
+  if (idx < 0 || idx >= moras.length || !moras[idx].isN) return false;
+  for (let j = idx + 1; j < moras.length; j++) if (!moras[j].isSilentRest) return false;
+  return true;
+}
+// 録音を読み切って最後 15ms で 0 へ閉じる (往復しない・EOF は 0) — cvDiphNaturalEndGain と同じ形
+function nvNaturalEndRead(arr, sr, t) {
+  const duration = nvDur(arr, sr);
+  return (nvInterp(arr, sr, t) ?? 0) * Math.min(1, Math.max(0, (duration - t) / 0.015));
 }
 
 // 録音長を超えた時刻を母音定常部で往復 (ピンポン) — FormantSynth.sustainWrap
@@ -4307,6 +4352,12 @@ function nvCvDiphTiming(pair, durationMs) {
   const table = {
     ea: [140, 210, 100, 45, 115], eo: [140, 210, 100, 45, 115],
     oa: [140, 210, 100, 45, 115], ua: [140, 210, 100, 45, 115],
+    // iu (2026-10-17 新録・483ms): 同じ形の短尺録音なので ea 系と同じ配置のまま (作者の調整待ち)
+    iu: [140, 210, 100, 45, 115],
+    // 2026-10-17 の 7 組も同じ形の短尺録音 (370〜470ms) なので iu と同じ配置のまま (作者の調整待ち)
+    ae: [140, 210, 100, 45, 115], eu: [140, 210, 100, 45, 115], ia: [140, 210, 100, 45, 115],
+    ie: [140, 210, 100, 45, 115], io: [140, 210, 100, 45, 115], oe: [140, 210, 100, 45, 115],
+    ue: [140, 210, 100, 45, 115],
     ei: [190, 190, 100, 40, 150], oi: [172, 172, 67, 0, 47],
     au: [160, 160, 170, 5, 85], ai: [40, 40, 25, 10, 28],
     uo: [170, 170, 110, 80, 140], ui: [180, 180, 120, 90, 150],
@@ -4338,6 +4389,33 @@ function nvCvDiphArr(bank, pair) {
 }
 
 // 後続モーラの弱め — FormantRenderer.eventApplyingFollowingMoraAttenuation。
+// 促音の無音の頭で鳴らす v_<母音>_Q の末尾の長さ (ms)。2026-10-20 作者: 0 = 鳴らさない (末尾 100ms は低いノイズで、
+// かっく・かった の無音に入っていた)。語末の っ (finalQ) は従来どおり。iOS FormantSynth.geminateGapVowelQTailMs と同じ。
+const NV_GEMINATE_GAP_VQ_TAIL_MS = 0;
+// っ の後で言い直す母音 (PD-022) のうち、単独の録音が小さい い だけを +2.5dB (2026-10-19 作者・案1)。
+// v_i の単独録音はほかの母音より約 2.4 LU 小さい。iOS FormantRenderer.sokuonVowelGainDB / eventApplyingSokuonVowelGain と同じ。
+// 言い直した い の伸ばしにも同じ倍率 (一続きの中で段差を作らない)。続く ん には掛けない (2026-10-20 作者)。
+const NV_SOKUON_VOWEL_GAIN_DB = { i: 2.5 };
+function nvApplySokuonVowelGain(moras) {
+  let out = null;
+  for (let i = 0; i < moras.length; i++) {
+    const m = moras[i];
+    const db = NV_SOKUON_VOWEL_GAIN_DB[m.nucleus];
+    if (m.onset !== null || m.isN || m.isSilentRest || m.isQ || !(m.gapMs > 0) || !db) continue;
+    const gain = Math.pow(10, db / 20);
+    out ||= moras.slice();
+    out[i] = { ...m, amplitude: m.amplitude * gain };
+    let j = i + 1;
+    while (j < moras.length) {
+      const n = moras[j];
+      if (n.onset !== null || n.isN || n.isSilentRest || n.isQ || n.gapMs > 0 || n.nucleus !== m.nucleus) break;
+      out[j] = { ...n, amplitude: n.amplitude * gain };
+      j++;
+    }
+    i = j - 1;
+  }
+  return out || moras;
+}
 // Onomatoi 本体 (ContentView followingMoraAttenuationDB) と同じく、語頭の主音以外を一律 -3dB。
 // 主音と同じ録音 diph run (kai の a→i・単独 ai) に属するモーラは主音側へ含める。
 // 語頭主音の3モーラ語で、先頭2モーラが一続きの diph・3モーラ目が新しい子音なら、
@@ -4346,6 +4424,7 @@ function nvCvDiphArr(bank, pair) {
 const NV_FOLLOWING_MORA_ATTENUATION_DB = -0.5;
 function nvApplyFollowingMoraAttenuation(moras, bank, decibels = NV_FOLLOWING_MORA_ATTENUATION_DB,
                                          emphasizedAudibleMoraIndex = 0) {
+  moras = nvApplySokuonVowelGain(moras);   // っ の後の い は減衰の有無によらず先に持ち上げる
   const audible = [];
   moras.forEach((m, i) => { if (!m.isSilentRest) audible.push(i); });
   if (!(decibels < 0) || audible.length < 2) return moras;
@@ -4446,6 +4525,7 @@ function nvMemo(moras, bank, key, compute) {
 // 語末促音・休符は母音と見なさない (ikiQ が「いき + 小さいい」になる経路を断つ)。
 function nvIsLongVowelStep(prev, cur) {
   if (prev.isN || prev.isQ || prev.isSilentRest || cur.isQ || cur.isSilentRest) return false;
+  if (cur.gapMs > 0) return false;   // っ の後の母音は前の母音の伸ばしにしない (2026-10-19・iOS と同じ)
   return prev.nucleus === cur.nucleus ||
          (prev.nucleus === "e" && cur.nucleus === "i") ||
          (prev.nucleus === "o" && cur.nucleus === "u");
@@ -4543,6 +4623,7 @@ function nvVvDiphPart1Takes(idx, moras, bank) {
     const cur = moras[idx], next = moras[idx + 1];
     if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
     if (next.onset !== null || next.isN || next.isSilentRest) return false;
+    if (next.gapMs > 0) return false;   // っ を挟む母音 (あっい) は diph でつながない (2026-10-19)
     if (!bank.diph.has(cur.nucleus + next.nucleus)) return false;
     if (nvCvDiphPrev(idx, moras, bank) !== null || nvRawVVDiphPart2Takes(idx, moras, bank)) return false;
     if (nvExtendedRunBoundaryReattacks(idx + 1, moras)) return false;
@@ -4565,12 +4646,14 @@ function nvCvDiphPrev(idx, moras, bank) {
     if (m.onset !== null || m.isN || m.isSilentRest) return null;
     if (nvDiphReattackBreaks(idx, moras)) return null;
     let first = idx;
-    while (first > 0 && !nvDiphReattackBreaks(first, moras)) {
+    while (first > 0 && !(moras[first].gapMs > 0) && !nvDiphReattackBreaks(first, moras)) {
       const p = moras[first - 1];
       if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== m.nucleus) break;
       first--;
     }
     if (first <= 0) return null;
+    // っ の後の母音は二重母音でつながず、素の母音で言い直す (2026-10-19・iOS cvDiphPrev と同じ)
+    if (moras[first].gapMs > 0) return null;
     const prev = moras[first - 1];
     if (prev.isN || prev.isSilentRest || prev.nucleus === m.nucleus) return null;
     if (!nvHasUsableCvDiph(bank, prev.nucleus + m.nucleus)) return null;
@@ -4800,7 +4883,25 @@ const NV_BASE_HELD_JOIN_LAYOUT = {
   u: { startMs: 56, vowelRiseMs: 113, cvHoldMs: 90, cvZeroMs: 216 },
   e: { startMs: 69, vowelRiseMs: 121, cvHoldMs: 95, cvZeroMs: 223 },
 };
-function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false) {
+// Base / BPM120 の試行: 伸ばす CV を CV 録音だけで鳴らす run か — usesCVOnlyLongVowelRun
+// (diph へ渡す run・Q テイク・表示 BPM が違う拍を含む run は従来どおり。Web は音程が平らで Base だけ)
+function nvUsesCVOnlyLongVowelRun(root, moras, bank) {
+  const target = NV_BASE_CV_ONLY_LONG_VOWEL_MORA_MS;
+  if (!(target > 0) || root < 0 || root >= moras.length) return false;
+  if (!nvUsesLongVowelCVJoin(root, moras, bank) || nvUsesFricativeQTake(moras[root], bank)) return false;
+  const source = moras[root];
+  for (let i = root; ; i++) {
+    const m = moras[i];
+    if (!(m.durationMs > 0) || nvRoundHalfEven(30000 / m.durationMs) !== nvRoundHalfEven(30000 / target)) return false;
+    if (nvNextUsesCVtoVDiph(i, moras, bank) || nvNextTakenByVVDiph(i, moras, bank)) return false;
+    if (i + 1 >= moras.length) break;
+    const next = moras[i + 1];
+    if (next.onset !== null || next.isN || next.isSilentRest) break;
+    if (next.nucleus !== source.nucleus) return false;
+  }
+  return true;
+}
+function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false, cvOnly = false) {
   const t = runTimeMs / 1000;
   let cv, cvRemainingSec;
   if (fricativeQ) {
@@ -4814,15 +4915,26 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
     cv = nvInterp(arr, bank.sr, t) ?? 0;
     cvRemainingSec = nvDur(arr, bank.sr) - t;
   }
+  // CV だけで伸ばす: 一度だけ読み、往復も別テイクも無し (末端だけ 8ms で閉じる)
+  if (cvOnly && !fricativeQ) return cv * Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   // テイクの母音は拍の長さに関わらず ~0.2s で減衰する → 継ぎの時刻は 250ms 拍の値で止める
   const proportional = nvLongVowelCVJoinTiming(fricativeQ
     ? Math.min(rootDurationMs, NV_FRICQ_JOIN_MAX_ROOT_MS)
     : vowel === "u" ? Math.max(rootDurationMs, NV_U_JOIN_MIN_ROOT_MS) : rootDurationMs);
   const layout = fricativeQ ? null : NV_BASE_HELD_JOIN_LAYOUT[vowel] ?? null;
-  const timing = layout
+  let timing = layout
     ? { startMs: layout.startMs, vowelRiseMs: layout.vowelRiseMs, cvHoldMs: layout.cvHoldMs,
         cvFallMs: layout.cvZeroMs - layout.cvHoldMs }
     : { ...proportional, cvHoldMs: proportional.startMs };
+  // CV ごとの作者の配置 (母音ごとの配置より優先) と、CV の聞き分けの部分を保つ最小の入り
+  const custom = fricativeQ ? null : NV_BASE_HELD_JOIN_CUSTOM[onset + "|" + vowel];
+  if (custom) timing = { startMs: custom.startMs, vowelRiseMs: custom.vowelRiseMs, cvHoldMs: custom.cvHoldMs,
+                         cvFallMs: custom.cvZeroMs - custom.cvHoldMs };
+  const minimumStart = fricativeQ ? undefined : NV_BASE_MIN_HELD_JOIN_START_MS[onset + "|" + vowel];
+  if (Number.isFinite(minimumStart)) {
+    const delay = Math.max(0, minimumStart - timing.startMs);
+    timing = { ...timing, startMs: timing.startMs + delay, cvHoldMs: timing.cvHoldMs + delay };
+  }
   // 短く切れた CV ファイルの EOF でクリックを出さない最後の 8ms ガード
   const cvTailGain = Math.min(1, Math.max(0, cvRemainingSec / 0.008));
   const cvGain = Math.max(0, 1 - Math.max(0, runTimeMs - timing.cvHoldMs) / Math.max(1, timing.cvFallMs));
@@ -4835,6 +4947,29 @@ function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDuration
   const vowelGain = Math.min(1, elapsed / Math.max(1, timing.vowelRiseMs))
     * (heldGainDb === 0 ? 1 : Math.pow(10, -heldGainDb / 20));
   return cv * cvGain * cvTailGain + vowelSample * vowelGain;
+}
+// 読み切った diph の後に、別テイク (v_<v>_Q) の閉鎖音を足さない — diphOmitsAdditionalQTail。
+// 延長 run と通常の CV→Q は従来どおり。diph がまだ続いても、実音の無い小さい Q 末尾は足さない
+function nvDiphOmitsAdditionalQTail(idx, moras, bank) {
+  if (idx < 0 || idx >= moras.length) return false;
+  const previous = moras[idx];
+  const cvd = nvCvDiphPrev(idx, moras, bank);
+  if (cvd && !nvCvDiphRunShape(idx, moras).hasExtension) {
+    if (bank.quietVQ?.has(previous.nucleus)) return true;
+    const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
+    const time = (timing.offset + timing.pre + cvd.timeOffsetMs + previous.durationMs) / 1000;
+    const duration = nvDur(nvCvDiphArr(bank, cvd.v1 + cvd.v2), bank.sr);
+    return duration > 0 && time >= duration;
+  }
+  if (nvRawVVDiphPart2Takes(idx, moras, bank)) {
+    const context = nvDiphContext(idx, moras, bank);
+    const arr = context ? bank.diph.get(context.v1 + context.v2) : null;
+    if (context && arr) {
+      const t = (context.baseMs + previous.gapMs + previous.durationMs) / 1000;
+      return nvInterp(arr, bank.sr, t) === null || !!bank.quietVQ?.has(previous.nucleus);
+    }
+  }
+  return false;
 }
 // 摩擦延長テイク (Stage 2b) を使う拍か: 促音 + s/sh + a (ts は除外) — usesFricativeQTake
 function nvUsesFricativeQTake(m, bank) {
@@ -4900,6 +5035,7 @@ function nvStandaloneVowelReleaseTailMs(moras, bank) {
   // 語末で言い直す短母音は、余韻がもう一拍に聞こえないよう短く閉じる。
   // feedback mukfgx5x-2 / giQnuuu (2026-09-28)。一文字の母音の自然な減衰は維持。
   const reattacks = nvSameVowelRunReattacks(index, moras)
+    || last.gapMs > 0   // っ の後で言い直した語末の母音も短く閉じる (れっい が れっいー に聞こえた・2026-10-20 作者)
     || nvDiphReattackBreaks(index, moras)
     || nvExtendedRunBoundaryReattacks(index, moras);
   const maxReleaseMs = reattacks ? Math.min(50, last.durationMs * 0.2) : 350;
@@ -4971,6 +5107,13 @@ function nvLeadingSilenceStart(arr, sr, vowelOnly) {
 // 目録なし) ときだけ、その場で判定する。
 const NV_SOURCE_SR = 48000;
 function nvLeadingTrimStart(arr, sr, key, meta) {
+  // 頭を保つ CV: デコード後の長さが元 wav と同じ (mp3 の符号化の遅れが除かれている) なら頭から読む。
+  // 長さが合わないデコーダでは遅れが残っている → 従来の判定で切る
+  if (nvIsPreservedCVHeadKey(key)) {
+    if (!meta || !(meta.frames > 0)) return 0;
+    const scale = sr / NV_SOURCE_SR;
+    if (Math.abs(arr.length - meta.frames * scale) <= 64 * scale) return 0;
+  }
   if (meta && meta.frames > 0 && meta.trimStart >= 0) {
     const scale = sr / NV_SOURCE_SR;
     if (Math.abs(arr.length - meta.frames * scale) <= 64 * scale) return Math.round(meta.trimStart * scale);
@@ -5071,7 +5214,12 @@ function nvSpectralNasalOnsetIdx(samples, sr, envPeakIdx, thresholdDb = -15) {
     if (headEnd < confirmation) return null;
     let confirmedEnd = null;
     for (let i = 0; i <= headEnd - confirmation; i++) {
-      if (all(i, i + confirmation, v => v >= confirmDb)) { confirmedEnd = i + confirmation; break; }
+      // 2026-10-13 (Core): 3 窓の平均で母音の証拠を見る。各窓は鼻音の閾以上 (短い高域の突起を除く)
+      let sum = 0;
+      for (let k = i; k < i + confirmation; k++) sum += vowelness[k];
+      if (all(i, i + confirmation, v => v >= thresholdDb) && sum / confirmation >= confirmDb) {
+        confirmedEnd = i + confirmation; break;
+      }
     }
     if (confirmedEnd === null) return null;
     searchStart = confirmedEnd;
@@ -5226,11 +5374,13 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
   const plans = moras.map((m, i) => {
     if (m.isSilentRest) return { kind: "silent" };
     if (m.isQ) {
-      return { kind: "finalQ", arr: i > 0 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
+      return { kind: "finalQ", arr: i > 0 && !nvDiphOmitsAdditionalQTail(i - 1, moras, bank)
+                 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
                prevAmp: i > 0 ? moras[i - 1].amplitude : 0 };
     }
     const plan = { kind: "silent", fricQ: null,
-                   gapQ: m.gapMs > 0 && i > 0 ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
+                   gapQ: m.gapMs > 0 && i > 0 && !nvDiphOmitsAdditionalQTail(i - 1, moras, bank)
+                     ? bank.vQ.get(moras[i - 1].nucleus) || null : null,
                    gapQAmp: i > 0 ? moras[i - 1].amplitude : 0 };
     if (m.isN) {
       const contV = nvContinuationNVowel(i, moras);
@@ -5252,8 +5402,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         plan.fricQ = { join: nvUsesLongVowelCVJoin(i, moras, bank) };
       }
       if (!nvCvResolvedKey(bank, m.onset, m.nucleus)) return plan;
+      const join = nvUsesLongVowelCVJoin(i, moras, bank);
       return { ...plan, kind: "cv",
-               join: nvUsesLongVowelCVJoin(i, moras, bank),
+               join, cvOnly: join && nvUsesCVOnlyLongVowelRun(i, moras, bank),
                naturalEnd: nvEndsRecordedAttackNaturally(i, moras),
                earlierDiphHandoff: m.durationMs > 30000 / 90 && nvNextUsesCVtoVDiph(i, moras, bank),
                suppressTail: (nvNextUsesLongVowelExtension(i, moras) && !nvNextTakenByVVDiph(i, moras, bank))
@@ -5268,8 +5419,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const continuesRun = !!(next && next.onset === null && !next.isN &&
                                 !next.isSilentRest && next.nucleus === m.nucleus &&
                                 !nvDiphReattackBreaks(i + 1, moras));
+        const runShape = nvCvDiphRunShape(i, moras);
+        // 延長の無い diph は録音を読み切って閉じる (往復で声尾が戻らない・2026-10-12)
         return { ...plan, kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
-                 runShape: nvCvDiphRunShape(i, moras), continuesRun };
+                 runShape, closesNaturally: !runShape.hasExtension, continuesRun };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
@@ -5283,9 +5436,15 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     const joinRoot = ext ? nvLongVowelCVJoinRoot(i, moras, bank) : null;
     if (joinRoot !== null) {
       // 子音+同母音の長音: 根 CV と伸ばし録音の2本の時間軸とフェードを境界の後もそのまま続ける
+      const joinFricQ = nvUsesFricativeQTake(moras[joinRoot], bank);
+      const cvOnly = nvUsesCVOnlyLongVowelRun(joinRoot, moras, bank);
+      // 作者の配置の柔らかい語末 (mu 410ms) は本当の語末だけ (ん・CV・diph の前では使わない)
+      const custom = NV_BASE_HELD_JOIN_CUSTOM[moras[joinRoot].onset + "|" + ext.sourceNucleus];
+      const customReleaseMs = !cvOnly && !joinFricQ && !extSuppressTail && custom
+        && nvEndsRecordedAttackNaturally(i, moras) ? Math.min(custom.terminalReleaseMs, m.durationMs) : null;
       return { ...plan, kind: "cvJoinExt", ext, joinOnset: moras[joinRoot].onset,
                rootDurMs: moras[joinRoot].durationMs, suppressTail: extSuppressTail,
-               joinFricQ: nvUsesFricativeQTake(moras[joinRoot], bank) };
+               joinFricQ, cvOnly, customReleaseMs };
     }
     if (ext) {
       const cvXfade = ext.sourceOnset !== null && moras[i - 1].onset !== null &&
@@ -5315,9 +5474,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       post.contNArr = bank.contN.get(m.nucleus);
       post.contNAmplitude = next.amplitude;
       post.contNRise = nvContNRiseCompletionFraction(m.onset, m.nucleus);
+      post.contNNaturalEnd = nvIsWordFinalMoraicN(i + 1, moras);
     }
     if (nvNextUsesCVtoVDiph(i, moras, bank)) {
       post.cvDiphArr = bank.cvDiph.get(m.nucleus + next.nucleus) || null;
+      post.cvDiphClosesNaturally = !nvCvDiphRunShape(i + 1, moras).hasExtension;
     }
     post.nextHasQ = next.gapMs > 0;
     return post;
@@ -5348,7 +5509,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // 摩擦延長テイクを使う s/sh + a は gap も摩擦で埋める (gap を差し引かない)。
     if (!plan.fricQ && tin < m.gapMs) {
       let value = 0;
-      if (plan.gapQ && tin < 100) {
+      if (plan.gapQ && tin < NV_GEMINATE_GAP_VQ_TAIL_MS) {
         const qStart = Math.max(0, nvDur(plan.gapQ, sr) - 0.100);
         const q = nvInterp(plan.gapQ, sr, qStart + tin / 1000);
         if (q !== null) value = q * plan.gapQAmp * eventFade;
@@ -5372,7 +5533,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     } else if (plan.kind === "contN") {
       const preRoll = nvContNPreRollMs(plan.prevDurMs);
       const dur = nvDur(plan.arr, sr);
-      let value = nvInterp(plan.arr, sr, nvSustainWrap((preRoll + phoneT) / 1000, dur));
+      // 語末の ん は選んだ録音を読み切る (往復しない・EOF は 0 = 別の音へ落ちない・2026-10-12)
+      let value = plan.isWordFinalN
+        ? nvNaturalEndRead(plan.arr, sr, (preRoll + phoneT) / 1000)
+        : nvInterp(plan.arr, sr, nvSustainWrap((preRoll + phoneT) / 1000, dur));
       if (value === null) value = 0;
       let env = nvSampleEnvelope(phoneT + NV_SAMPLE_FADE_IN_MS,
                                  m.durationMs + NV_SAMPLE_FADE_IN_MS);
@@ -5389,17 +5553,28 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = value * amp * nvSampleEnvelope(phoneT, m.durationMs) * eventFade;
     } else if (plan.kind === "cv") {
       const value = plan.join
-        ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs)
+        ? nvReadLongVowelCVJoinSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, false, plan.cvOnly)
         : nvReadRootCVSample(bank, m.onset, m.nucleus, cvPhoneT, m.durationMs, plan.earlierDiphHandoff, plan.naturalEnd);
       const envTotal = plan.suppressTail
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
-      val = (value === null ? 0 : value) * amp * nvSampleEnvelope(cvPhoneT, envTotal) * eventFade;
+      let envelope;
+      if (mi === 0 && NV_INITIAL_RECORDED_CV_FADE_IN_MS > 0) {
+        // 語頭の CV: 弱い my / t の手がかりを残す (立ち上がりだけ変え、終わりと継ぎは従来どおり)
+        const attack = Math.sin(Math.min(1, Math.max(0, cvPhoneT) / Math.max(0.1, NV_INITIAL_RECORDED_CV_FADE_IN_MS)) * Math.PI / 2);
+        const release = Math.min(1, Math.max(0, (envTotal - cvPhoneT) / NV_SAMPLE_FADE_OUT_MS));
+        envelope = attack * release;
+      } else {
+        envelope = nvSampleEnvelope(cvPhoneT, envTotal) * eventFade;
+      }
+      val = (value === null ? 0 : value) * amp * envelope;
     } else if (plan.kind === "cvDiph") {
       const cvd = plan.cvd;
       const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
       const preRoll = timing.pre;
-      let value = nvInterp(plan.arr, sr,
-        nvSustainWrap((timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000, plan.dur));
+      const diphT = (timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000;
+      let value = plan.closesNaturally
+        ? nvNaturalEndRead(plan.arr, sr, diphT)
+        : nvInterp(plan.arr, sr, nvSustainWrap(diphT, plan.dur));
       if (value === null) value = 0;
       const envTotal = plan.continuesRun
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
@@ -5415,8 +5590,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
             const c = Math.cos(r * Math.PI / 2);
             env *= c * c;
           }
-        } else if (!["ei", "au", "ao", "ea", "eo", "oa", "ua"].includes(cvd.v1 + cvd.v2)) {
-          // 語末は 22% から cos² で閉じる (素材の自然な閉じを持つ6ペアは録音の包絡のまま)
+        } else if (!["ei", "au", "ao", "ea", "eo", "oa", "ua", "iu",
+                     "ae", "eu", "ia", "ie", "io", "oe", "ue"].includes(cvd.v1 + cvd.v2)) {
+          // 語末は 22% から cos² で閉じる (素材の自然な閉じを持つ15ペアは録音の包絡のまま)
           const u = phoneT / m.durationMs;
           if (u > 0.22) {
             const r = Math.min(1, (u - 0.22) / 0.73);
@@ -5450,10 +5626,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const ext = plan.ext;
       const timeMs = ext.baseMs + tin;
       const value = nvReadLongVowelCVJoinSample(bank, plan.joinOnset, ext.sourceNucleus,
-                                                timeMs, plan.rootDurMs, plan.joinFricQ);
+                                                timeMs, plan.rootDurMs, plan.joinFricQ, plan.cvOnly);
       const envTotal = plan.suppressTail ? ext.totalMs + NV_SAMPLE_FADE_OUT_MS + 5 : ext.totalMs;
       const gain = nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs);
-      val = (value === null ? 0 : value) * gain * nvSampleEnvelope(timeMs, envTotal) * eventFade;
+      val = (value === null ? 0 : value) * gain
+        * nvSampleEnvelope(timeMs, envTotal, plan.customReleaseMs ?? NV_SAMPLE_FADE_OUT_MS) * eventFade;
     } else if (plan.kind === "ext") {
       const ext = plan.ext;
       const timeMs = ext.baseMs + tin;
@@ -5496,7 +5673,9 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const preRoll = nvContNPreRollMs(m.durationMs);
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
-        const cv = nvInterp(post.contNArr, sr, tailT / 1000);
+        const cv = post.contNNaturalEnd
+          ? nvNaturalEndRead(post.contNArr, sr, tailT / 1000)
+          : nvInterp(post.contNArr, sr, tailT / 1000);
         if (cv !== null) {
           const u = tailT / preRoll;
           const riseU = Math.min(1, u / post.contNRise);
@@ -5513,8 +5692,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const preRoll = timing.pre;
       const tailT = tin - (boundary - preRoll);
       if (tailT >= 0 && tailT < preRoll) {
-        const dv = nvInterp(post.cvDiphArr, sr,
-          nvSustainWrap((timing.offset + tailT) / 1000, nvDur(post.cvDiphArr, sr)));
+        const dv = post.cvDiphClosesNaturally
+          ? nvNaturalEndRead(post.cvDiphArr, sr, (timing.offset + tailT) / 1000)
+          : nvInterp(post.cvDiphArr, sr,
+              nvSustainWrap((timing.offset + tailT) / 1000, nvDur(post.cvDiphArr, sr)));
         if (dv !== null) {
           const gains = nvCvDiphGains(timing, tailT);
           const balance = m.nucleus === "e" && next.nucleus === "a" && ["p", "t", "k"].includes(m.onset)
@@ -5561,7 +5742,7 @@ function nvChan(key) { const b = sampleBank.get(key); return b ? b.getChannelDat
 function buildNativeVoiceBank(sr) {
   const bank = { sr, cv: new Map(), vGainDb: new Map(), cvHandoff: new Map(),
                  v: new Map(), shortV: new Map(), shortVHandoff: new Map(),
-                 vQ: new Map(), fricQ: new Map(), fricQOnset: new Map(),
+                 vQ: new Map(), quietVQ: new Set(), fricQ: new Map(), fricQOnset: new Map(),
                  nN: null, contN: new Map(), diph: new Map(), cvDiph: new Map() };
   const trimGate = arr => nvTrimTrailingSilence(arr, 0.004, Math.trunc(sr * 0.01));
   for (const [key, buf] of sampleBank) {
@@ -5594,7 +5775,14 @@ function buildNativeVoiceBank(sr) {
     }
     if (arr) bank.v.set(v, trimGate(arr));
     const q = nvChan("v_" + v + "_Q");
-    if (q) bank.vQ.set(v, q);
+    if (q) {
+      bank.vQ.set(v, q);
+      // 末尾 100ms が全部 |x| < 0.01 = 実音の無い小さい Q 末尾 (ConsonantSampleBank.quietVowelQTails)
+      const n = Math.max(1, Math.trunc(sr * 0.1));
+      let quiet = q.length > 0;
+      for (let k = Math.max(0, q.length - n); k < q.length && quiet; k++) if (Math.abs(q[k]) >= 0.01) quiet = false;
+      if (quiet) bank.quietVQ.add(v);
+    }
     const nn = nvChan("v_" + v + "_nn");
     if (nn) {
       const prepared = nvPrepared(nn, "contN", () => nvPrepareContN(nn, sr));
@@ -5979,103 +6167,304 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ─── なぜ? (Onomatopoeia.explain の移植・日英) — 測って見せる説明 ───
-// ─── Step1/2/3 の「計測」を人に見える言葉にする (2026-07-17) ───
-// 確定▲は角の**位置と向き**しか見せない。ここは「形をどう読んで、その形からどう音色を決めたか」
-// の数値を出す (依頼: Step1,2 の計測を結果から見えるように)。
-function shapeMeasureLines(cx, ja) {
+// 2026-10-16: 説明を「理由コード + 値」(whyReasons) と「文にする表」(whyLineLab = 今の研究ノート口調) に分けた。
+// 理由は言語に依らない事実だけを持ち、口調 (研究ノート / 鉄道の車掌 / 将来のキャラ) は表を替えるだけ —
+// どの口調も同じ事実から話すので食い違わない。layer: universal = 普遍層 (音象徴の傾向・計測) /
+// convention = 慣習層 (立法の語・コウさん/作者の制定)。立法の理由を表に出すかは、この層で選べる。
+// 試験 = test/why_reasons.mjs (文が理由コード化の前と一字一句同じ・層・裏付けの報告)。
+// Step1/2/3 の計測 (2026-07-17): 確定▲は角の位置と向きしか見せない。ここは「形をどう読んで、
+// その形からどう音色を決めたか」の数値を出す (依頼: Step1,2 の計測を結果から見えるように)。
+function whyShapeReasons(cx) {
   const out = [];
-  const n2 = v => (v >= 0 ? "+" : "") + v.toFixed(2);
-  if (cx.retraced) {   // Step3
-    out.push(ja ? "なぞり直し → 1周の形として読んだ (何周でも同じ形)"
-                : "retraced → read as a single lap (same shape however many laps)");
-  }
+  if (cx.retraced) out.push({ code: "retraced", layer: "universal" });   // Step3
   if (cx.formK !== null) {   // Step1 (形の認識) + Step2 (形→音色)
-    const knot = cx.corners > 0 ? (ja ? " (結び目も含む)" : " (incl. the knot)") : "";
-    out.push(ja ? `形: 閉じた輪郭・角 ${cx.corners}個${knot}`
-                : `form: closed contour, ${cx.corners} corner(s)${knot}`);
-    const tc = cx.turnConcentration ?? 0;
-    const zone = cx.formK > 0.3 ? (ja ? "破裂圏 (か・た・ぱ系)" : "plosive zone (k/t/p)")
-               : cx.formK < -0.3 ? (ja ? "ブーバ圏 (ま・わ・な系)" : "bouba zone (m/w/n)")
-               : (ja ? "中間" : "middle");
-    out.push(ja ? `転回の集中度 ${tc.toFixed(2)} (角に集中=1 / 全周に分散=0)・角の鋭さ ${cx.cornerSharpness.toFixed(2)} → 形のK ${n2(cx.formK)} = ${zone}`
-                : `turn concentration ${tc.toFixed(2)} (at corners=1 / spread=0), corner sharpness ${cx.cornerSharpness.toFixed(2)} → form K ${n2(cx.formK)} = ${zone}`);
+    out.push({ code: "closedContour", layer: "universal", corners: cx.corners });
+    out.push({ code: "formTone", layer: "universal", turnConcentration: cx.turnConcentration ?? 0,
+               cornerSharpness: cx.cornerSharpness, formK: cx.formK,
+               zone: cx.formK > 0.3 ? "plosive" : cx.formK < -0.3 ? "bouba" : "middle" });
   } else {
-    const why = cx.isClosed ? (ja ? "閉じているが単純な輪郭でない (渦/連ループ)" : "closed but not a simple contour (spiral/chain)")
-                            : (ja ? "開いた線" : "open line");
-    out.push(ja ? `形: ${why} → 音色は軌跡から読む`
-                : `form: ${why} → tone is read from the trajectory`);
+    out.push({ code: "trajectoryForm", layer: "universal", closed: !!cx.isClosed });
   }
   // #4 乱雑度 (立法提案): 閾値 0.4 以上のときだけ効く・表示する
-  if ((cx.disorder ?? 0) >= 0.4) {
-    out.push(ja ? `乱雑度 ${cx.disorder.toFixed(2)} (曲がりの不揃い・自己交差) → 濁音・拗音寄り (ぐちゃぐちゃ系)`
-                : `disorder ${cx.disorder.toFixed(2)} (uneven turns, self-crossings) → voiced/palatalized (gucha-gucha zone)`);
-  }
+  if ((cx.disorder ?? 0) >= 0.4) out.push({ code: "disorder", layer: "universal", disorder: cx.disorder });
   return out;
 }
-
-function explainEvent(ax, moras, vocabReason = null, shape = null) {
-  const voiced = moras.filter(m => !m.isSilentRest);
-  if (!voiced.length) return [];
-  const ja = uiLang === "ja";
-  // Step1/2/3 の計測 (形をどう読んだか) は常に先頭に出す — 固定語彙 (P12) でも形が根拠。
-  const measured = shape ? shapeMeasureLines(shape, ja) : [];
-  // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
-  if (vocabReason) return [...measured, vocabReason];
-  const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
-  const onsets = voiced.map(m => m.onset).filter(c => c);
-  const lines = [...measured];
-  // 子音の性格 ← sharpness
-  if (ax.sharp > 0.25) lines.push(ja ? `鋭さ ${f(ax.sharp)}（尖り）→ 鋭い子音（か・た・さ・つ系）`
-                                     : `sharp ${f(ax.sharp)} (spiky) → hard consonants (k/t/s/ts)`);
-  else if (ax.sharp < -0.25) lines.push(ja ? `鋭さ ${f(ax.sharp)}（丸み）→ 柔らかい子音（ま・わ・な・ら系）`
-                                           : `sharp ${f(ax.sharp)} (rounded) → soft consonants (m/w/n/r)`);
-  // 母音 ← 口の形
-  const vr = [];
-  if ((ax.open ?? 0) > 0.3) vr.push(ja ? "開いた口→あ/え" : "open mouth→a/e");
-  else if ((ax.open ?? 0) < -0.3) vr.push(ja ? "閉じた口→い/う" : "closed mouth→i/u");
-  if ((ax.round ?? 0) > 0.25) vr.push(ja ? "すぼめ→う/お" : "pursed lips→u/o");
-  else if ((ax.round ?? 0) < -0.25) vr.push(ja ? "横引き→い/え" : "spread lips→i/e");
-  if (!vr.length && ax.size > 0.3) vr.push(ja ? "大→あ" : "big→a");
-  if (vr.length) lines.push((ja ? "口の形 → 母音 " : "mouth → vowels: ") + vr.join(ja ? "・" : ", "));
-  // 清濁 ← size (重さ)。阻害音 = 破裂/破擦/摩擦 (manner class)
-  const OBS = new Set(["p", "a", "f"]);
-  const hasVoicedObs = onsets.some(c => VOICED.has(c) && OBS.has(mannerClassOf(c)));
-  const hasVoicelessObs = onsets.some(c => !VOICED.has(c) && OBS.has(mannerClassOf(c)));
-  if (ax.size > 0.5 && hasVoicedObs)
-    lines.push(ja ? "大きい=重い → 濁音（が・ば・ざ）" : "big = heavy → voiced (g/b/z)");
-  else if (ax.size < -0.5 && hasVoicelessObs)
-    lines.push(ja ? "小さい=軽い → 清音（か・ぱ・さ）" : "small = light → voiceless (k/p/s)");
-  // 語形 (実際の末尾から型を読む)
-  lines.push((ja ? "語形: " : "form: ") + whyFormReason(ax, voiced, ja));
-  // Web は平坦音程。軸からピッチが変わるという説明は出さない。
-  return lines;
-}
-function whyFormReason(ax, moras, ja) {
-  const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
-  const loops = moras.filter(m => !m.isN);
+// 語形の型 (実際の末尾から型を読む)。sustain = あーあー型 / redup = きらきら型 / sokuon = ぱっ型 /
+// hatsuon = どん型 / long = がーん型 / ri = きらり型 / root = 素の語根
+function whyFormType(moras) {
+  // っ は母音を持たない (旧: ぎゃっ・かっ が「あーあー型」と読まれていた・10-16)
+  const loops = moras.filter(m => !m.isN && !m.isQ);
   if (loops.length >= 2 && loops.slice(1).every(m => m.onset === null && m.nucleus === loops[0].nucleus))
-    return ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）"
-              : "one held stroke → sustained vowel (aaaa-type)";
+    return "sustain";
   if (loops.length >= 2 && loops.length % 2 === 0) {
     const h = loops.length / 2;
     const key = m => (m.onset ?? "_") + m.nucleus;
-    if (loops.slice(0, h).map(key).join() === loops.slice(h).map(key).join())
-      return ja ? `反復（texture ${f(ax.tex)}）→ 畳語ABAB（きらきら型）`
-                : `repetition (texture ${f(ax.tex)}) → reduplication ABAB (kira-kira type)`;
+    if (loops.slice(0, h).map(key).join() === loops.slice(h).map(key).join()) return "redup";
   }
   const last = moras[moras.length - 1];
   if (last) {
-    if (last.isQ) return ja ? "鋭く単発（鋭さ高・反復低）→ 促音っ（ぱっ型）"
-                            : "sharp one-shot → geminate Q (paQ-type)";
-    if (last.isN) return ja ? "重・鋭・単発の衝撃 → 撥音ん（どん型）"
-                            : "heavy sharp impact → moraic N (doN-type)";
-    if (last.onset === null && moras.length >= 2 && last.nucleus === moras[moras.length - 2].nucleus)
-      return ja ? `大きい（size ${f(ax.size)}）→ 長音ー（がーん型）`
-                : `big (size ${f(ax.size)}) → long vowel (gaan-type)`;
-    if (last.onset === "r" && last.nucleus === "i")
-      return ja ? "小・柔・単発 → り（きらり型）" : "small soft one-shot → -ri (kirari-type)";
+    if (last.isQ) return "sokuon";
+    if (last.isN) return "hatsuon";
+    if (last.onset === null && moras.length >= 2 && last.nucleus === moras[moras.length - 2].nucleus) return "long";
+    if (last.onset === "r" && last.nucleus === "i") return "ri";
   }
-  return ja ? "素の語根" : "plain root";
+  return "root";
+}
+// 2026-10-16: 「語に出た音だけを語る」— 軸の傾向を言うだけの行を出さない。各理由は、その語に実際に
+// 現れた音 (heard = モーラ) を持ち、現れていなければ理由そのものを出さない (例: 「大→あ」と言った語に
+// あ が無い 11/12 本があった)。鋭い子音 = 破裂・破擦 + 歯擦 (か・た・さ・つ系) / 柔らかい子音 = ま・わ・な・ら・や系。
+const WHY_SHARP_ONSETS = new Set(["k", "g", "t", "d", "p", "b", "ky", "gy", "kw", "gw", "py", "ts", "ch", "j",
+                                  "s", "sh", "z", "sw", "zw"]);
+const WHY_SOFT_ONSETS = new Set(["m", "n", "r", "w", "y", "my", "ny", "ry"]);
+// 清濁の言い分は阻害音だけ。manner class では y/ny/iy が "f" (うねりの証拠・P6) に入っているので使わない
+// (旧: ゆー に「大きい=重い → 濁音」が出ていた)。
+const WHY_VOICED_OBSTRUENTS = new Set(["g", "d", "b", "gy", "gw", "j", "z", "zw"]);
+const WHY_VOICELESS_OBSTRUENTS = new Set(["k", "t", "p", "ky", "kw", "py", "ts", "ch", "s", "sh", "sw", "h", "hy", "f"]);
+const WHY_MOUTH_VOWELS = { open: ["a", "e"], closed: ["i", "u"], pursed: ["u", "o"], spread: ["i", "e"], big: ["a"] };
+function whyHeard(moras, keep) {   // 条件に合うモーラを語の順に・重複なし・4 つまで
+  const seen = new Set(), out = [];
+  for (const m of moras) {
+    if (m.isN || m.isQ || !keep(m)) continue;
+    const key = (m.onset ?? "") + m.nucleus;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push({ onset: m.onset ?? null, nucleus: m.nucleus });
+    if (out.length === 4) break;
+  }
+  return out;
+}
+function whyMoraLabel(m, ja) {
+  if (!ja) return (m.onset ?? "") + m.nucleus;
+  const row = NAMING_KANA_ROWS[m.onset ?? ""] ?? NAMING_KANA_ROWS[""];
+  return row[NAMING_VOWEL_INDEX[m.nucleus] ?? 0];
+}
+function whyReasons(ax, moras, vocabReason = null, shape = null) {
+  const voiced = moras.filter(m => !m.isSilentRest);
+  if (!voiced.length) return [];
+  // Step1/2/3 の計測 (形をどう読んだか) は常に先頭に出す — 固定語彙 (P12) でも形が根拠。
+  const reasons = shape ? whyShapeReasons(shape) : [];
+  // 語りの材料 (研究ノートの口調では文にしない): 線の道すじと語尾の型。固定語彙でも同じ。
+  if (shape) reasons.push({ code: "path", layer: "universal", corners: shape.corners ?? 0, loops: shape.loops ?? 0,
+    closed: !!shape.isClosed, retraced: !!shape.retraced, disorder: shape.disorder ?? 0, size: ax.size,
+    // まっすぐ = 外接箱の対角 ≈ 線の長さ・向きがほとんど回らない・揺れていない。
+    // 対角と長さだけだと、浅い弧 ∩ (回り 0.11〜) やゆるい波 (揺れ 6 回) まで「まっすぐ」と語っていた (2026-10-18)
+    straight: (shape.pathRatio ?? 0) > 0 && (shape.sizeRatio ?? 0) / shape.pathRatio > 0.92
+      && Math.abs(shape.rotationFraction ?? 0) < 0.09 && (shape.trajectoryDescriptor?.oscillationCount ?? 0) === 0 });
+  const lastMora = voiced[voiced.length - 1];
+  reasons.push({ code: "ending", layer: "universal", type: whyFormType(voiced), morae: voiced.length,
+                 last: lastMora.isQ ? "Q" : lastMora.isN ? "N" : "V",
+                 voicedObs: voiced.some(m => WHY_VOICED_OBSTRUENTS.has(m.onset)) });
+  // P12 記号語彙: 固定語彙の語は軸からの生成でないので、立法の理由だけを示す。
+  if (vocabReason) return [...reasons, { code: "vocab", layer: "convention", text: vocabReason }];
+  const push = (r, heard) => { if (heard.length) reasons.push({ ...r, heard }); };
+  // 子音の性格 ← sharpness (語に出た鋭い/柔らかい子音だけ)
+  if (ax.sharp > 0.25)
+    push({ code: "consonantSharp", layer: "universal", sharp: ax.sharp }, whyHeard(voiced, m => WHY_SHARP_ONSETS.has(m.onset)));
+  else if (ax.sharp < -0.25)
+    push({ code: "consonantSoft", layer: "universal", sharp: ax.sharp }, whyHeard(voiced, m => WHY_SOFT_ONSETS.has(m.onset)));
+  // 母音 ← 口の形 (語に出た母音だけ)
+  const parts = [];
+  if ((ax.open ?? 0) > 0.3) parts.push("open");
+  else if ((ax.open ?? 0) < -0.3) parts.push("closed");
+  if ((ax.round ?? 0) > 0.25) parts.push("pursed");
+  else if ((ax.round ?? 0) < -0.25) parts.push("spread");
+  if (!parts.length && ax.size > 0.3) parts.push("big");
+  const nuclei = new Set(voiced.filter(m => !m.isN && !m.isQ).map(m => m.nucleus));
+  const mouth = parts.map(part => ({ part, vowels: WHY_MOUTH_VOWELS[part].filter(v => nuclei.has(v)) }))
+                     .filter(x => x.vowels.length);
+  if (mouth.length) reasons.push({ code: "vowelMouth", layer: "universal", parts: mouth });
+  // 清濁 ← size (重さ)。原理12 の運用 (10-16): 大きさは濁りやすさの傾向 (普遍層) で、形の強さが
+  // 濁りを許すかを決めることもある → 「濁りやすい」と言い、断定しない。
+  if (ax.size > 0.5)
+    push({ code: "voicedBySize", layer: "universal", size: ax.size }, whyHeard(voiced, m => WHY_VOICED_OBSTRUENTS.has(m.onset)));
+  else if (ax.size < -0.5)
+    push({ code: "voicelessBySize", layer: "universal", size: ax.size }, whyHeard(voiced, m => WHY_VOICELESS_OBSTRUENTS.has(m.onset)));
+  reasons.push({ code: "form", layer: "universal", type: whyFormType(voiced), tex: ax.tex, size: ax.size });
+  // Web は平坦音程。軸からピッチが変わるという説明は出さない。
+  return reasons;
+}
+// 研究ノートの口調 (今の なぜ? 欄)。理由 1 つ → 1 行。
+function whyLineLab(r, ja) {
+  const f = v => (v >= 0 ? "+" : "") + v.toFixed(2);
+  const heard = x => x.heard.map(m => whyMoraLabel(m, ja)).join(ja ? "・" : ", ");
+  switch (r.code) {
+    case "retraced":
+      return ja ? "なぞり直し → 1周の形として読んだ (何周でも同じ形)"
+                : "retraced → read as a single lap (same shape however many laps)";
+    case "closedContour": {
+      const knot = r.corners > 0 ? (ja ? " (結び目も含む)" : " (incl. the knot)") : "";
+      return ja ? `形: 閉じた輪郭・角 ${r.corners}個${knot}` : `form: closed contour, ${r.corners} corner(s)${knot}`;
+    }
+    case "formTone": {
+      const zone = { plosive: ja ? "破裂圏 (か・た・ぱ系)" : "plosive zone (k/t/p)",
+                     bouba: ja ? "ブーバ圏 (ま・わ・な系)" : "bouba zone (m/w/n)",
+                     middle: ja ? "中間" : "middle" }[r.zone];
+      return ja ? `転回の集中度 ${r.turnConcentration.toFixed(2)} (角に集中=1 / 全周に分散=0)・角の鋭さ ${r.cornerSharpness.toFixed(2)} → 形のK ${f(r.formK)} = ${zone}`
+                : `turn concentration ${r.turnConcentration.toFixed(2)} (at corners=1 / spread=0), corner sharpness ${r.cornerSharpness.toFixed(2)} → form K ${f(r.formK)} = ${zone}`;
+    }
+    case "trajectoryForm": {
+      const why = r.closed ? (ja ? "閉じているが単純な輪郭でない (渦/連ループ)" : "closed but not a simple contour (spiral/chain)")
+                           : (ja ? "開いた線" : "open line");
+      return ja ? `形: ${why} → 音色は軌跡から読む` : `form: ${why} → tone is read from the trajectory`;
+    }
+    case "disorder":
+      return ja ? `乱雑度 ${r.disorder.toFixed(2)} (曲がりの不揃い・自己交差) → 濁音・拗音寄り (ぐちゃぐちゃ系)`
+                : `disorder ${r.disorder.toFixed(2)} (uneven turns, self-crossings) → voiced/palatalized (gucha-gucha zone)`;
+    case "vocab":
+      return r.text;
+    case "path": case "ending":   // 語りの材料 (この口調では言わない)
+      return "";
+    case "consonantSharp":
+      return ja ? `鋭さ ${f(r.sharp)}（尖り）→ 鋭い子音（${heard(r)}）` : `sharp ${f(r.sharp)} (spiky) → hard consonants (${heard(r)})`;
+    case "consonantSoft":
+      return ja ? `鋭さ ${f(r.sharp)}（丸み）→ 柔らかい子音（${heard(r)}）` : `sharp ${f(r.sharp)} (rounded) → soft consonants (${heard(r)})`;
+    case "vowelMouth": {
+      const label = { open: ja ? "開いた口" : "open mouth", closed: ja ? "閉じた口" : "closed mouth",
+                      pursed: ja ? "すぼめ" : "pursed lips", spread: ja ? "横引き" : "spread lips", big: ja ? "大" : "big" };
+      const vowel = v => ja ? "あいうえお"["aiueo".indexOf(v)] : v;
+      return (ja ? "口の形 → 母音 " : "mouth → vowels: ")
+        + r.parts.map(x => `${label[x.part]}→${x.vowels.map(vowel).join("/")}`).join(ja ? "・" : ", ");
+    }
+    case "voicedBySize":
+      return ja ? `大きい=重い → 濁りやすい（${heard(r)}）` : `big = heavy → tends to voice (${heard(r)})`;
+    case "voicelessBySize":
+      return ja ? `小さい=軽い → 清音（${heard(r)}）` : `small = light → voiceless (${heard(r)})`;
+    case "form": {
+      const t = {
+        sustain: ja ? "一筆の連続（口を保持）→ 長音を伸ばす（あーあー型）" : "one held stroke → sustained vowel (aaaa-type)",
+        redup: ja ? `反復（texture ${f(r.tex)}）→ 畳語ABAB（きらきら型）` : `repetition (texture ${f(r.tex)}) → reduplication ABAB (kira-kira type)`,
+        sokuon: ja ? "鋭く単発（鋭さ高・反復低）→ 促音っ（ぱっ型）" : "sharp one-shot → geminate Q (paQ-type)",
+        hatsuon: ja ? "重・鋭・単発の衝撃 → 撥音ん（どん型）" : "heavy sharp impact → moraic N (doN-type)",
+        long: ja ? `大きい（size ${f(r.size)}）→ 長音ー（がーん型）` : `big (size ${f(r.size)}) → long vowel (gaan-type)`,
+        ri: ja ? "小・柔・単発 → り（きらり型）" : "small soft one-shot → -ri (kirari-type)",
+        root: ja ? "素の語根" : "plain root",
+      }[r.type];
+      return (ja ? "語形: " : "form: ") + t;
+    }
+  }
+  return "";
+}
+function explainEvent(ax, moras, vocabReason = null, shape = null) {
+  const ja = uiLang === "ja";
+  return whyReasons(ax, moras, vocabReason, shape).map(r => whyLineLab(r, ja)).filter(l => l !== "");
+}
+// 語りの口調 (2026-10-16・試作): 線の動きにも音にも使える言葉で、描いた線と生まれた語を一文で結ぶ。
+// whyNarrateParts が理由コードから「何を言うか」(言い方の種類) だけを選び、口調の表 (日本語・英語・鉄道の車掌…)
+// が文にする — どの口調も同じ選択から話す。語は引用 (A「…」と聞こえる) が基本。っ・ん・り・くり返しで終わる
+// 4 拍までの語だけ、日本語のオノマトペ本来の「〜と、」(B)。前半 (折れる・巻く・まっすぐ…) は線の事実、後半
+// (詰まる・結ばれる・のびる…) は語の音の事実で、どれも理由コードに裏付けがあるときだけ選ぶ。語の意味は言わない。
+function whyNarrateParts(reasons) {
+  const path = reasons.find(r => r.code === "path"), end = reasons.find(r => r.code === "ending");
+  if (!path || !end) return null;
+  // 閉じた形の 1 周は輪に数えない (四角が「巻いて」にならない)。閉じたことは後半の「戻る」が言う。
+  const loops = Math.max(0, path.loops - (path.closed ? 1 : 0));
+  const size = path.size > 0.5 ? "big" : path.size < -0.5 ? "small" : null;
+  const move = path.retraced ? { kind: "retraced" }
+    : loops >= 1 && path.corners >= 1 ? { kind: "foldLoop" }
+    : loops >= 1 ? { kind: "loop", n: loops }
+    : path.corners >= 1 ? { kind: "fold", n: path.corners }
+    : path.disorder >= 0.4 ? { kind: "uneven" }   // 乱雑度 = 曲がりの不揃い。角や輪で言えないときだけ
+    : path.closed ? { kind: "circle" }
+    : path.straight ? { kind: "straight" }
+    : { kind: reasons.some(r => r.code === "consonantSoft") ? "soft" : "curve" };
+  move.size = size;
+  // 語尾は最後の音から読む (あーあーん は伸ばしより ん の結び)
+  const ending = end.last === "Q" ? "Q" : end.last === "N" ? (path.closed ? "Nclosed" : "Nopen")
+    : end.type === "ri" || end.type === "redup" || end.type === "long" || end.type === "sustain" ? end.type
+    : path.closed ? "return" : "open";
+  const frame = end.morae <= 4 && (end.last !== "V" || end.type === "ri" || end.type === "redup") ? "B" : "A";
+  return { move, ending, frame, closed: path.closed };
+}
+const WHY_COUNT_JA = ["", "一", "二", "三", "四", "五"];
+function whyMoveJa(m) {
+  let t = { retraced: "なぞり重ねて", foldLoop: "折れては巻いて",
+            loop: m.n === 1 ? "ひと巻きして" : m.n <= 3 ? `${WHY_COUNT_JA[m.n]}度巻いて` : "幾重にも巻いて",
+            fold: m.n <= 5 ? `${WHY_COUNT_JA[m.n]}度折れて` : "細かく折れて", uneven: "ふぞろいに曲がって",
+            circle: "ひと巡りして", soft: "やわらかく曲がって", curve: "曲がりながら進んで",
+            straight: m.size === "big" ? "長くまっすぐ進んで" : m.size === "small" ? "短くまっすぐ進んで" : "まっすぐ進んで" }[m.kind];
+  if (m.kind !== "straight" && m.size) t = (m.size === "big" ? "大きく" : "小さく") + (/^(細かく|やわらかく|幾重にも)/.test(t) ? "、" : "") + t;
+  return t;
+}
+const WHY_END_JA = { Q: "最後に詰まる", Nclosed: "元のところへ戻って結ばれる", Nopen: "響きを残す", long: "のびていく",
+  sustain: "ひと息にのびる", ri: "軽く抜ける", redup: "同じ動きをくり返す", return: "元のところへ戻る", open: "ひらいたまま終わる" };
+const WHY_COUNT_EN = ["", "once", "twice", "three times", "four times", "five times"];
+function whyMoveEn(m) {
+  return { retraced: "retraces itself", foldLoop: "bends and loops",
+           loop: m.n === 1 ? "loops once" : m.n <= 3 ? `loops ${WHY_COUNT_EN[m.n]}` : "loops over and over",
+           fold: m.n <= 5 ? `bends ${WHY_COUNT_EN[m.n]}` : "bends in small zigzags", uneven: "curves unevenly",
+           circle: "circles once", soft: "curves softly", curve: "curves along", straight: "runs straight" }[m.kind];
+}
+const WHY_END_EN = { Q: "and stops short at the end", Nclosed: "and comes back to close", Nopen: "and leaves a resonance",
+  long: "and stretches on", sustain: "in one long breath", ri: "and slips lightly away", redup: "and repeats the same motion",
+  return: "and returns to where it began", open: "and ends open" };
+function whyNarrate(reasons, kana, lang = "ja", romaji = "") {
+  const parts = whyNarrateParts(reasons);
+  if (!parts || !kana) return "";
+  if (lang !== "ja") {
+    const adj = parts.move.size === "big" ? (parts.move.kind === "straight" ? "long " : "large ")
+              : parts.move.size === "small" ? (parts.move.kind === "straight" ? "short " : "small ") : "";
+    const line = `${adj}line that ${whyMoveEn(parts.move)} ${WHY_END_EN[parts.ending]}`;
+    const word = romaji || kana;
+    return parts.frame === "B" ? `“${word}” — a ${line}.` : `A ${line}. It sounds like “${word}”.`;
+  }
+  const move = whyMoveJa(parts.move), ending = WHY_END_JA[parts.ending];
+  if (parts.frame === "B") return `${kana}と、${move}、${ending}。`;
+  let h = 0;
+  for (const ch of kana) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return h % 2 ? `${move}、${ending}線。「${kana}」と聞こえる。` : `「${kana}」。${move}、${ending}線。`;
+}
+// ひとつ前の一筆と比べる一言 (2026-10-16・試作): 線の違いを 1 つ、語の音の違いを 1 つ、並べて言う。
+// 「〜ので」とは言わない (並べるだけ・因果は聞く人が見つける)。同じ語が返ってきたら、それを言う (再現性)。
+function whyCompare(prevReasons, curReasons, prevKana, curKana, lang = "ja") {
+  const pp = prevReasons?.find(r => r.code === "path"), cp = curReasons?.find(r => r.code === "path");
+  const pe = prevReasons?.find(r => r.code === "ending"), ce = curReasons?.find(r => r.code === "ending");
+  if (!pp || !cp || !pe || !ce || !prevKana || !curKana) return "";
+  const ja = lang === "ja";
+  const loopsOf = p => Math.max(0, p.loops - (p.closed ? 1 : 0));
+  const sameLine = pp.closed === cp.closed && loopsOf(pp) === loopsOf(cp) && pp.corners === cp.corners;
+  if (prevKana === curKana)
+    return sameLine ? (ja ? "さっきと同じ道すじで、同じ声が返ってきた。" : "The same path brought back the same voice.")
+                    : (ja ? "さっきと少しちがう線でも、同じ声が返ってきた。" : "A slightly different line, yet the same voice came back.");
+  const num = n => ja ? `${WHY_COUNT_JA[Math.min(n, 5)] || n}つ` : String(n);
+  const sizeOf = p => p.size > 0.5 ? 1 : p.size < -0.5 ? -1 : 0;
+  let line = null;
+  const enNum = n => ["", "One", "Two", "Three", "Four", "Five"][n] || String(n);
+  const dl = loopsOf(cp) - loopsOf(pp), dc = cp.corners - pp.corners, ds = sizeOf(cp) - sizeOf(pp);
+  if (pp.closed !== cp.closed)
+    line = cp.closed ? (ja ? "さっきは開いていた線が閉じて" : "The line now closes") : (ja ? "さっきは閉じていた線がひらいて" : "The line now stays open");
+  else if (dl) line = ja ? `さっきより輪が${num(Math.abs(dl))}${dl > 0 ? "多く" : "少なく"}` : `${enNum(Math.abs(dl))} ${dl > 0 ? "more" : "fewer"} loop${Math.abs(dl) > 1 ? "s" : ""} than before`;
+  else if (dc) line = ja ? `さっきより角が${num(Math.abs(dc))}${dc > 0 ? "多く" : "少なく"}` : `${enNum(Math.abs(dc))} ${dc > 0 ? "more" : "fewer"} corner${Math.abs(dc) > 1 ? "s" : ""} than before`;
+  else if (ds) line = ja ? `さっきより${ds > 0 ? "大きく" : "小さく"}描いて` : `Drawn ${ds > 0 ? "larger" : "smaller"} than before`;
+  else if (pp.straight !== cp.straight) line = ja ? `さっきより${cp.straight ? "まっすぐに" : "曲げて"}描いて` : `Drawn ${cp.straight ? "straighter" : "more curved"} than before`;
+  let sound;
+  if (pe.last !== ce.last)
+    sound = ce.last === "Q" ? (ja ? "語は「っ」で詰まった" : "the word now stops short")
+          : ce.last === "N" ? (ja ? "語は「ん」で終わった" : "the word now ends in n")
+          : (ja ? "語の終わりがひらいた" : "the word's end opened");
+  else if (pe.morae !== ce.morae) {
+    const d = ce.morae - pe.morae;
+    sound = ja ? `語は${WHY_COUNT_JA[Math.min(Math.abs(d), 5)] || Math.abs(d)}拍${d > 0 ? "長く" : "短く"}なった`
+               : `the word is ${Math.abs(d)} mora${Math.abs(d) > 1 ? "e" : ""} ${d > 0 ? "longer" : "shorter"}`;
+  } else if (pe.voicedObs !== ce.voicedObs)
+    sound = ce.voicedObs ? (ja ? "語に濁りが入った" : "voicing came into the word") : (ja ? "語から濁りが消えた" : "the voicing left the word");
+  else sound = ja ? "語の音が入れ替わった" : "the sounds of the word changed";
+  if (!line) return ja ? `さっきと似た線でも、${sound}。` : `A similar line, yet ${sound}.`;
+  return ja ? `${line}、${sound}。` : `${line}, and ${sound}.`;
+}
+function updateNarration(ax, event, shape, prev = null) {
+  const el = document.getElementById("result-narration");
+  if (!el) return;
+  const lang = uiLang === "ja" ? "ja" : "en";
+  const kanaOf = e => e.displayWordOverride ?? namingKanaOf(e.moras);
+  const reasons = shape ? whyReasons(ax, event.moras, event.vocabReason ?? null, shape) : null;
+  const text = reasons ? whyNarrate(reasons, kanaOf(event), lang, romajiOf(event)) : "";
+  el.textContent = text;
+  el.hidden = !text;
+  const cmp = document.getElementById("result-compare");
+  if (!cmp) return;
+  const prevReasons = prev?.shape ? whyReasons(prev.ax, prev.event.moras, prev.event.vocabReason ?? null, prev.shape) : null;
+  const c = reasons && prevReasons ? whyCompare(prevReasons, reasons, kanaOf(prev.event), kanaOf(event), lang) : "";
+  cmp.textContent = c;
+  cmp.hidden = !c;
 }
 function updateWhy(ax, moras, vocabReason = null, shape = null) {
   const panel = document.getElementById("why-panel");
@@ -6137,6 +6526,7 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
   showResult(event);
   // なぜ? (native の explain と同じ「測って見せる」説明)。P12 語彙語は立法の理由を示す。
   updateWhy(axesUsed, event.moras, event.vocabReason ?? null, extra.shape ?? null);
+  updateNarration(axesUsed, event, src === "draw" ? extra.shape ?? null : null);
   playEvent(event);
   if (log) appendLog(event);
   const viewRect = canvas.getBoundingClientRect();
@@ -6804,10 +7194,59 @@ function segmentWord(word) {
 // ─── ROMAJI 直接入力の再生 (v11 で外し 2026-07-17 復活) ───
 // 空白/ハイフン区切りのトークン列。トークンが単一モーラでなければ segmentWord の
 // greedy CV 自動分割へフォールバック (bouba も bo u ba も同じ)。促音=Q・撥音=n。
+// かな入力 (dev の文字入力欄・2026-10-19): 結果のかな表記 (NAMING_KANA_ROWS) を逆に引いてローマ字のトークンにする。
+// 画面に出た語をそのまま貼れば同じ並びで鳴る。表の同じかなが複数の行にあるとき (き = k / ky) は表の先の行。
+// ローマ字に戻せない (エンジンが鳴らせない) 音節は unknown に返す。っ = q・ん = n・ー = 直前の母音。
+let NV_KANA_TO_ROMAJI = null;
+function nvKanaToRomajiTokens(text) {
+  if (!NV_KANA_TO_ROMAJI) {
+    NV_KANA_TO_ROMAJI = new Map();
+    for (const [onset, row] of Object.entries(NAMING_KANA_ROWS)) {
+      ["a", "i", "u", "e", "o"].forEach((v, k) => {
+        const m = parseMora(onset + v, false);
+        if (!m || (m.onset ?? "") !== onset || m.nucleus !== v) return;
+        if (!NV_KANA_TO_ROMAJI.has(row[k])) NV_KANA_TO_ROMAJI.set(row[k], onset + v);
+      });
+    }
+  }
+  const hira = text.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const tokens = [], unknown = [];
+  let prevVowel = null;
+  for (let i = 0; i < hira.length;) {
+    const c = hira[i];
+    if (/[\s、。・,.]/.test(c)) { i++; continue; }
+    if (c === "っ") { tokens.push("q"); prevVowel = null; i++; continue; }
+    if (c === "ん") { tokens.push("n"); prevVowel = null; i++; continue; }
+    if (c === "ー" || c === "〜") { if (prevVowel) tokens.push(prevVowel); i++; continue; }
+    const two = hira.slice(i, i + 2);
+    const smallNext = /[ぁぃぅぇぉゃゅょ]/.test(hira[i + 1] || "");
+    // 小さいかなが続くときは 2 文字で 1 音節 (きぇ を き + ぇ に割らない)
+    const hit = NV_KANA_TO_ROMAJI.has(two) ? two : !smallNext && NV_KANA_TO_ROMAJI.has(c) ? c : null;
+    if (!hit) {
+      const bad = smallNext ? two : c;
+      unknown.push(bad); i += bad.length; continue;
+    }
+    const romaji = NV_KANA_TO_ROMAJI.get(hit);
+    tokens.push(romaji);
+    prevVowel = romaji.slice(-1);
+    i += hit.length;
+  }
+  return { tokens, unknown };
+}
 function playRomaji() {
   ensureCtx();
-  const tokens = document.getElementById("romaji-input").value
-    .trim().toLowerCase().split(/[\s\-_]+/).filter(Boolean);
+  const raw = document.getElementById("romaji-input").value;
+  const reading = document.getElementById("romaji-reading");
+  let tokens;
+  if (/[\u3041-\u30ff]/.test(raw)) {
+    const k = nvKanaToRomajiTokens(raw);
+    tokens = k.tokens;
+    if (reading) reading.textContent = (tokens.length ? "読み: " + tokens.join(" ") : "")
+      + (k.unknown.length ? "　鳴らせないかな: " + k.unknown.join(" ") : "");
+  } else {
+    tokens = raw.trim().toLowerCase().split(/[\s\-_]+/).filter(Boolean);
+    if (reading) reading.textContent = "";
+  }
   const moras = [];
   let pendingQ = false;
   for (const tk of tokens) {
@@ -6995,7 +7434,7 @@ document.getElementById("fb-count").textContent = feedbackLog.length;
 // その明示タップで AudioContext を resume (確実な user gesture) → 以降は描いた瞬間に鳴る。
 (async () => {
   await fetchAllSamples();
-  try { await Promise.all(sampleKeys().map(decodeSample)); } catch (e) {}
+  try { await Promise.all(sampleKeys(nativeVoiceMode() === "legacy").map(decodeSample)); } catch (e) {}
   const ok = [...sampleBank.values()].filter(Boolean).length;
   document.getElementById("status").textContent = `samples ready (${ok}/${samplesTotal})`;
   showStartButton();
@@ -7055,7 +7494,7 @@ function unlockAudio() {
 }
 for (const ev of UNLOCK_EVENTS) document.addEventListener(ev, unlockAudio);
 </script>
-<script src="./web-play.js"></script>
+<script src="./web-play.js?v=narr1"></script>
 <script src="./twins-geometry.js"></script>
 <script src="./twins.js"></script>
 <script src="./reaction.js?v=twomodes1"></script>
