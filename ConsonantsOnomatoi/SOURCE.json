@@ -740,11 +740,11 @@
   },
   "cv_sQs.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_sQs.wav",
-   "sha256": "4bd7e228748286279260c838fb73d85c867d155f0ae19d5966a981256ba12519",
+   "sha256": "cecf9b7183bdcfc5d531e9503868287ef0b1f55fe2e8cbfe2225e8a2b3fe222d",
    "frames": 32603,
    "trimStart": 0,
    "encoding": "mp3_80k",
-   "outputSha256": "78a4a8b5999841efc16a8e39acca465ce1a501ac8312914dc7979e714d8d225c"
+   "outputSha256": "3b591488697609fc6883dfec06c52ddcc6fb4832eb0b0c0e69bbeca4472b8a3c"
   },
   "cv_sa.mp3": {
    "source": "Onomatoi/Resources/Consonants/cv_sa.wav",
