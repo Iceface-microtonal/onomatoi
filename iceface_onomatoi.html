@@ -3185,15 +3185,17 @@ function straightLineVocabSignal(cx) {
     && cx.sizeRatio > 0.02 && cx.rotationFraction <= 0.08
     && cx.pathRatio / cx.sizeRatio < 1.12;
 }
-const SHARPNESS_VOCAB = {
-  0: [["tsu", "つ"], ["tsuu", "つぅ"], ["tsuuu", "つぅぅ"]],
-  1: [["gyaQ", "ぎゃっ"], ["gyaa", "ぎゃあ"], ["gyaaa", "ぎゃああ"]],
-  2: [["gii", "ぎい"], ["giii", "ぎいい"], ["giiii", "ぎいいい"]],
-  3: [["koQ", "こっ"], ["kokoQ", "ここっ"], ["kokokoQ", "こここっ"]],
-  4: [["kaQ", "かっ"], ["kaaQ", "かあっ"], ["kaaaQ", "かああっ"]],
-  // 40°は現行Core正本でも未登録。素材の存在だけで語を制定しない。
-  6: [["chiQ", "ちっ"], ["chiiQ", "ちいっ"], ["chichiiQ", "ちちいっ"]],
-};
+// <lexicon-kou>
+// コウさん版の辞書 (生成物・手で直さない): 正本 = OnomatoiCore/Data/lexicon_kou.json・同期 = OnomatoiCore/tools/sync_lexicon.py
+const LEXICON_KOU = {"v":1,"lex":"kou-2026-10","note":"正本 (コウさん版・凍結)。形 → 段階 → 語 の対応表だけを持つ。どの形ゲートを通ったか・段階の決め方・原理 7 の n の扱いはコード (Core StrokeWordInterpreter / Web selectStrokeVocabulary) にある。display が null の語は仮名の上書きなし (音の綴りから出す)。段階の三つ組は center=中心形 / neighbor=近傍形 / frontier=外縁形、配列は [小, 中, 大]。直すときは作者と相談 (docs/LEXICON_KOU.md)。同期 = tools/sync_lexicon.py","words":{"heart":{"normal":{"romaji":"myuun","display":"みゅーん"},"clean":{"romaji":"kuun","display":"くぅん"}},"star":{"romaji":"chigyaan","display":null},"oneStrokePentagram":{"center":{"romaji":"ayanoparu","display":"あやのぱる"},"neighbor":{"romaji":"ayanofaru","display":"あやのふぁる"},"frontier":{"romaji":"ayanoharu","display":"あやのはる"}},"hourglass":{"center":{"romaji":"gyogyaQgyagyo","display":"ぎょぎゃっぎゃぎょ"},"neighbor":{"romaji":"gyogyaQjagyo","display":"ぎょぎゃっじゃぎょ"},"frontier":{"romaji":"gyogyaQhyagyo","display":"ぎょぎゃっひゃぎょ"}},"bowtie":{"center":{"romaji":"gyagyoQgyagyo","display":"ぎゃぎょっぎゃぎょ"},"neighbor":{"romaji":"gyagyoQjagyo","display":"ぎゃぎょっじゃぎょ"},"frontier":{"romaji":"gyagyoQhyagyo","display":"ぎゃぎょっひゃぎょ"}},"leaf":{"center":{"romaji":"keen","display":"けーん"},"neighbor":{"romaji":"feen","display":"ふぇーん"},"frontier":{"romaji":"been","display":"べーん"}},"crescent":{"center":{"romaji":"heen","display":"へーん"},"neighbor":{"romaji":"peen","display":"ぺーん"},"frontier":{"romaji":"jeen","display":"じぇーん"}},"cloud":{"center":{"romaji":"hohoon","display":"ほほーん"},"neighbor":{"romaji":"popoon","display":"ぽぽーん"},"frontier":{"romaji":"bohoon","display":"ぼほーん"}},"flower":{"center":{"romaji":"haraan","display":"はらーん"},"neighbor":{"romaji":"furaan","display":"ふらーん"},"frontier":{"romaji":"waraan","display":"わらーん"}},"droplet":{"center":{"romaji":"kuoon","display":"くおーん"},"neighbor":{"romaji":"nuoon","display":"ぬおーん"},"frontier":{"romaji":"ruoon","display":"るおーん"}},"lightning":{"center":{"romaji":"suchiQ","display":"すちっ"},"neighbor":{"romaji":"zechiQ","display":"ぜちっ"},"frontier":{"romaji":"zochiQ","display":"ぞちっ"}},"arc":{"right":[{"romaji":"myi","display":null},{"romaji":"myii","display":null},{"romaji":"myiii","display":null}],"left":[{"romaji":"myo","display":null},{"romaji":"myoo","display":null},{"romaji":"myooo","display":null}],"up":[{"romaji":"nyu","display":null},{"romaji":"nyuu","display":null},{"romaji":"nyuuu","display":null}],"down":[{"romaji":"moo","display":null},{"romaji":"mooo","display":null},{"romaji":"moooo","display":null}]},"circle":[{"romaji":"oon","display":null},{"romaji":"aoon","display":null},{"romaji":"aaaan","display":null}],"triangle":{"romaji":"gyagyoon","display":null},"invertedTriangle":{"romaji":"gyogyaan","display":null},"square":[{"romaji":"teton","display":"てとん"},{"romaji":"tetoon","display":"てとおん"},{"romaji":"tetooon","display":"てとおおん"}],"rectangle":[{"romaji":"tsukon","display":"つこん"},{"romaji":"tsukoon","display":"つこおん"},{"romaji":"tsukooon","display":"つこおおん"}],"sharpness":{"0":[{"romaji":"tsu","display":"つ"},{"romaji":"tsuu","display":"つぅ"},{"romaji":"tsuuu","display":"つぅぅ"}],"1":[{"romaji":"gyaQ","display":"ぎゃっ"},{"romaji":"gyaa","display":"ぎゃあ"},{"romaji":"gyaaa","display":"ぎゃああ"}],"2":[{"romaji":"gii","display":"ぎい"},{"romaji":"giii","display":"ぎいい"},{"romaji":"giiii","display":"ぎいいい"}],"3":[{"romaji":"koQ","display":"こっ"},{"romaji":"kokoQ","display":"ここっ"},{"romaji":"kokokoQ","display":"こここっ"}],"4":[{"romaji":"kaQ","display":"かっ"},{"romaji":"kaaQ","display":"かあっ"},{"romaji":"kaaaQ","display":"かああっ"}],"6":[{"romaji":"chiQ","display":"ちっ"},{"romaji":"chiiQ","display":"ちいっ"},{"romaji":"chichiiQ","display":"ちちいっ"}]}},"family":{"waveCrest":{"romaji":"nyu","display":"にゅ"},"waveTrough":{"romaji":"mo","display":"も"},"loopRow":{"romaji":"muu","display":"むう"}}};
+// </lexicon-kou>
+// 語の正本 = LEXICON_KOU (コウさん版の辞書・Core Data/lexicon_kou.json の生成物)。以下の *_VOCAB は、そこから読んだ語を従来の形に並べ直したもの。
+// level は 1 = 外縁形 / 2 = 近傍形 / 3 = 中心形 (Core PrototypeRecognitionLevel の rawValue)。語を直すときは正本の JSON を直して sync_lexicon.py を走らせる。
+const LEXICON_LEVEL_KEYS = ["frontier", "neighbor", "center"];
+function lexiconLevels(entry) { return LEXICON_LEVEL_KEYS.map(k => entry[k]); }   // [外縁形, 近傍形, 中心形]
+// 角度の語 stage → [[romaji, 仮名], …] ([小, 中, 大])。40° (stage 5) は現行Core正本でも未登録。素材の存在だけで語を制定しない。
+const SHARPNESS_VOCAB = Object.fromEntries(Object.entries(LEXICON_KOU.words.sharpness)
+  .map(([stage, ws]) => [Number(stage), ws.map(w => [w.romaji, w.display])]));
 // P12 完全な円 = aaan の判定 (2026-07-17 に純関数化+一周判定)。
 // 従来 (rotationFraction > 0.8 のみ) は多重ループの複雑な一筆 (渦・連ループ・二度なぞり) まで
 // 「完全な円」に吸われて aaan に潰れた (報告 mrnps275-7: cor=0/lp=2 の連ループが
@@ -3239,40 +3241,31 @@ function prototypeVocabWord(family, level) {
 // ⊂=後退・o で奥に集まる) / ∪ は重力が支配する例外。
 // my行は cv_mya/myi/myo/myu を収録済み。未録音の mye は入力時に me へ平音化し、
 // 欠損環境では bufferFor / sampleUrlCandidates が m行へフォールバックする。
-const ARC_VOCAB = {
-  right: ["myi", "myii", "myiii"],   // ⊃ 膨らみ右: 横から柔らかな何かが突き出る・飛んでくる
-  left:  ["myo", "myoo", "myooo"],   // ⊂ 膨らみ左: 音が引いていく・奥に集まる
-  up:    ["nyu", "nyuu", "nyuuu"],   // ∩ 膨らみ上: 下から持ち上がる・芽生え
-  down:  ["moo", "mooo", "moooo"],   // ∪ 膨らみ下: 下に音が籠る・重力・包み込む
-};
+// right ⊃ 膨らみ右 myi: 横から柔らかな何かが突き出る・飛んでくる / left ⊂ 膨らみ左 myo: 音が引いていく・奥に集まる /
+// up ∩ 膨らみ上 nyu: 下から持ち上がる・芽生え / down ∪ 膨らみ下 moo: 下に音が籠る・重力・包み込む
+const ARC_VOCAB = Object.fromEntries(Object.entries(LEXICON_KOU.words.arc).map(([dir, ws]) => [dir, ws.map(w => w.romaji)]));
 // 2026-07-21 コウさん立法 (第2信): 円もサイズ3段階 (小/中/大 = arcSizeClass 流用)。
 // 正本 = Onomatoi/docs/FEEDBACK_2026-07-21_kou_circle_sizes.md。
 // 小 oon = まとまり (o は音が広がらない)・中 aoon = 広がり→まとまり・大 aaaan = 完全に
 // 内部空間を開く。**「o の次に a は来ない」** (a→o 可・o→a 不可 = 広がりが先、まとまりが後、
 // 完成の ん が最後という不可逆な時間構造)。旧 "aaan" 固定 (2026-07-16〜) を上書き。
-const CIRCLE_VOCAB = ["oon", "aoon", "aaaan"];   // [小, 中, 大]
-const HEART_VOCAB = "myuun";       // ハート認識度1/2: みゅーん
-const HEART_CLEAN_VOCAB = "kuun";  // ハート認識度3: くぅん
-const STAR_VOCAB = "chigyaan";     // 輪郭星: ちぎゃーん
-const ONE_STROKE_PENTAGRAM_VOCAB = "ayanoparu"; // 一筆五芒星: あやのぱる
+const CIRCLE_VOCAB = LEXICON_KOU.words.circle.map(w => w.romaji);   // [小, 中, 大]
+const HEART_VOCAB = LEXICON_KOU.words.heart.normal.romaji;       // ハート認識度1/2: みゅーん
+const HEART_CLEAN_VOCAB = LEXICON_KOU.words.heart.clean.romaji;  // ハート認識度3: くぅん
+const STAR_VOCAB = LEXICON_KOU.words.star.romaji;                // 輪郭星: ちぎゃーん
 // [外縁形, 近傍形, 中心形]。交差部の h=息 / f=擦過 / p=明確な破裂・放散。
-const ONE_STROKE_PENTAGRAM_VOCAB_LEVELS = ["ayanoharu", "ayanofaru", "ayanoparu"];
+const ONE_STROKE_PENTAGRAM_VOCAB_LEVELS = lexiconLevels(LEXICON_KOU.words.oneStrokePentagram).map(w => w.romaji);
+const ONE_STROKE_PENTAGRAM_VOCAB = ONE_STROKE_PENTAGRAM_VOCAB_LEVELS[2];   // 一筆五芒星: あやのぱる
 // 各配列は [外縁形, 近傍形, 中心形]。描画の優劣でなく、典型形からの距離を示す。
-const SHAPE_PROTOTYPE_VOCAB = {
-  leaf: ["been", "feen", "keen"],
-  crescent: ["jeen", "peen", "heen"],
-  cloud: ["bohoon", "popoon", "hohoon"],
-  flower: ["waraan", "furaan", "haraan"],
-  droplet: ["ruoon", "nuoon", "kuoon"],
-  lightning: ["zochiQ", "zechiQ", "suchiQ"],
-};
-const TRIANGLE_VOCAB = "gyagyoon";   // P13 閉じた三角形 (2026-07-21 コウさん立法)
-const INVERTED_TRIANGLE_VOCAB = "gyogyaan"; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
+const SHAPE_PROTOTYPE_VOCAB = Object.fromEntries(["leaf", "crescent", "cloud", "flower", "droplet", "lightning"]
+  .map(k => [k, lexiconLevels(LEXICON_KOU.words[k]).map(w => w.romaji)]));
+const TRIANGLE_VOCAB = LEXICON_KOU.words.triangle.romaji;   // P13 閉じた三角形 (2026-07-21 コウさん立法)
+const INVERTED_TRIANGLE_VOCAB = LEXICON_KOU.words.invertedTriangle.romaji; // 2026-08-14 Q3変更: ▽ = ぎょぎゃーん
 // 2026-08-28 コウさん制定: 正方形と長方形を別語族にする。
 // 正本 = Onomatoi/docs/FEEDBACK_2026-08-28_kou_quadrilateral_vocab.md。
 // 配列は [小, 中, 大]。縦長/横長は同じ長方形語族で、向きによって語を変えない。
-const SQUARE_VOCAB = ["teton", "tetoon", "tetooon"];
-const RECTANGLE_VOCAB = ["tsukon", "tsukoon", "tsukooon"];
+const SQUARE_VOCAB = LEXICON_KOU.words.square.map(w => w.romaji);
+const RECTANGLE_VOCAB = LEXICON_KOU.words.rectangle.map(w => w.romaji);
 // 指描きの揺れを許容する実装上の境界。語彙立法ではないため、実機結果から再調整できる。
 const SQUARE_MAX_ASPECT_RATIO = 1.35;
 
@@ -3380,26 +3373,22 @@ function vocabEvent(word, axes) {
 }
 
 // 表記の制定がある語だけを上書きする。音声用romajiとは分離する (Core SymbolVocab)。
-const LEGISLATED_DISPLAY = {
-  kuun: "くぅん", myuun: "みゅーん",
-  ayanoparu: "あやのぱる", ayanofaru: "あやのふぁる", ayanoharu: "あやのはる",
-  been: "べーん", feen: "ふぇーん", keen: "けーん",
-  jeen: "じぇーん", peen: "ぺーん", heen: "へーん",
-  bohoon: "ぼほーん", popoon: "ぽぽーん", hohoon: "ほほーん",
-  waraan: "わらーん", furaan: "ふらーん", haraan: "はらーん",
-  ruoon: "るおーん", nuoon: "ぬおーん", kuoon: "くおーん",
-  zochiQ: "ぞちっ", zechiQ: "ぜちっ", suchiQ: "すちっ",
-  teton: "てとん", tetoon: "てとおん", tetooon: "てとおおん",
-  tsukon: "つこん", tsukoon: "つこおん", tsukooon: "つこおおん",
-  gyogyaQgyagyo: "ぎょぎゃっぎゃぎょ", gyagyoQgyagyo: "ぎゃぎょっぎゃぎょ",
-  gyogyaQjagyo: "ぎょぎゃっじゃぎょ", gyagyoQjagyo: "ぎゃぎょっじゃぎょ",
-  gyogyaQhyagyo: "ぎょぎゃっひゃぎょ", gyagyoQhyagyo: "ぎゃぎょっひゃぎょ",
-};
+// 仮名表記の上書きがある語の表 (romaji → 仮名)。角度の語は SHARPNESS_VOCAB が仮名を持つので入れない。
+function lexiconDisplayTable(words) {
+  const table = {};
+  const add = w => { if (w.display != null) table[w.romaji] = w.display; };
+  add(words.heart.normal); add(words.heart.clean);
+  for (const k of ["oneStrokePentagram", "hourglass", "bowtie", "leaf", "crescent", "cloud", "flower", "droplet", "lightning"])
+    lexiconLevels(words[k]).forEach(add);
+  words.square.forEach(add); words.rectangle.forEach(add);
+  return table;
+}
+const LEGISLATED_DISPLAY = lexiconDisplayTable(LEXICON_KOU.words);
 // 砂時計形・蝶ネクタイ形の準固有語 (Core SymbolVocab.hourglass / bowtie・2026-10-05 作者の仮決定・案 B・ん なし・大きさで変えない)
-// 三段階 (案 1・一筆五芒星にならう): 交わりの直後の音節だけ ぎゃ (中心) → じゃ (近傍) → ひゃ (外縁)
-const CROSSED_QUADRILATERAL_CROSS = { 3: "gya", 2: "ja", 1: "hya" };
+// 三段階 (案 1・一筆五芒星にならう): 交わりの直後の音節だけ ぎゃ (中心) → じゃ (近傍) → ひゃ (外縁)。段階ごとの語は正本の辞書に持つ
 function crossedQuadrilateralVocabWord(cq) {
-  return (cq.kind === "hourglass" ? "gyogya" : "gyagyo") + "Q" + CROSSED_QUADRILATERAL_CROSS[cq.level] + "gyo";
+  const entry = cq.kind === "hourglass" ? LEXICON_KOU.words.hourglass : LEXICON_KOU.words.bowtie;
+  return entry[LEXICON_LEVEL_KEYS[cq.level - 1]].romaji;
 }
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
@@ -3424,7 +3413,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   if (heartVocabSignal(cx) && !crossesInside) {
     vocabWord = heartVocabWord(cx);
     const heartLevel = cx.heartRecognitionLevel;
-    const heartDisplay = heartLevel === 3 ? "くぅん" : "みゅーん";
+    const heartDisplay = LEXICON_KOU.words.heart[heartLevel === 3 ? "clean" : "normal"].display;
     const heartScore = cx.heartConfidence.toFixed(2);
     vocabReason = language === "ja"
       ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
@@ -3432,7 +3421,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   } else if (oneStrokePentagramVocabSignal(cx)) {
     vocabWord = oneStrokePentagramVocabWord(cx);
     const pentagramLevel = cx.oneStrokePentagramRecognitionLevel;
-    const pentagramDisplay = ["", "あやのはる", "あやのふぁる", "あやのぱる"][pentagramLevel];
+    const pentagramDisplay = ["", ...lexiconLevels(LEXICON_KOU.words.oneStrokePentagram).map(w => w.display)][pentagramLevel];
     const pentagramScore = cx.oneStrokePentagramConfidence.toFixed(2);
     vocabReason = language === "ja"
       ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
@@ -3653,11 +3642,12 @@ function familyMatch(points, cx) {
   if (crests) return { kind: "wave", crests };
   return null;
 }
-const FAMILY_LOOP_SYLLABLE = { romaji: "muu", display: "むう" };   // 輪 1 つ = くるんの語 (10-06 シート Q3・未確定) に従う
+const FAMILY_LOOP_SYLLABLE = LEXICON_KOU.family.loopRow;   // 輪 1 つ = くるんの語 (10-06 シート Q3・未確定) に従う
 function familyWord(match) {
   if (match.kind === "wave") {
     const c = match.crests.slice(0, 8);
-    return { romaji: c.map(x => x ? "nyu" : "mo").join(""), display: c.map(x => x ? "にゅ" : "も").join("") };
+    const crest = LEXICON_KOU.family.waveCrest, trough = LEXICON_KOU.family.waveTrough;
+    return { romaji: c.map(x => (x ? crest : trough).romaji).join(""), display: c.map(x => (x ? crest : trough).display).join("") };
   }
   if (match.kind === "loopRow")
     return { romaji: FAMILY_LOOP_SYLLABLE.romaji.repeat(match.count), display: FAMILY_LOOP_SYLLABLE.display.repeat(match.count) };
