@@ -19,6 +19,8 @@ function cleanRecord(r) {
     eng: str(r.eng, 20), src: str(r.src, 20), word: str(r.word, 64), mora: int(r.mora, 0, 64),
     redup: r.redup === true, vote: r.vote, reason: str(r.reason, 500),
   };
+  const lex = str(r.lex, 40);   // 辞書の版 (FB v5・例 "kou-2026-10")。v4 以前の記録には無い
+  if (lex) out.lex = lex;
   if (r.axes && typeof r.axes === 'object' && !Array.isArray(r.axes)) {
     out.axes = {};
     for (const key of ['s', 'sh', 't', 'b', 'r', 'o']) {

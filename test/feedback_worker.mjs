@@ -14,6 +14,11 @@ const clean = cleanFeedback(payload);
 assert.equal(clean.records.length, 1);
 assert.deepEqual(clean.records[0].stroke, record.stroke);
 assert.equal(clean.records[0].reason, record.reason);
+// FB v5: 辞書の版 lex を受け口で落とさない (無い記録はそのまま・長すぎる値は切る)
+assert.equal('lex' in clean.records[0], false);
+const withLex = cleanFeedback({ ...payload, records: [{ ...record, v: 5, lex: 'kou-2026-10' }] });
+assert.equal(withLex.records[0].lex, 'kou-2026-10');
+assert.equal(Array.from(cleanFeedback({ ...payload, records: [{ ...record, lex: 'x'.repeat(99) }] }).records[0].lex).length, 40);
 
 // 知らない項目・範囲外の値は捨てる / 丸める
 const dirty = cleanFeedback({ ...payload, records: [{ ...record, html: '<script>', k: 9, cor: -3, reason: 'x'.repeat(900) }] });
