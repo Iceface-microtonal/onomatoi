@@ -3189,6 +3189,8 @@ function straightLineVocabSignal(cx) {
 // コウさん版の辞書 (生成物・手で直さない): 正本 = OnomatoiCore/Data/lexicon_kou.json・同期 = OnomatoiCore/tools/sync_lexicon.py
 const LEXICON_KOU = {"v":1,"lex":"kou-2026-10","note":"正本 (コウさん版・凍結)。形 → 段階 → 語 の対応表だけを持つ。どの形ゲートを通ったか・段階の決め方・原理 7 の n の扱いはコード (Core StrokeWordInterpreter / Web selectStrokeVocabulary) にある。display が null の語は仮名の上書きなし (音の綴りから出す)。段階の三つ組は center=中心形 / neighbor=近傍形 / frontier=外縁形、配列は [小, 中, 大]。直すときは作者と相談 (docs/LEXICON_KOU.md)。同期 = tools/sync_lexicon.py","words":{"heart":{"normal":{"romaji":"myuun","display":"みゅーん"},"clean":{"romaji":"kuun","display":"くぅん"}},"star":{"romaji":"chigyaan","display":null},"oneStrokePentagram":{"center":{"romaji":"ayanoparu","display":"あやのぱる"},"neighbor":{"romaji":"ayanofaru","display":"あやのふぁる"},"frontier":{"romaji":"ayanoharu","display":"あやのはる"}},"hourglass":{"center":{"romaji":"gyogyaQgyagyo","display":"ぎょぎゃっぎゃぎょ"},"neighbor":{"romaji":"gyogyaQjagyo","display":"ぎょぎゃっじゃぎょ"},"frontier":{"romaji":"gyogyaQhyagyo","display":"ぎょぎゃっひゃぎょ"}},"bowtie":{"center":{"romaji":"gyagyoQgyagyo","display":"ぎゃぎょっぎゃぎょ"},"neighbor":{"romaji":"gyagyoQjagyo","display":"ぎゃぎょっじゃぎょ"},"frontier":{"romaji":"gyagyoQhyagyo","display":"ぎゃぎょっひゃぎょ"}},"leaf":{"center":{"romaji":"keen","display":"けーん"},"neighbor":{"romaji":"feen","display":"ふぇーん"},"frontier":{"romaji":"been","display":"べーん"}},"crescent":{"center":{"romaji":"heen","display":"へーん"},"neighbor":{"romaji":"peen","display":"ぺーん"},"frontier":{"romaji":"jeen","display":"じぇーん"}},"cloud":{"center":{"romaji":"hohoon","display":"ほほーん"},"neighbor":{"romaji":"popoon","display":"ぽぽーん"},"frontier":{"romaji":"bohoon","display":"ぼほーん"}},"flower":{"center":{"romaji":"haraan","display":"はらーん"},"neighbor":{"romaji":"furaan","display":"ふらーん"},"frontier":{"romaji":"waraan","display":"わらーん"}},"droplet":{"center":{"romaji":"kuoon","display":"くおーん"},"neighbor":{"romaji":"nuoon","display":"ぬおーん"},"frontier":{"romaji":"ruoon","display":"るおーん"}},"lightning":{"center":{"romaji":"suchiQ","display":"すちっ"},"neighbor":{"romaji":"zechiQ","display":"ぜちっ"},"frontier":{"romaji":"zochiQ","display":"ぞちっ"}},"arc":{"right":[{"romaji":"myi","display":null},{"romaji":"myii","display":null},{"romaji":"myiii","display":null}],"left":[{"romaji":"myo","display":null},{"romaji":"myoo","display":null},{"romaji":"myooo","display":null}],"up":[{"romaji":"nyu","display":null},{"romaji":"nyuu","display":null},{"romaji":"nyuuu","display":null}],"down":[{"romaji":"moo","display":null},{"romaji":"mooo","display":null},{"romaji":"moooo","display":null}]},"circle":[{"romaji":"oon","display":null},{"romaji":"aoon","display":null},{"romaji":"aaaan","display":null}],"triangle":{"romaji":"gyagyoon","display":null},"invertedTriangle":{"romaji":"gyogyaan","display":null},"square":[{"romaji":"teton","display":"てとん"},{"romaji":"tetoon","display":"てとおん"},{"romaji":"tetooon","display":"てとおおん"}],"rectangle":[{"romaji":"tsukon","display":"つこん"},{"romaji":"tsukoon","display":"つこおん"},{"romaji":"tsukooon","display":"つこおおん"}],"sharpness":{"0":[{"romaji":"tsu","display":"つ"},{"romaji":"tsuu","display":"つぅ"},{"romaji":"tsuuu","display":"つぅぅ"}],"1":[{"romaji":"gyaQ","display":"ぎゃっ"},{"romaji":"gyaa","display":"ぎゃあ"},{"romaji":"gyaaa","display":"ぎゃああ"}],"2":[{"romaji":"gii","display":"ぎい"},{"romaji":"giii","display":"ぎいい"},{"romaji":"giiii","display":"ぎいいい"}],"3":[{"romaji":"koQ","display":"こっ"},{"romaji":"kokoQ","display":"ここっ"},{"romaji":"kokokoQ","display":"こここっ"}],"4":[{"romaji":"kaQ","display":"かっ"},{"romaji":"kaaQ","display":"かあっ"},{"romaji":"kaaaQ","display":"かああっ"}],"6":[{"romaji":"chiQ","display":"ちっ"},{"romaji":"chiiQ","display":"ちいっ"},{"romaji":"chichiiQ","display":"ちちいっ"}]}},"family":{"waveCrest":{"romaji":"nyu","display":"にゅ"},"waveTrough":{"romaji":"mo","display":"も"},"loopRow":{"romaji":"muu","display":"むう"}}};
 // </lexicon-kou>
+// 固定語なし・族の語の規則なしの辞書 (計画「二つの辞書」段 2・Core Lexicon.empty と同じ)。段 4 の B の置き場所の確かめ用。
+const LEXICON_EMPTY = { v: 1, lex: "empty", words: {}, family: null };
 // 語の正本 = LEXICON_KOU (コウさん版の辞書・Core Data/lexicon_kou.json の生成物)。以下の *_VOCAB は、そこから読んだ語を従来の形に並べ直したもの。
 // level は 1 = 外縁形 / 2 = 近傍形 / 3 = 中心形 (Core PrototypeRecognitionLevel の rawValue)。語を直すときは正本の JSON を直して sync_lexicon.py を走らせる。
 const LEXICON_LEVEL_KEYS = ["frontier", "neighbor", "center"];
@@ -3377,21 +3379,30 @@ function vocabEvent(word, axes) {
 function lexiconDisplayTable(words) {
   const table = {};
   const add = w => { if (w.display != null) table[w.romaji] = w.display; };
-  add(words.heart.normal); add(words.heart.clean);
+  if (words.heart) { add(words.heart.normal); add(words.heart.clean); }
   for (const k of ["oneStrokePentagram", "hourglass", "bowtie", "leaf", "crescent", "cloud", "flower", "droplet", "lightning"])
-    lexiconLevels(words[k]).forEach(add);
-  words.square.forEach(add); words.rectangle.forEach(add);
+    if (words[k]) lexiconLevels(words[k]).forEach(add);
+  (words.square ?? []).forEach(add); (words.rectangle ?? []).forEach(add);
   return table;
 }
 const LEGISLATED_DISPLAY = lexiconDisplayTable(LEXICON_KOU.words);
+// 辞書ごとの仮名の表 (コウさん版は LEGISLATED_DISPLAY そのもの・ほかは初めて引くときに作る)
+const LEXICON_DISPLAY_TABLES = new Map([[LEXICON_KOU, LEGISLATED_DISPLAY]]);
+function lexiconDisplayFor(lexicon) {
+  let table = LEXICON_DISPLAY_TABLES.get(lexicon);
+  if (!table) { table = lexiconDisplayTable(lexicon.words); LEXICON_DISPLAY_TABLES.set(lexicon, table); }
+  return table;
+}
 // 砂時計形・蝶ネクタイ形の準固有語 (Core SymbolVocab.hourglass / bowtie・2026-10-05 作者の仮決定・案 B・ん なし・大きさで変えない)
 // 三段階 (案 1・一筆五芒星にならう): 交わりの直後の音節だけ ぎゃ (中心) → じゃ (近傍) → ひゃ (外縁)。段階ごとの語は正本の辞書に持つ
-function crossedQuadrilateralVocabWord(cq) {
-  const entry = cq.kind === "hourglass" ? LEXICON_KOU.words.hourglass : LEXICON_KOU.words.bowtie;
+function crossedQuadrilateralVocabWord(cq, lexicon = LEXICON_KOU) {
+  const entry = cq.kind === "hourglass" ? lexicon.words.hourglass : lexicon.words.bowtie;
   return entry[LEXICON_LEVEL_KEYS[cq.level - 1]].romaji;
 }
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
-function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
+// 語は lexicon (既定 = コウさん版) から引く。その形の語が辞書に無いときは、その分岐を飛ばして次の分岐へ進む (Core と同じ)。
+function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon = LEXICON_KOU) {
+  const lw = lexicon.words;
   const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
   // 自分と交差して輪を描く線は、一角・弧・角度の語彙にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
   // 逆向きの輪 2 つは回転が打ち消し合って loops = 0 になり「開いた一角」と読まれていた。
@@ -3401,7 +3412,8 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed && !drawsLoops;
   const openArc = openArcSignal(cx) && !singleAngle && !drawsLoops;
   const sizeClass = arcSizeClass(inkPts, w, h);
-  const sharpnessWord = SHARPNESS_VOCAB[stage]?.[sizeClass];
+  const sharpnessEntry = lw.sharpness?.[stage]?.[sizeClass];
+  const sharpnessWord = sharpnessEntry ? [sharpnessEntry.romaji, sharpnessEntry.display] : undefined;
   const hasSharpnessVocabulary = !!sharpnessWord && ((stage === 0 && straightLineVocabSignal(cx)) || singleAngle);
   const openChevron = (openChevronSignal(cx) && !drawsLoops) || (hasSharpnessVocabulary && stage > 0);
   // 形の内側で自分と交差する閉じた線 (砂時計形 等) は閉じた形の固有語にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
@@ -3410,94 +3422,96 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   // 砂時計形・蝶ネクタイ形: 尖った角 (90° 以下) のある交差四辺形だけ (Core と同じ・角の数は見ない)
   const crossedQuad = crossesInside && stage >= 3 ? crossedQuadrilateral(inkPts) : null;
   let vocabWord = null, vocabReason = null, displayWordOverride = null;
-  if (heartVocabSignal(cx) && !crossesInside) {
-    vocabWord = heartVocabWord(cx);
+  if (heartVocabSignal(cx) && !crossesInside && lw.heart) {
     const heartLevel = cx.heartRecognitionLevel;
-    const heartDisplay = LEXICON_KOU.words.heart[heartLevel === 3 ? "clean" : "normal"].display;
+    const heartEntry = lw.heart[heartLevel === 3 ? "clean" : "normal"];
+    vocabWord = heartEntry.romaji;
+    const heartDisplay = heartEntry.display;
     const heartScore = cx.heartConfidence.toFixed(2);
     vocabReason = language === "ja"
       ? `ハート認識度${heartLevel}（スコア ${heartScore}）→ ${vocabWord}（固定語「${heartDisplay}」）`
       : `heart recognition level ${heartLevel} (score ${heartScore}) → ${vocabWord}`;
-  } else if (oneStrokePentagramVocabSignal(cx)) {
-    vocabWord = oneStrokePentagramVocabWord(cx);
+  } else if (oneStrokePentagramVocabSignal(cx) && lw.oneStrokePentagram) {
+    vocabWord = lexiconLevels(lw.oneStrokePentagram)[Math.max(1, Math.min(3, cx.oneStrokePentagramRecognitionLevel ?? 3)) - 1].romaji;
     const pentagramLevel = cx.oneStrokePentagramRecognitionLevel;
-    const pentagramDisplay = ["", ...lexiconLevels(LEXICON_KOU.words.oneStrokePentagram).map(w => w.display)][pentagramLevel];
+    const pentagramDisplay = ["", ...lexiconLevels(lw.oneStrokePentagram).map(w => w.display)][pentagramLevel];
     const pentagramScore = cx.oneStrokePentagramConfidence.toFixed(2);
     vocabReason = language === "ja"
       ? `一筆五芒星・認識度${pentagramLevel}（スコア ${pentagramScore}）→ ${vocabWord}（制定語「${pentagramDisplay}」）`
       : `one-stroke pentagram level ${pentagramLevel} (score ${pentagramScore}) → ${vocabWord}`;
-  } else if (crossedQuad) {
-    vocabWord = crossedQuadrilateralVocabWord(crossedQuad);
+  } else if (crossedQuad && (crossedQuad.kind === "hourglass" ? lw.hourglass : lw.bowtie)) {
+    vocabWord = crossedQuadrilateralVocabWord(crossedQuad, lexicon);
     vocabReason = language === "ja"
       ? `${crossedQuad.kind === "hourglass" ? "砂時計形 (▽ の上に △)" : "蝶ネクタイ形 (◁ ▷)"}・認識度${crossedQuad.level}（近さ ${crossedQuad.confidence.toFixed(2)}）→ ${vocabWord}（三角のことばを二つ並べ、交わりを っ で切る・ん は付けない）`
       : `${crossedQuad.kind} level ${crossedQuad.level} (score ${crossedQuad.confidence.toFixed(2)}) → ${vocabWord}`;
-  } else if (outlineStarVocabSignal(cx) && !crossesInside) {
-    vocabWord = STAR_VOCAB;
+  } else if (outlineStarVocabSignal(cx) && !crossesInside && lw.star) {
+    vocabWord = lw.star.romaji;
     vocabReason = language === "ja"
-      ? `輪郭星の完成形 → ${STAR_VOCAB}（固定語「ちぎゃーん」）`
-      : `outline star → ${STAR_VOCAB} (fixed word: chigyaan)`;
-  } else if (cx.isLeaf && !crossesInside) {
-    vocabWord = prototypeVocabWord("leaf", cx.leafRecognitionLevel);
+      ? `輪郭星の完成形 → ${vocabWord}（固定語「ちぎゃーん」）`
+      : `outline star → ${vocabWord} (fixed word: chigyaan)`;
+  } else if (cx.isLeaf && !crossesInside && lw.leaf) {
+    vocabWord = lexiconLevels(lw.leaf)[Math.max(1, Math.min(3, cx.leafRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `葉・認識度${cx.leafRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `leaf level ${cx.leafRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isCrescent && !crossesInside) {
-    vocabWord = prototypeVocabWord("crescent", cx.crescentRecognitionLevel);
+  } else if (cx.isCrescent && !crossesInside && lw.crescent) {
+    vocabWord = lexiconLevels(lw.crescent)[Math.max(1, Math.min(3, cx.crescentRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `三日月・認識度${cx.crescentRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `crescent level ${cx.crescentRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isCloud && !crossesInside) {
-    vocabWord = prototypeVocabWord("cloud", cx.cloudRecognitionLevel);
+  } else if (cx.isCloud && !crossesInside && lw.cloud) {
+    vocabWord = lexiconLevels(lw.cloud)[Math.max(1, Math.min(3, cx.cloudRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `雲・認識度${cx.cloudRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `cloud level ${cx.cloudRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isFlower && !crossesInside) {
-    vocabWord = prototypeVocabWord("flower", cx.flowerRecognitionLevel);
+  } else if (cx.isFlower && !crossesInside && lw.flower) {
+    vocabWord = lexiconLevels(lw.flower)[Math.max(1, Math.min(3, cx.flowerRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isDroplet && !crossesInside) {
-    vocabWord = prototypeVocabWord("droplet", cx.dropletRecognitionLevel);
+  } else if (cx.isDroplet && !crossesInside && lw.droplet) {
+    vocabWord = lexiconLevels(lw.droplet)[Math.max(1, Math.min(3, cx.dropletRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `droplet level ${cx.dropletRecognitionLevel} → ${vocabWord}`;
-  } else if (cx.isLightning) {
-    vocabWord = prototypeVocabWord("lightning", cx.lightningRecognitionLevel);
+  } else if (cx.isLightning && lw.lightning) {
+    vocabWord = lexiconLevels(lw.lightning)[Math.max(1, Math.min(3, cx.lightningRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
       ? `稲妻・認識度${cx.lightningRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `lightning level ${cx.lightningRecognitionLevel} → ${vocabWord}`;
-  } else if (openArc) {
+  } else if (openArc && lw.arc) {
     const dir = arcBulgeDirection(inkPts);
     const sizeClass = arcSizeClass(inkPts, w, h);
-    vocabWord = ARC_VOCAB[dir][sizeClass];
+    vocabWord = lw.arc[dir][sizeClass].romaji;
     const dirJa = { right: "⊃ 膨らみ右=接近", left: "⊂ 膨らみ左=後退",
                     up: "∩ 持ち上がり=芽生え", down: "∪ 重力=籠り" }[dir];
     const sizeJa = ["小", "中", "大"][sizeClass];
     vocabReason = language === "ja"
       ? `開いた弧 ${dirJa}・${sizeJa} → ${vocabWord}（鼻音=柔らかさ・ん は円が完成するまで付かない）`
       : `open arc (${dir}, size ${sizeClass}) → ${vocabWord} (nasal = softness; no final N until the circle closes)`;
-  } else if (circleVocabSignal(cx, ax) && !crossesInside) {
+  } else if (circleVocabSignal(cx, ax) && !crossesInside && lw.circle) {
     // 2026-07-21 立法: 円もサイズ3段階 (小=まとまり oon / 中=広がり→まとまり aoon / 大=全開 aaaan)。
     const circleSize = arcSizeClass(inkPts, w, h);
-    vocabWord = CIRCLE_VOCAB[circleSize];
+    vocabWord = lw.circle[circleSize].romaji;
     const csJa = ["小さな丸=まとまり", "中の丸=広がりと時間", "大きな丸=内部空間を完全に開く"][circleSize];
     vocabReason = language === "ja"
       ? `完全な円 (${["小", "中", "大"][circleSize]}) → ${vocabWord}（${csJa}・ん で空間を完成）`
       : `completed circle (size ${circleSize}) → ${vocabWord} (o = gathering, a = opening; the final N completes the space)`;
-  } else if (triangleVocabSignal(cx) && !crossesInside) {
+  } else if (triangleVocabSignal(cx) && !crossesInside
+             && (invertedTriangleVocabSignal(cx) ? lw.invertedTriangle : lw.triangle)) {
     const inverted = invertedTriangleVocabSignal(cx);
-    vocabWord = inverted ? INVERTED_TRIANGLE_VOCAB : TRIANGLE_VOCAB;
+    vocabWord = (inverted ? lw.invertedTriangle : lw.triangle).romaji;
     vocabReason = language === "ja"
       ? (inverted
-        ? `逆三角形 ▽ → ${INVERTED_TRIANGLE_VOCAB}（ぎょ・ぎゃー・ん）`
-        : `三角形 △ → ${TRIANGLE_VOCAB}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`)
+        ? `逆三角形 ▽ → ${vocabWord}（ぎょ・ぎゃー・ん）`
+        : `三角形 △ → ${vocabWord}（ぎゃ=凝縮した力の爆発・ぎょ=鋭さを残した広がり・おー=空間・ん=三角という空間の完成）`)
       : (inverted
-        ? `inverted triangle → ${INVERTED_TRIANGLE_VOCAB}`
-        : `triangle → ${TRIANGLE_VOCAB} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
-  } else if (quadrilateralVocabSignal(cx) && !crossesInside) {
+        ? `inverted triangle → ${vocabWord}`
+        : `triangle → ${vocabWord} (gya = concentrated force bursting out; gyo = spread that keeps the edge; oo = space; final N completes the triangular space)`);
+  } else if (quadrilateralVocabSignal(cx) && !crossesInside && lw[quadrilateralFamily(inkPts)]) {
     const quadrilateralSize = arcSizeClass(inkPts, w, h);
     const family = quadrilateralFamily(inkPts);
-    vocabWord = (family === "square" ? SQUARE_VOCAB : RECTANGLE_VOCAB)[quadrilateralSize];
+    vocabWord = lw[family][quadrilateralSize].romaji;
     vocabReason = language === "ja"
       ? `${family === "square" ? "正方形" : "長方形"} (${["小", "中", "大"][quadrilateralSize]}) → ${vocabWord}（大きさに応じて語中のおを伸ばし、ん で閉じた空間を完成）`
       : `${family} (size ${quadrilateralSize}) → ${vocabWord} (the medial o length follows size; final N completes the closed space)`;
@@ -3507,7 +3521,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
       ? `角度の制定語（${stage === 0 ? "直線" : SHARPNESS_ANGLE_ANCHORS[stage - 1] + "°"}・${["小", "中", "大"][sizeClass]}）→ ${vocabWord}（${displayWordOverride}）`
       : `legislated angle (stage ${stage}, size ${sizeClass}) → ${vocabWord}`;
   }
-  displayWordOverride ??= LEGISLATED_DISPLAY[vocabWord] ?? null;
+  displayWordOverride ??= lexiconDisplayFor(lexicon)[vocabWord] ?? null;
   return { vocabWord, vocabReason, displayWordOverride, openChevron, stage };
 }
 
@@ -3643,14 +3657,17 @@ function familyMatch(points, cx) {
   return null;
 }
 const FAMILY_LOOP_SYLLABLE = LEXICON_KOU.family.loopRow;   // 輪 1 つ = くるんの語 (10-06 シート Q3・未確定) に従う
-function familyWord(match) {
+// 族の語の規則を持たない辞書 (family: null) では null (Core Lexicon.waveWord / loopRowWord と同じ)
+function familyWord(match, lexicon = LEXICON_KOU) {
+  const fam = lexicon.family;
+  if (!fam) return null;
   if (match.kind === "wave") {
     const c = match.crests.slice(0, 8);
-    const crest = LEXICON_KOU.family.waveCrest, trough = LEXICON_KOU.family.waveTrough;
+    const crest = fam.waveCrest, trough = fam.waveTrough;
     return { romaji: c.map(x => (x ? crest : trough).romaji).join(""), display: c.map(x => (x ? crest : trough).display).join("") };
   }
   if (match.kind === "loopRow")
-    return { romaji: FAMILY_LOOP_SYLLABLE.romaji.repeat(match.count), display: FAMILY_LOOP_SYLLABLE.display.repeat(match.count) };
+    return { romaji: fam.loopRow.romaji.repeat(match.count), display: fam.loopRow.display.repeat(match.count) };
   return null;
 }
 function familySpiralEvent(base) {
@@ -3666,12 +3683,13 @@ const FAMILY_REASON = {
   spiral: { ja: "二周以上の渦: 前の二音をもう一度くり返す", en: "a spiral of two or more turns: the first two sounds repeat" },
 };
 
-function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" } = {}) {
+// lexicon = 固定語・族の語の辞書 (既定 = コウさん版)。戻り値の lex は語を作った辞書の版 (記録に残す印)。
+function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja", lexicon = LEXICON_KOU } = {}) {
   if (inkPts.length < 2 || w <= 0 || h <= 0) return null;
   let ax = applyHandCorrection(extractAxes(inkPts, w, h), hc, !coarse);
   if (coarse) ax = bucketedAxes(ax, 0.25);
   const cx = strokeComplexity(coreSplineSmoothed(inkPts), w, h, 16, true, inkPts);
-  const selection = selectStrokeVocabulary(inkPts, w, h, ax, cx, language);
+  const selection = selectStrokeVocabulary(inkPts, w, h, ax, cx, language, lexicon);
   let kDraw = cx.formK ?? drawK(ax.sharp, cx.corners, cx.cornerSharpness);
   if (coarse) kDraw = Math.round(kDraw / 0.125) * 0.125;
   const mDraw = mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
@@ -3684,8 +3702,9 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
   const katachi = katachiMatch(katachiOf(inkPts, !!cx.isClosed, cx.loops | 0, cx.corners | 0));
   let event, route;
   // 族の語の規則 (固有語の後・かたち辞書と生成の前)
-  const family = selection.vocabWord ? null : familyMatch(inkPts, cx);
-  const familyFixed = family ? familyWord(family) : null;
+  // 族の語の規則を持たない辞書では、規則そのもの (渦も含む) を通らない
+  const family = selection.vocabWord || !lexicon.family ? null : familyMatch(inkPts, cx);
+  const familyFixed = family ? familyWord(family, lexicon) : null;
   if (selection.vocabWord) {
     event = vocabEvent(selection.vocabWord, ax);
     event.vocabReason = selection.vocabReason;
@@ -3725,7 +3744,7 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
   // 録音を一時停止している音節 (ぎぃ 等) は語から除く (iOS PhonosymbolicEvent.init の SuspendedCV.removing と同じ)。
   // 旧: 再生時だけ除いたので、語の綴りに残り iOS と別の語に見えた (corpus c001・10-06)。
   event.moras = event.moras.filter(m => !NV_SUSPENDED_CV.has((m.onset ?? "") + "|" + m.nucleus));
-  return { ax, cx, kDraw, event, route, stage: selection.stage, katachi };
+  return { ax, cx, kDraw, event, route, stage: selection.stage, katachi, lex: lexicon.lex };
 }
 
 // ─── StrokeSegmenter (構造単位分割: ループ=音節, つなぎ線=ー/ん/っ/直結) ───
@@ -6003,7 +6022,7 @@ function axesEqual(a, b) {
 // FEEDBACK_ENDPOINT に URL を設定すると、投票を 1 件ずつ POST 送信もする
 // (Google Apps Script 等で公開ユーザーから収集したい場合用。空なら何もしない)。
 const FEEDBACK_ENDPOINT = "";
-const FB_VERSION = 4;          // v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加 (v3: reason)
+const FB_VERSION = 5;          // v5: lex (辞書の版) を追加 (v4: 口の2軸/描線頂点列/K・角・語形タグ/エンジン版を追加・v3: reason)
 const ENGINE_VERSION = "v25";  // 描線→制定語のCore照合・角度語彙・手描き平滑化・語末促音表示
 let feedbackLog = [];
 try { feedbackLog = JSON.parse(localStorage.getItem("onomatoi.feedback") || "[]"); } catch (e) {}
@@ -6034,6 +6053,7 @@ function vote(verdict) {
     axes: u.axes, moras: u.moras, vote: verdict,
     reason: reasonEl ? reasonEl.value.trim().slice(0, 500) : "",
     tags: [...activeFbTags],
+    lex: u.lex ?? LEXICON_KOU.lex,   // v5: 語を作った辞書の版 (描いた一筆は interpretStroke の lex)
   };
   if (u.k !== undefined) { rec.k = u.k; rec.cor = u.cor; rec.cs = u.cs; rec.lp = u.lp; }
   if (u.stroke) rec.stroke = u.stroke;
@@ -6492,6 +6512,7 @@ function playAndRemember(event, axesUsed, log, src = "tune", extra = {}) {
     id: Date.now().toString(36) + "-" + utteranceSeq,
     src,
     eng: ENGINE_VERSION,
+    lex: extra.lex ?? LEXICON_KOU.lex,   // v5: 語を作った辞書の版
     word: romajiOf(event),
     mora: event.moras.filter(m => !m.isSilentRest).length,
     redup: !!event.isRedup,
@@ -6975,7 +6996,7 @@ canvas.addEventListener("pointerup", ev => {
     // shape: なぜ?パネルの計測表示用 (Step1/2/3)。playAndRemember は fb レコードへ
     // 明示フィールドしか写さないので、ここに載せても投票データには入らない。
     const extra = { k: kDraw, corners: cx.corners, cs: cx.cornerSharpness,
-                    loops: cx.loops, stroke: beads, shape: cx };
+                    loops: cx.loops, stroke: beads, shape: cx, lex: result.lex };
     // 命名モード (配置層, dev only): トグル ON のときはモードスイッチとして全ての経路
     // (記号語彙/単位語/実況 generate) を上書きする。OFF は共有interpretStrokeの結果を使う。
     if (namingModeOn()) {
@@ -7316,7 +7337,7 @@ document.getElementById("btn-bad").addEventListener("click", () => vote(-1));
 // (旧代替の prompt() は出ない環境がある)。送る = OS の共有シート (メール・LINE 等)。
 function feedbackExportText() {
   return JSON.stringify({
-    app: "onomatoi-web", fbVersion: FB_VERSION,
+    app: "onomatoi-web", fbVersion: FB_VERSION, lex: LEXICON_KOU.lex,
     exported: new Date().toISOString(),
     records: feedbackLog,
   }, null, 1);
@@ -7387,7 +7408,7 @@ async function shareFeedbackFallback() {
     shareBtn.disabled = true;
     try {
       const response = await fetch(FEEDBACK_SEND_URL, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app: "onomatoi-web", fbVersion: FB_VERSION, exported: new Date().toISOString(), records }) });
+        body: JSON.stringify({ app: "onomatoi-web", fbVersion: FB_VERSION, lex: LEXICON_KOU.lex, exported: new Date().toISOString(), records }) });
       if (response.ok) {
         for (const r of records) sent[r.id] = feedbackSignature(r);
         try { localStorage.setItem(FEEDBACK_SENT_KEY, JSON.stringify(sent)); } catch (e) {}
