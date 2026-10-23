@@ -2913,7 +2913,7 @@ function namingGenerate(inventory, rand, contrast = 0, temperature = 0.4) {
 }
 
 // ─── NG 語フィルタ (常設合意 2026-07-09): 命名経路にも既定配線。実況の生出力方針は不変 ───
-// LexicalFilter.swift の ngWords をそのまま (カタカナ・部分一致)。
+// LexicalFilter.swift の ngWords をそのまま (カタカナ・部分一致・順序まで同じ。test/ng_reroll.mjs が Core の表と突き合わせる)。
 const NAMING_NG_WORDS = [
   // 性的
   "チンチン", "チンコ", "チンポ", "マンコ", "マンマン",
@@ -2922,8 +2922,11 @@ const NAMING_NG_WORDS = [
   // スカトロ
   "ウンコ", "ウンチ", "シッコ", "クソ", "ゲロ", "ゲリ",
   "ババ",   // 幼児語の汚物/婆 (Core 2026-07-28 裁定)
+  "オシリ",  // 幼児語の尻 (Core 2026-10-23 作者・一筆の本線の見回りで おしり 単独が出た)
+  "ニョウ",  // 尿 (Core 2026-10-23 作者・にょう 単独が出た)
   // 暴言
   "シネ", "コロス",
+  "アホ",   // 悪口 (Core 2026-10-23 作者・あほり が出た。部分一致で含む)
 ];
 // 長音を除いたひらがな→カタカナ正規形 (ぁ〜ん を +0x60)。照合前に語とパターン双方から
 // 長音「ー」を除去する (チーンチン等の変形を拾う。促音ッは除去しない)。
@@ -2941,6 +2944,19 @@ function namingIsClean(kana) {
   const n = namingNormalizeForNG(kana);
   for (const ng of NAMING_NG_NORMALIZED) if (n.includes(ng)) return false;
   return true;
+}
+// 一筆 → 語の本線の NG 語の言い直し (2026-10-23 作者・Core LexicalFilter.rerolled と同じ規則・同じ値)。
+// make(salt) が語を作る (make(0) が従来の語)。かな (kanaOf) が NG なら make(k × NG_REROLL_STEP) (k = 1〜NG_MAX_REROLLS) を順に試し、
+// 最初にきれいな語を返す。全部 NG なら最後の語のまま。rerolls = 言い直した回数 (0 = そのまま)。決定的 (乱数で引き直さない)。
+const NG_REROLL_STEP = 0x4E470000;
+const NG_MAX_REROLLS = 8;
+function ngReroll(make, kanaOf, maxRerolls = NG_MAX_REROLLS, step = NG_REROLL_STEP) {
+  let value = make(0), rerolls = 0;
+  while (!namingIsClean(kanaOf(value)) && rerolls < maxRerolls) {
+    rerolls++;
+    value = make(rerolls * step);
+  }
+  return { value, rerolls };
 }
 
 // mora列 → ひらがな (KanaTable.swift/kanaMarks の移植)。結果のかな表示と
@@ -3406,24 +3422,30 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
     && ax.tex < 0.3 && cx.moraCount >= 2;
   const disorder = cx.disorder >= 0.4 ? cx.disorder : null;
   let event, route;
+  // NG 語フィルタ (2026-10-23 作者・Core StrokeWordInterpreter と同じ規則): 表示される語 (上書き ?? かな) で判定する。
+  // 固有語は変えない (NG なら ngFixedWord の印だけ)。生成の語 (構造単位・大域) が NG なら、
+  // salt = k × NG_REROLL_STEP (k = 1〜NG_MAX_REROLLS) で同じ経路をやり直し、最初にきれいな語を使う (回数 = ngRerolls)。
+  const shownKana = ev => ev.displayWordOverride ?? namingKanaOf(ev.moras);
+  let ngRerolls = 0, ngFixedWord = false;
   if (selection.vocabWord) {
     event = vocabEvent(selection.vocabWord, ax);
     event.vocabReason = selection.vocabReason;
     event.displayWordOverride = selection.displayWordOverride;
     route = "vocabulary";
+    ngFixedWord = !namingIsClean(shownKana(event));
   } else {
     const seg = segmentStroke(inkPts);
-    if (unitEligible(seg) && cx.formK == null) {
-      event = generateFromUnits(seg.units, w, h, ax, kDraw, 0.4, mDraw, disorder, cx.moraCount);
-      route = "units";
-    } else {
-      event = generateEvent(ax, 0, { moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
-        kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
-        forceConsonantOnset: selection.openChevron, disorder });
-      route = "generated";
-    }
+    const viaUnits = unitEligible(seg) && cx.formK == null;
+    const generate = salt => viaUnits
+      ? { event: generateFromUnits(seg.units, w, h, ax, kDraw, 0.4, mDraw, disorder, cx.moraCount, salt), route: "units" }
+      : { event: generateEvent(ax, salt, { moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
+          kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
+          forceConsonantOnset: selection.openChevron, disorder }), route: "generated" };
+    const result = ngReroll(generate, r => shownKana(r.event));
+    ({ event, route } = result.value);
+    ngRerolls = result.rerolls;
   }
-  return { ax, cx, kDraw, event, route, stage: selection.stage };
+  return { ax, cx, kDraw, event, route, stage: selection.stage, ngRerolls, ngFixedWord };
 }
 
 // ─── StrokeSegmenter (構造単位分割: ループ=音節, つなぎ線=ー/ん/っ/直結) ───
@@ -3529,13 +3551,13 @@ function polishUnits(moras, axes, kiki = null) {
 }
 // ギザギザのつなぎ線 1 本を音節にする (2026-10-03 作者・案②d・CVGenerator.connectorSyllables と同一)。
 // 線の形から大域生成と同じ規則で「角の数から決まる拍数 × scale」の音節。ん・語末っ・語末整形は足さない (原理7)。
-function connectorSyllables(u, index, scale, w, h, disorder) {
+function connectorSyllables(u, index, scale, w, h, disorder, salt = 0) {
   const ax = extractAxes(u.points, w, h);
   const cx = strokeComplexity(coreSplineSmoothed(u.points), w, h, 16, false);
   const k = drawK(ax.sharp, cx.corners, cx.cornerSharpness);
   const manner = mannerProfile(ax.sharp, cx.corners, cx.cornerSharpness, ax.tex, cx.loops);
   const count = Math.max(1, Math.round(cx.moraCount * scale));
-  const ev = generateEvent(ax, index + 7, { moraCountOverride: count, kiki: k, manner, disorder, rawOnly: true });
+  const ev = generateEvent(ax, index + 7 + salt, { moraCountOverride: count, kiki: k, manner, disorder, rawOnly: true });
   return ev.moras.filter(m => !m.isN && !m.isQ && !m.isSilentRest);
 }
 // 子音の無い同じ母音の拍の前の「っ」を外す (長音にする)。2026-10-17 作者・案 A (Core の
@@ -3550,8 +3572,10 @@ function droppingSokuonBeforeSameBareVowel(moras) {
     return out;
   });
 }
+// salt (既定 0) は語の乱数の種へ混ぜる (Core generateFromUnits の salt と同じ): 0 なら従来と完全に同じ語・
+// 0 以外は同じ入力から別の語 (NG 語の言い直し = 決定的な種のずらし)。
 function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0.4, manner = null,
-                           disorder = null, maxMoras = null) {   // #4 乱雑度 (null=従来と厳密互換)
+                           disorder = null, maxMoras = null, salt = 0) {   // #4 乱雑度 (null=従来と厳密互換)
   const step = 0.0001 + 0.7 * 0.4;   // tuning.repetition 0.7: 同じループ = 同じ音節
   const quant = ax => {
     const q = v => swiftRounded(v / step) * step;
@@ -3559,7 +3583,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
              round: q(ax.round || 0), open: q(ax.open || 0) };
   };
   // connectorScale: null = 従来 (ギザギザのつなぎ線は「っ」だけ)。値あり = つなぎ線を音節にする倍率。
-  const makeMoras = (salt, connectorScale) => {
+  const makeMoras = (attempt, connectorScale) => {
     const out = [];
     let prevVowel = null, pendingGap = false;
     units.forEach((u, idx) => {
@@ -3577,7 +3601,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         const mUnit = (manner !== null && ucx)
           ? mannerProfile(ax.sharp, ucx.corners, ucx.cornerSharpness, ax.tex, 1)
           : null;
-        const rand = splitmix64(axesSeed(ax, salt));
+        const rand = splitmix64(axesSeed(ax, u64(salt) + u64(attempt)));
         const primaryOnset = pickConsonant(ax, null, temperature, rand, kUnit, mUnit, false, disorder);
         let restrict = null;
         if (primaryOnset && (PALATALIZED.has(primaryOnset) || SEMIVOWEL.has(primaryOnset))) restrict = new Set(["a","u","o"]);
@@ -3600,7 +3624,7 @@ function generateFromUnits(units, w, h, globalAxes, kiki = null, temperature = 0
         } else if (c.role === "cut") {
           // 2026-10-03 (作者・案②d): 「っ」で区切ったうえで、そのつなぎ線の形から音節にする
           // (旧: 角がいくつあっても「っ」1 つ — 「これだけ描いたのに にっ」)。
-          const syl = connectorScale !== null ? connectorSyllables(u, idx, connectorScale, w, h, disorder) : [];
+          const syl = connectorScale !== null ? connectorSyllables(u, idx, connectorScale, w, h, disorder, salt) : [];
           if (syl.length) {
             if (prevVowel !== null && !(syl[0].onset === null && syl[0].nucleus === prevVowel))
               syl[0] = { ...syl[0], gapMs: geminateGapMs(syl[0].onset) };
