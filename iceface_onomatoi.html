@@ -3429,6 +3429,33 @@ function crossedQuadrilateralVocabWord(cq, lexicon = LEXICON_KOU) {
   const entry = cq.kind === "hourglass" ? lexicon.words.hourglass : lexicon.words.bowtie;
   return entry[LEXICON_LEVEL_KEYS[cq.level - 1]].romaji;
 }
+// 輪を描く線とみなす、自分と交わって囲む輪の大きさの下限 (一筆の外枠の対角に対する割合・2026-10-25 仮決定 PD-026)。
+// V の先端のはね返りは最大 0.333・輪を描いていた線は最小 0.464 — その間。Core StrokeWordInterpreter.loopGateRatio と同じ値
+const LOOP_GATE_RATIO = 0.40;
+// 自分と交わって囲む輪のうち、いちばん大きいものの外枠の対角 ÷ 一筆の外枠の対角 (交差が無ければ 0)。Core と同じ式・同じ順
+function largestSelfCrossingLoopRatio(pts) {
+  const diagonal = (from, to) => {
+    let minX = pts[from].x, maxX = pts[from].x, minY = pts[from].y, maxY = pts[from].y;
+    for (let k = from; k <= to; k++) {
+      minX = Math.min(minX, pts[k].x); maxX = Math.max(maxX, pts[k].x);
+      minY = Math.min(minY, pts[k].y); maxY = Math.max(maxY, pts[k].y);
+    }
+    return Math.sqrt((maxX - minX) * (maxX - minX) + (maxY - minY) * (maxY - minY));
+  };
+  const side = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  if (pts.length < 4) return 0;
+  const whole = diagonal(0, pts.length - 1);
+  if (!(whole > 0)) return 0;
+  let best = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    for (let j = i + 2; j + 1 < pts.length; j++) {
+      const p = pts[i], q = pts[i + 1], r = pts[j], t = pts[j + 1];
+      if (side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0)
+        best = Math.max(best, diagonal(i + 1, j) / whole);
+    }
+  }
+  return best;
+}
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 // 語は lexicon (既定 = コウさん版) から引く。その形の語が辞書に無いときは、その分岐を飛ばして次の分岐へ進む (Core と同じ)。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon = LEXICON_KOU) {
@@ -3437,8 +3464,11 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon =
   // 自分と交差して輪を描く線は、一角・弧・角度の語彙にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
   // 逆向きの輪 2 つは回転が打ち消し合って loops = 0 になり「開いた一角」と読まれていた。
   // 構造単位の輪 かつ 交差あり — V の先端のはね返りや交差しない ほぼ一周の弧 (P12) は残る。
-  const drawsLoops = segmentStroke(inkPts).units.some(u => u.kind === "loop")
-    && (cx.trajectoryDescriptor?.selfIntersectionCount ?? 0) > 0;
+  // 加えて、自分と交わって囲む輪が一筆の大きさの LOOP_GATE_RATIO 以上なら、輪の単位が無くても輪を描く線とみなす
+  // (2026-10-25 仮決定 PD-026・Core と同じ)。粗い筆で輪の単位が交差を失った ℓ・∪ に結んだ輪などに、角・弧の語が付いていた。
+  const drawsLoops = (segmentStroke(inkPts).units.some(u => u.kind === "loop")
+    && (cx.trajectoryDescriptor?.selfIntersectionCount ?? 0) > 0)
+    || largestSelfCrossingLoopRatio(inkPts) >= LOOP_GATE_RATIO;
   const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed && !drawsLoops;
   const openArc = openArcSignal(cx) && !singleAngle && !drawsLoops;
   const sizeClass = arcSizeClass(inkPts, w, h);
