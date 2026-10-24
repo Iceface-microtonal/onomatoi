@@ -5,6 +5,7 @@
 // (d) interpretStroke: NG を出す一筆 (合成の曲線・Core と同じ点列と語) は言い直され、きれいな同じ語に着地する。きれいな線は salt = 0 のまま
 // (e) 固有語・族の規則の固定語は変えない (NG なら ngFixedWord の印だけ)
 // (f) 立法の語 (LEXICON_KOU の words / family・Core の Data/lexicon_data_v1.json・かたち辞書の語と提案) が NG に当たらない — 当たったら止めて報告する
+// (g) 避ける語 (2026-10-24 作者・衝突語の採否シート): STROKE_AVOID_WORDS = Core strokeAvoidWords・語全体の一致・命名には効かない・りりー になる合成の曲線は言い直される
 // 実行: node test/ng_reroll.mjs   (Core の表と立法の語は隣の OnomatoiCore を読む。無ければ失敗する)
 import fs from "node:fs";
 import path from "node:path";
@@ -71,7 +72,8 @@ function extractEngine(html) {
 
 const html = fs.readFileSync(HTML_PATH, "utf8");
 const EXPORTS = ["interpretStroke", "scaleFreeInk", "namingKanaOf", "namingIsClean", "NAMING_NG_WORDS", "NG_REROLL_STEP", "NG_MAX_REROLLS",
-  "ngReroll", "LEXICON_KOU", "KATACHI_DICTIONARY", "segmentStroke", "generateFromUnits", "extractAxes", "vocabEvent", "romajiOf"];
+  "ngReroll", "LEXICON_KOU", "KATACHI_DICTIONARY", "segmentStroke", "generateFromUnits", "extractAxes", "vocabEvent", "romajiOf",
+  "STROKE_AVOID_WORDS", "strokeWordIsClean"];
 const ctx = vm.createContext({ console });
 vm.runInNewContext(extractEngine(html) + `\n;globalThis.__api = { ${EXPORTS.join(", ")} };`, ctx, { filename: "engine(extracted)" });
 const api = ctx.__api;
@@ -250,6 +252,37 @@ console.log("── (f) 立法の語が NG に当たらない (当たったら�
     (block.sizes ?? []).forEach((s, i) => spelledList.push({ p: `${f.id}.${key}.sizes[${i}]`, romaji: s, display: null }));
   }
   assertClean(spelledList, "かたち辞書の語と提案");
+}
+
+console.log("── (g) 避ける語 (語全体の一致・一筆の本線だけ) ──");
+{
+  const swift = readCore("Sources/OnomatoiCore/Core/LexicalFilter.swift");
+  if (swift) {
+    const m = /public static let strokeAvoidWords: \[String\] = \[([^\]]*)\]/.exec(swift);
+    const coreAvoid = m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : null;
+    check("Web の STROKE_AVOID_WORDS = Core の LexicalFilter.strokeAvoidWords", coreAvoid && JSON.stringify(api.STROKE_AVOID_WORDS) === JSON.stringify(coreAvoid),
+      `web ${JSON.stringify(api.STROKE_AVOID_WORDS)} / core ${JSON.stringify(coreAvoid)}`);
+  }
+  check("りりー・へん は一筆の語として避ける", ["りりー", "へん", "リリー", "ヘン"].every(w => !api.strokeWordIsClean(w)));
+  check("語全体の一致だけ (ぴりり・ぎゃりり・りりり・りりーん・へんぽ・ぺへん・へー・ぜん は通る)",
+    ["ぴりり", "ぎゃりり", "きゃりり", "りりり", "りり", "りりーん", "へんぽ", "ぺへん", "へー", "ぜん"].every(w => api.strokeWordIsClean(w)));
+  check("NG は一筆の判定でも止まる・避ける語は命名 (namingIsClean) では止まらない",
+    !api.strokeWordIsClean("ばばぼぼ") && api.namingIsClean("りりー") && api.namingIsClean("へん"));
+  const make = s => (s === 0 ? "りりー" : "せしり");
+  const plain = api.ngReroll(make, k => k), stroke = api.ngReroll(make, k => k, api.NG_MAX_REROLLS, api.NG_REROLL_STEP, api.strokeWordIsClean);
+  check("ngReroll の判定は差し替えられる (既定 = NG だけ)", plain.value === "りりー" && plain.rerolls === 0 && stroke.value === "せしり" && stroke.rerolls === 1);
+  // 合成の曲線 (Onomatoi Atlas probes/collide_all/find_strokes.mjs・種 20261024 の 3 次ベジェ)。変更前の語は どちらも りりー。Core StrokeAvoidWordsTests と同じ点列と語
+  const AVOID_STROKES = [
+  { name: "bez22167", word: "いぺり", points: "408.77,313.76 407.62,326.05 407.12,336.94 407.24,346.47 407.92,354.73 409.12,361.79 410.79,367.71 412.88,372.56 415.34,376.41 418.13,379.33 421.19,381.4 424.47,382.68 427.94,383.24 431.53,383.14 435.21,382.47 438.92,381.29 442.61,379.67 446.24,377.67 449.75,375.37 453.11,372.84 456.26,370.15 459.15,367.37 461.73,364.56 463.96,361.79 465.79,359.15 467.16,356.68 468.04,354.48 468.37,352.59 468.1,351.1 467.18,350.08 465.58,349.58 463.23,349.69 460.09,350.47 456.12,352 451.26,354.33" },
+  { name: "bez32970", word: "せしり", points: "740.98,358 744.05,364.52 746.95,370.42 749.69,375.74 752.27,380.49 754.69,384.68 756.95,388.34 759.03,391.48 760.96,394.12 762.71,396.28 764.3,397.99 765.71,399.25 766.96,400.09 768.04,400.52 768.94,400.57 769.67,400.24 770.23,399.57 770.61,398.57 770.82,397.25 770.85,395.64 770.7,393.76 770.37,391.62 769.86,389.24 769.17,386.63 768.29,383.83 767.24,380.84 766,377.69 764.57,374.4 762.96,370.97 761.16,367.44 759.17,363.81 756.99,360.12 754.63,356.36 752.07,352.58 749.32,348.78 746.37,344.98 743.23,341.2 739.9,337.45 736.37,333.77 732.64,330.16 728.71,326.65" },
+  ];
+  for (const s of AVOID_STROKES) {
+    const pts = parse(s.points);
+    const a = run(pts), b = run(pts);
+    check(`${s.name}: りりー を 1 回言い直して ${s.word} (生成の語・印なし)`, a.r.ngRerolls === 1 && a.kana === s.word && a.r.ngFixedWord === false && a.r.route === "generated",
+      `${a.r.ngRerolls}/${a.kana}/${a.r.route}`);
+    check(`${s.name}: 同じ入力は同じ語`, a.kana === b.kana && JSON.stringify(a.r.event.moras) === JSON.stringify(b.r.event.moras));
+  }
 }
 
 console.log(`
