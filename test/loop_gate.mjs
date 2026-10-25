@@ -1,6 +1,7 @@
 // loop_gate.mjs — 輪を描く線の門 (2026-10-25 仮決定 PD-026・Core BigCrossingLoopGateTests と同じ点列と語)
 // 自分と交わって囲む輪が一筆の大きさの LOOP_GATE_RATIO (0.40) 以上なら、輪の単位が無くても一角・弧・角度の語彙にしない。
 // (a) 値が Core と同じ (b) 輪の大きさの測り (c) ∪ に輪を結んだ合成の線は固有語にならない (d) V・はね返り・ほぼ一周の弧は語が変わらない
+// (e) 2026-10-25 仮決定 PD-027: 尻尾つきの大きな輪の単位 (巻き込み・細長い輪) を描く 3 次ベジェは角の語にならない
 // 実行: node test/loop_gate.mjs   (Core の値は隣の OnomatoiCore を読む)
 import fs from "node:fs";
 import path from "node:path";
@@ -13,7 +14,7 @@ const extract = vm.runInNewContext(harness.match(/^const IMPURE = .+;$/m)[0] + "
   + harness.match(/function extractEngine\(html\) \{[\s\S]*?\n\}/)[0] + "\nextractEngine");
 const ctx = vm.createContext({ console });
 vm.runInContext(extract(fs.readFileSync(path.resolve(__dirname, "../iceface_onomatoi.html"), "utf8"))
-  + ";this.api = { interpretStroke, namingKanaOf, scaleFreeInk, largestSelfCrossingLoopRatio, LOOP_GATE_RATIO };", ctx);
+  + ";this.api = { interpretStroke, namingKanaOf, scaleFreeInk, largestSelfCrossingLoopRatio, LOOP_GATE_RATIO, TAILED_LOOP_SIZE_RATIO, TAILED_LOOP_TAIL_RATIO };", ctx);
 const api = ctx.api;
 let pass = 0, fail = 0;
 const check = (name, cond, detail = "") => { if (cond) { pass++; console.log(`  PASS  ${name}`); } else { fail++; console.log(`  FAIL  ${name}${detail ? " — " + detail : ""}`); } };
@@ -57,6 +58,22 @@ const KEEPS = [
 for (const s of KEEPS) {
   const r = read(s.points);
   check(`${s.name}: 輪 ${r.ratio.toFixed(3)} < 0.40・${s.word} (${s.route})`, r.ratio < api.LOOP_GATE_RATIO && r.word === s.word && r.route === s.route, `${r.word}/${r.route}`);
+}
+console.log("── (e) 尻尾つきの大きな輪の単位 (PD-027) ──");
+{
+  const p = path.resolve(__dirname, "../../OnomatoiCore/Sources/OnomatoiCore/Core/StrokeWordInterpreter.swift");
+  const src = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
+  const sz = /tailedLoopSizeRatio = ([0-9.]+)/.exec(src), tl = /tailedLoopTailRatio = ([0-9.]+)/.exec(src);
+  check("TAILED_LOOP_SIZE_RATIO / TAIL_RATIO = Core と同じ (0.5 / 0.3)", sz && tl && Number(sz[1]) === api.TAILED_LOOP_SIZE_RATIO && Number(tl[1]) === api.TAILED_LOOP_TAIL_RATIO && api.TAILED_LOOP_SIZE_RATIO === 0.5 && api.TAILED_LOOP_TAIL_RATIO === 0.3);
+}
+const CURVES = [
+  { name: "bez823", before: "かっ", word: "お", route: "units", points: "321.39,271.36 324.6,271.75 327.55,272.16 330.25,272.58 332.71,273.01 334.93,273.46 336.92,273.91 338.69,274.38 340.25,274.86 341.6,275.34 342.75,275.83 343.72,276.32 344.51,276.82 345.12,277.32 345.56,277.82 345.85,278.32 345.99,278.82 345.98,279.32 345.84,279.82 345.57,280.32 345.18,280.8 344.68,281.29 344.08,281.76 343.38,282.23 342.59,282.69 341.72,283.14 340.78,283.57 339.78,284 338.71,284.4 337.6,284.8 336.45,285.18 335.26,285.54 334.05,285.88 332.82,286.2 331.57,286.5 330.33,286.78 329.09,287.04 327.86,287.27 326.65,287.48 325.47,287.66 324.33,287.82 323.23,287.94 322.19,288.04 321.2,288.11 320.28,288.14 319.43,288.14 318.67,288.11 318,288.04 317.43,287.93 316.96,287.79 316.61,287.61 316.37,287.39 316.27,287.13 316.31,286.82 316.49,286.47 316.82,286.08 317.31,285.65 317.97,285.16 318.81,284.63 319.83,284.05 321.04,283.43 322.46,282.75 324.07,282.01 325.91,281.23 327.97,280.39 330.25,279.49 332.78,278.54 335.55,277.53 338.58,276.46 341.86,275.34" },
+  { name: "bez1739", before: "こっ", word: "とん", route: "generated", points: "448.63,253.07 452.55,250.54 456.11,248.4 459.31,246.63 462.18,245.21 464.72,244.13 466.96,243.35 468.9,242.86 470.56,242.64 471.97,242.67 473.12,242.92 474.05,243.37 474.75,244.01 475.26,244.81 475.58,245.75 475.73,246.81 475.72,247.97 475.57,249.21 475.3,250.5 474.91,251.83 474.43,253.17 473.87,254.5 473.25,255.81 472.57,257.07 471.86,258.26 471.13,259.36 470.4,260.34 469.68,261.19 468.98,261.89 468.33,262.41 467.73,262.74 467.21,262.85 466.77,262.72 466.43,262.33 466.21,261.66 466.12,260.68 466.18,259.39 466.41,257.75 466.81,255.74 467.4,253.35 468.21,250.55" },
+  { name: "bez2443", before: "かっ", word: "はん", route: "generated", points: "581.54,371.62 578.86,367.69 576.43,364.07 574.24,360.76 572.29,357.74 570.56,355.01 569.05,352.56 567.74,350.37 566.63,348.44 565.71,346.75 564.97,345.3 564.39,344.07 563.97,343.05 563.71,342.24 563.58,341.62 563.59,341.18 563.72,340.92 563.96,340.82 564.3,340.87 564.74,341.06 565.27,341.39 565.87,341.83 566.54,342.39 567.26,343.05 568.04,343.79 568.85,344.62 569.69,345.52 570.55,346.47 571.42,347.48 572.3,348.52 573.17,349.59 574.02,350.68 574.84,351.78 575.63,352.88 576.37,353.96 577.06,355.02 577.69,356.04 578.25,357.03 578.72,357.95 579.1,358.82 579.38,359.61 579.56,360.31 579.61,360.92 579.53,361.42 579.32,361.81 578.96,362.07 578.45,362.2 577.77,362.17 576.92,361.99 575.88,361.65 574.65,361.12" },
+];
+for (const s of CURVES) {
+  const r = read(s.points);
+  check(`${s.name}: 角の語 ${s.before} → ${s.word} (${s.route})`, r.word === s.word && r.route === s.route && r.route !== "vocabulary", `${r.word}/${r.route}`);
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
