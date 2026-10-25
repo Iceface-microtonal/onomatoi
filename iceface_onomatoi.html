@@ -2945,14 +2945,28 @@ function namingIsClean(kana) {
   for (const ng of NAMING_NG_NORMALIZED) if (n.includes(ng)) return false;
   return true;
 }
+// 一筆 → 語の本線だけで避ける語 (カタカナ・語全体の一致・長音を含めて照合)。NG ではないが人名・日常語として強く聞こえる語
+// (2026-10-24 作者: 形の地図の衝突語の採否シートで「直す」)。部分一致にしない (リリ を含む ぴりり・ぎゃりり を巻き込まない)。
+// 命名の経路 (namingIsClean) には効かない。Core LexicalFilter.strokeAvoidWords と同じ表 (test/ng_reroll.mjs が突き合わせる)。
+const STROKE_AVOID_WORDS = ["リリー", "ヘン"];
+function strokeWordIsClean(kana) {
+  if (!namingIsClean(kana)) return false;
+  let kata = "";
+  for (const ch of kana) {
+    const code = ch.codePointAt(0);
+    kata += (code >= 0x3041 && code <= 0x3093) ? String.fromCodePoint(code + 0x60) : ch;
+  }
+  return !STROKE_AVOID_WORDS.includes(kata);
+}
 // 一筆 → 語の本線の NG 語の言い直し (2026-10-23 作者・Core LexicalFilter.rerolled と同じ規則・同じ値)。
 // make(salt) が語を作る (make(0) が従来の語)。かな (kanaOf) が NG なら make(k × NG_REROLL_STEP) (k = 1〜NG_MAX_REROLLS) を順に試し、
 // 最初にきれいな語を返す。全部 NG なら最後の語のまま。rerolls = 言い直した回数 (0 = そのまま)。決定的 (乱数で引き直さない)。
 const NG_REROLL_STEP = 0x4E470000;
 const NG_MAX_REROLLS = 8;
-function ngReroll(make, kanaOf, maxRerolls = NG_MAX_REROLLS, step = NG_REROLL_STEP) {
+// clean = きれいかの判定 (既定 = NG だけ。一筆の本線は strokeWordIsClean で避ける語も見る)
+function ngReroll(make, kanaOf, maxRerolls = NG_MAX_REROLLS, step = NG_REROLL_STEP, clean = namingIsClean) {
   let value = make(0), rerolls = 0;
-  while (!namingIsClean(kanaOf(value)) && rerolls < maxRerolls) {
+  while (!clean(kanaOf(value)) && rerolls < maxRerolls) {
     rerolls++;
     value = make(rerolls * step);
   }
@@ -3287,14 +3301,66 @@ const CROSSED_QUADRILATERAL_CROSS = { 3: "gya", 2: "ja", 1: "hya" };
 function crossedQuadrilateralVocabWord(cq) {
   return (cq.kind === "hourglass" ? "gyogya" : "gyagyo") + "Q" + CROSSED_QUADRILATERAL_CROSS[cq.level] + "gyo";
 }
+// 輪を描く線とみなす、自分と交わって囲む輪の大きさの下限 (一筆の外枠の対角に対する割合・2026-10-25 仮決定 PD-026)。
+// V の先端のはね返りは最大 0.333・輪を描いていた線は最小 0.464 — その間。Core StrokeWordInterpreter.loopGateRatio と同じ値
+const LOOP_GATE_RATIO = 0.40;
+// 自分と交わって囲む輪のうち、いちばん大きいものの外枠の対角 ÷ 一筆の外枠の対角 (交差が無ければ 0)。Core と同じ式・同じ順
+function largestSelfCrossingLoopRatio(pts) {
+  const diagonal = (from, to) => {
+    let minX = pts[from].x, maxX = pts[from].x, minY = pts[from].y, maxY = pts[from].y;
+    for (let k = from; k <= to; k++) {
+      minX = Math.min(minX, pts[k].x); maxX = Math.max(maxX, pts[k].x);
+      minY = Math.min(minY, pts[k].y); maxY = Math.max(maxY, pts[k].y);
+    }
+    return Math.sqrt((maxX - minX) * (maxX - minX) + (maxY - minY) * (maxY - minY));
+  };
+  const side = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  if (pts.length < 4) return 0;
+  const whole = diagonal(0, pts.length - 1);
+  if (!(whole > 0)) return 0;
+  let best = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    for (let j = i + 2; j + 1 < pts.length; j++) {
+      const p = pts[i], q = pts[i + 1], r = pts[j], t = pts[j + 1];
+      if (side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0)
+        best = Math.max(best, diagonal(i + 1, j) / whole);
+    }
+  }
+  return best;
+}
+// 尻尾つきの大きな輪の単位とみなす下限 (2026-10-25 仮決定 PD-027): 輪の単位の外枠の対角が一筆の 0.5 以上・輪でない単位の長さが 0.3 以上。
+// Core StrokeWordInterpreter.tailedLoopSizeRatio / tailedLoopTailRatio と同じ値
+const TAILED_LOOP_SIZE_RATIO = 0.5;
+const TAILED_LOOP_TAIL_RATIO = 0.3;
+// 構造単位に、尻尾つきの大きな輪の単位があるか (Core の isTailedLoopUnit と同じ式・同じ順)
+function isTailedLoopUnit(units, pts) {
+  const diagonal = ps => {
+    let minX = ps[0].x, maxX = ps[0].x, minY = ps[0].y, maxY = ps[0].y;
+    for (const p of ps) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    return Math.sqrt((maxX - minX) * (maxX - minX) + (maxY - minY) * (maxY - minY));
+  };
+  const loops = units.filter(u => u.kind === "loop");
+  if (!loops.length || !pts.length) return false;
+  const whole = diagonal(pts), total = units.reduce((a, u) => a + u.arcLength, 0);
+  if (!(whole > 0) || !(total > 0)) return false;
+  const size = Math.max(...loops.map(u => diagonal(u.points) / whole));
+  const tail = units.filter(u => u.kind !== "loop").reduce((a, u) => a + u.arcLength, 0) / total;
+  return size >= TAILED_LOOP_SIZE_RATIO && tail >= TAILED_LOOP_TAIL_RATIO;
+}
 // Core StrokeWordInterpreter と同じ順に制定語を選ぶ。UIとテストで共有する。
 function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja") {
   const stage = Math.max(0, Math.min(6, Math.round((ax.sharp + 1) * 3)));
   // 自分と交差して輪を描く線は、一角・弧・角度の語彙にしない (Core StrokeWordInterpreter と同じ・2026-10-05)。
   // 逆向きの輪 2 つは回転が打ち消し合って loops = 0 になり「開いた一角」と読まれていた。
   // 構造単位の輪 かつ 交差あり — V の先端のはね返りや交差しない ほぼ一周の弧 (P12) は残る。
-  const drawsLoops = segmentStroke(inkPts).units.some(u => u.kind === "loop")
-    && (cx.trajectoryDescriptor?.selfIntersectionCount ?? 0) > 0;
+  // 加えて、自分と交わって囲む輪が一筆の大きさの LOOP_GATE_RATIO 以上なら、輪の単位が無くても輪を描く線とみなす
+  // (2026-10-25 仮決定 PD-026・Core と同じ)。粗い筆で輪の単位が交差を失った ℓ・∪ に結んだ輪などに、角・弧の語が付いていた。
+  // さらに、尻尾つきの大きな輪の単位 (巻き込み・P の字・S 字の曲線) も輪を描く線とみなす (2026-10-25 仮決定 PD-027・Core と同じ)
+  const strokeUnits = segmentStroke(inkPts).units;
+  const drawsLoops = (strokeUnits.some(u => u.kind === "loop")
+    && (cx.trajectoryDescriptor?.selfIntersectionCount ?? 0) > 0)
+    || largestSelfCrossingLoopRatio(inkPts) >= LOOP_GATE_RATIO
+    || isTailedLoopUnit(strokeUnits, inkPts);
   const singleAngle = stage > 0 && cx.corners <= 1 && cx.loops === 0 && !cx.isClosed && !drawsLoops;
   const openArc = openArcSignal(cx) && !singleAngle && !drawsLoops;
   const sizeClass = arcSizeClass(inkPts, w, h);
@@ -3441,7 +3507,8 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja" 
       : { event: generateEvent(ax, salt, { moraCountOverride: selection.openChevron ? 1 : cx.moraCount,
           kiki: kDraw, manner: mDraw, sustained, lengthHint: cx.moraCount,
           forceConsonantOnset: selection.openChevron, disorder }), route: "generated" };
-    const result = ngReroll(generate, r => shownKana(r.event));
+    // 避ける語 (りりー・へん・語全体の一致) も NG と同じ刻みで言い直す (2026-10-24 作者・衝突語の採否シート)
+    const result = ngReroll(generate, r => shownKana(r.event), NG_MAX_REROLLS, NG_REROLL_STEP, strokeWordIsClean);
     ({ event, route } = result.value);
     ngRerolls = result.rerolls;
   }

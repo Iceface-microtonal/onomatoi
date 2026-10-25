@@ -6,6 +6,7 @@
 // (d) interpretStroke: NG を出す一筆 (合成の曲線・この版の珠の取り方) は言い直され、きれいな同じ語に着地する。きれいな線は salt = 0 のまま
 // (e) 固有語は変えない (NG なら ngFixedWord の印だけ)
 // (f) 固有語の表 (角度・弧・円・ハート・星・一筆五芒星・葉など・三角・四角・砂時計/蝶ネクタイ) が NG に当たらない — 当たったら止めて報告する
+// (g) 避ける語 (2026-10-24 作者・衝突語の採否シート): STROKE_AVOID_WORDS = Core strokeAvoidWords・語全体の一致・命名には効かない・りりー / へん になる合成の曲線は言い直される
 // 実行: node test/ng_reroll.mjs   (Core の表は隣の OnomatoiCore を読む。無ければ失敗する)
 import fs from "node:fs";
 import path from "node:path";
@@ -72,7 +73,7 @@ function extractEngine(html) {
 
 const html = fs.readFileSync(HTML_PATH, "utf8");
 const EXPORTS = ["interpretStroke", "distanceFiltered", "densified", "namingKanaOf", "namingIsClean", "NAMING_NG_WORDS", "NG_REROLL_STEP",
-  "NG_MAX_REROLLS", "ngReroll", "segmentStroke", "generateFromUnits", "extractAxes", "vocabEvent", "romajiOf",
+  "NG_MAX_REROLLS", "ngReroll", "STROKE_AVOID_WORDS", "strokeWordIsClean", "segmentStroke", "generateFromUnits", "extractAxes", "vocabEvent", "romajiOf",
   "SHARPNESS_VOCAB", "ARC_VOCAB", "CIRCLE_VOCAB", "HEART_VOCAB", "HEART_CLEAN_VOCAB", "STAR_VOCAB", "ONE_STROKE_PENTAGRAM_VOCAB",
   "ONE_STROKE_PENTAGRAM_VOCAB_LEVELS", "SHAPE_PROTOTYPE_VOCAB", "TRIANGLE_VOCAB", "INVERTED_TRIANGLE_VOCAB", "SQUARE_VOCAB",
   "RECTANGLE_VOCAB", "LEGISLATED_DISPLAY", "crossedQuadrilateralVocabWord"];
@@ -239,6 +240,37 @@ console.log("── (f) 固有語の表が NG に当たらない (当たった�
     if (w.display != null && !api.namingIsClean(spelled(w.romaji))) hits.push(`${w.p} 綴りの かな = ${spelled(w.romaji)} (${w.romaji})`);
   }
   check(`固有語の表 ${words.length} 語すべて NG に当たらない`, hits.length === 0 && words.length > 60, hits.join(" / ") || String(words.length));
+}
+
+console.log("── (g) 避ける語 (語全体の一致・一筆の本線だけ) ──");
+{
+  const swift = readCore("Sources/OnomatoiCore/Core/LexicalFilter.swift");
+  if (swift) {
+    const m = /public static let strokeAvoidWords: \[String\] = \[([^\]]*)\]/.exec(swift);
+    const coreAvoid = m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : null;
+    check("Web の STROKE_AVOID_WORDS = Core の LexicalFilter.strokeAvoidWords", coreAvoid && JSON.stringify(api.STROKE_AVOID_WORDS) === JSON.stringify(coreAvoid),
+      `web ${JSON.stringify(api.STROKE_AVOID_WORDS)} / core ${JSON.stringify(coreAvoid)}`);
+  }
+  check("りりー・へん は一筆の語として避ける", ["りりー", "へん", "リリー", "ヘン"].every(w => !api.strokeWordIsClean(w)));
+  check("語全体の一致だけ (ぴりり・ぎゃりり・りりり・りりーん・へんぽ・ぺへん・へー・ぜん は通る)",
+    ["ぴりり", "ぎゃりり", "きゃりり", "りりり", "りり", "りりーん", "へんぽ", "ぺへん", "へー", "ぜん"].every(w => api.strokeWordIsClean(w)));
+  check("NG は一筆の判定でも止まる・避ける語は命名 (namingIsClean) では止まらない",
+    !api.strokeWordIsClean("ばばぼぼ") && api.namingIsClean("りりー") && api.namingIsClean("へん"));
+  const make = s => (s === 0 ? "りりー" : "せしり");
+  const plain = api.ngReroll(make, k => k), stroke = api.ngReroll(make, k => k, api.NG_MAX_REROLLS, api.NG_REROLL_STEP, api.strokeWordIsClean);
+  check("ngReroll の判定は差し替えられる (既定 = NG だけ)", plain.value === "りりー" && plain.rerolls === 0 && stroke.value === "せしり" && stroke.rerolls === 1);
+  // 合成の曲線 (Onomatoi Atlas probes/collide_all/find_strokes.mjs・種 20261024・公開 main の珠の取り方で探した)。変更前の語は from
+  const AVOID_STROKES = [
+    { name: "loopline763", from: "へん", word: "にゃん", route: "units", points: "329.66,244.58 334.63,244.09 339.61,243.59 344.58,243.09 349.56,242.59 354.53,242.09 359.51,241.59 364.48,241.09 369.46,240.6 374.43,240.1 379.41,239.6 384.38,239.1 389.36,238.6 394.33,238.1 399.31,237.6 404.28,237.1 409.26,236.61 414.23,236.11 419.21,235.61 424.18,235.11 429.16,234.61 425.34,238.79 418.79,245.77 414.05,254.75 411.38,265.24 410.94,276.67 412.74,288.4 416.68,299.79 422.55,310.22 430.03,319.12 438.71,326 448.11,330.48 457.71,332.32 467,331.42 475.45,327.82 482.61,321.72 488.09,313.46 491.59,303.49 492.9,292.36 491.97,280.68 488.84,269.08 483.68,258.2 476.78,248.64 468.52,240.93 459.34,235.48 449.75,232.59 440.28,232.43 431.45,235 423.73,240.16 417.56,247.63 413.26,256.99 411.09,267.74 411.15,279.29 413.44,291 417.84,302.23 424.1,312.37 431.89,320.85 440.77,327.22 450.26,331.13 459.84,332.36 468.98,330.84 477.18,326.66 484,320.05 489.06,311.36 492.07,301.08 492.89,289.77 491.46,278.05 487.85,266.56 482.28,255.92 487.35,256.43 492.43,256.93 497.5,257.44 502.58,257.94 507.66,258.44 512.73,258.95 517.81,259.45 522.88,259.95 527.96,260.46 533.03,260.96 538.11,261.47 543.18,261.97 548.26,262.47 553.34,262.98 558.41,263.48 563.49,263.98 568.56,264.49 573.64,264.99 578.71,265.5 583.79,266 588.86,266.5 593.94,267.01 599.02,267.51 604.09,268.01 609.17,268.52 614.24,269.02 619.32,269.53 624.39,270.03 629.47,270.53 634.54,271.04" },
+    { name: "arc9322", from: "りりー", word: "しにり", route: "generated", points: "871.12,347.21 861.06,348.94 850.27,349.95 839.27,350.2 828.57,349.66 818.68,348.37 810.06,346.39 803.13,343.81 798.2,340.75 795.51,337.35 795.19,333.78 797.25,330.21 801.59,326.8 808.02,323.71 816.22,321.1 825.81,319.07 836.34,317.74 847.31,317.16 858.21,317.35 868.51,318.32 877.74,320.01 885.45,322.35 891.29,325.21" },
+  ];
+  for (const s of AVOID_STROKES) {
+    const pts = parse(s.points);
+    const a = run(pts), b = run(pts);
+    check(`${s.name}: ${s.from} を 1 回言い直して ${s.word} (${s.route}・印なし)`, a.r.ngRerolls === 1 && a.kana === s.word && a.r.ngFixedWord === false && a.r.route === s.route,
+      `${a.r.ngRerolls}/${a.kana}/${a.r.route}`);
+    check(`${s.name}: 同じ入力は同じ語`, a.kana === b.kana && JSON.stringify(a.r.event.moras) === JSON.stringify(b.r.event.moras));
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
