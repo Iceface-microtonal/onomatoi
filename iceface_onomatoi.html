@@ -4717,7 +4717,7 @@ function nvIsLongVowelStep(prev, cur) {
          (prev.nucleus === "o" && cur.nucleus === "u");
 }
 
-// diph 再アタック3法 (OnomatoiCore 2026-08-01〜02)。判定は音程に依存しない。
+// diph 再アタック4法 (OnomatoiCore 2026-08-01〜02・第4法 2026-10-26)。判定は音程に依存しない。
 const NV_DIPH_REATTACK_PAIRS = new Set(DIPH_PAIRS);
 
 // 第2法: V1 が2モーラ以上続いた後の V1→V2 境界は diph を使わず V2 を言い直す。
@@ -4730,8 +4730,24 @@ function nvExtendedRunBoundaryReattacks(idx, moras) {
   return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus);
 }
 
+// 第4法 (2026-10-26 作者・Core chainedVowelReattacks と同じ): 母音が 3 つ以上続くとき、二重母音を連ねない。
+// V1→V2 が二重母音のペアで V2 がそこで言い直されていないとき、続く別の母音 V3 を言い直す。
+// uiun = うい・うん / auo = あう・お / kaui = かう・い / auoi = あう・おい。同じ母音の V3 は第1法・っ を挟む母音は対象外。
+function nvChainedVowelReattacks(idx, moras) {
+  if (idx < 2 || idx >= moras.length) return false;
+  const cur = moras[idx], v2 = moras[idx - 1], v1 = moras[idx - 2];
+  if (cur.onset !== null || cur.isN || cur.isSilentRest || cur.gapMs > 0) return false;
+  if (v2.onset !== null || v2.isN || v2.isSilentRest || v2.gapMs > 0 || v2.nucleus === cur.nucleus) return false;
+  if (v1.isN || v1.isSilentRest || v1.nucleus === v2.nucleus) return false;
+  // V2 自体が言い直しなら V2 は二重母音で着いていない (V2 と V3 は新しい組として二重母音を作れる)
+  if (nvDiphReattackBreaks(idx - 1, moras) || nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus);
+}
+
 // 第1法: 実際に鳴った diph の V2 直後に続く同母音は、延長せず言い直す。
 function nvDiphReattackBreaks(idx, moras) {
+  // 第4法も同じ「言い直し点」として扱う (run・延長・語末の閉じ方がそろう)
+  if (nvChainedVowelReattacks(idx, moras)) return true;
   if (idx < 2 || idx >= moras.length) return false;
   const cur = moras[idx], v2 = moras[idx - 1], v1 = moras[idx - 2];
   if (cur.onset !== null || cur.isN || cur.isSilentRest) return false;
@@ -4802,7 +4818,7 @@ function nvHasUsableCvDiph(bank, pair) {
 }
 
 // V+V diph (パターン1) が idx を引き受けるか — vvDiphPart1Takes。
-// 3母音以上の連鎖 (kauo / auo) では共有母音を2本の生 diph が取り合わない。
+// 3母音以上 (kauo / auo) では、共有母音を2本の生 diph が取り合わない (3 つ目は言い直し第4法で素の母音)。
 function nvVvDiphPart1Takes(idx, moras, bank) {
   if (idx < 0 || idx + 1 >= moras.length) return false;
   return nvMemo(moras, bank, "vv" + idx, () => {
@@ -4822,9 +4838,8 @@ function nvRawVVDiphPart2Takes(idx, moras, bank) {
 }
 function nvNextTakenByVVDiph(idx, moras, bank) { return nvVvDiphPart1Takes(idx + 1, moras, bank); }
 
-// CV→V (整形済み cvDiph) の選択キー — cvDiphPrev。
-// 子音アンカー列 (kai/kei…) に加え、直前が CV→V か生 V→V の後半なら次ペアのアンカーにする
-// (kauo = ka→(a-u)→(u-o)、auo = (a-u)→(u-o))。
+// CV→V (整形済み cvDiph) の選択キー — cvDiphPrev。子音アンカー列 (kai/kei… と、その母音の延長 saai) だけ。
+// 母音が 3 つ以上続くときは二重母音を連ねず、3 つ目を言い直す (言い直し第4法・2026-10-26)。
 function nvCvDiphPrev(idx, moras, bank) {
   if (idx <= 0 || idx >= moras.length) return null;
   return nvMemo(moras, bank, "cvd" + idx, () => {
@@ -4846,11 +4861,10 @@ function nvCvDiphPrev(idx, moras, bank) {
     if (nvExtendedRunBoundaryReattacks(first, moras)) return null;
     const anchor = first - 1;
     const sourceOnset = nvVowelRunRootOnset(anchor, moras);
-    const hasConsonantRoot = sourceOnset !== null;
-    const continuesCvDiph = !hasConsonantRoot && nvCvDiphPrev(anchor, moras, bank) !== null;
-    const continuesRawDiph = !hasConsonantRoot && !continuesCvDiph
-      && nvRawVVDiphPart2Takes(anchor, moras, bank);
-    if (!hasConsonantRoot && !continuesCvDiph && !continuesRawDiph) return null;
+    // 言い直し第4法 (2026-10-26 作者・Core cvDiphPrev と同じ): 母音が 3 つ以上続くとき、二重母音は連ねない。
+    // 直前の母音が子音から続く run でない (= 前の母音から二重母音で着いた母音) なら、この母音を素の母音で言い直す
+    // (ういうん = うい・うん)。旧 (〜10-25): kauo = ka→(a-u)→(u-o)・auo = (a-u)→(u-o) と前の diph の後半から次の diph へ連ねていた
+    if (sourceOnset === null) return null;
     let offset = 0;
     for (let i = first; i < idx; i++) offset += moras[i].durationMs;
     return { v1: prev.nucleus, v2: m.nucleus, prevDurationMs: prev.durationMs,
