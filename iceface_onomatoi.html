@@ -3728,7 +3728,71 @@ function familyWaveCrests(points, cx) {
   if (dirUp !== null && Math.abs(extreme - lastCounted) >= h && (dirUp ? extreme : -extreme) >= h / 2) crests.push(dirUp);
   return crests.length >= 3 ? crests : null;
 }
-function familyMatch(points, cx) {
+// ジグザグの族 (2026-10-26 仮決定 PD-028・Core FamilyRules.zigzag と同じ式・同じ順): 開いた線の山と谷 (頂) を描いた順に拾い、
+// 尖った頂か丸めた頂かを分ける。pts = 粗い筆を滑らかにした点 (strokeComplexity に渡したもの)・尖った頂 = その点の上の「形の角」(cornerPoints)。
+// 波の族と同じく弦からのずれのヒステリシス (弦の 10%) で極を拾う。頂 2 つ以上で尖った頂が過半のときだけ (丸い頂だけの線は波の族か生成)。
+// 戻り値 = { apexes: [{ mountain, sharp, angle }], curveEnd } / null。山 = 進む向きの左手側 (左 → 右の横の線なら上)
+function familyZigzag(pts, cx) {
+  if (pts.length < 8 || cx.isClosed || cx.retraced || cx.loops > 0) return null;
+  const a = pts[0], b = pts[pts.length - 1];
+  const dx = b.x - a.x, dy = b.y - a.y, chord = Math.hypot(dx, dy);
+  if (chord < 1e-6) return null;
+  let lastT = -Infinity;
+  const off = [];
+  for (const p of pts) {
+    const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / chord;
+    if (t < lastT - 0.08 * chord) return null;   // 弦に沿って進み続ける線だけ (行ったり来たりしない)
+    lastT = Math.max(lastT, t);
+    off.push(((p.x - a.x) * dy - (p.y - a.y) * dx) / chord);
+  }
+  const hh = 0.10 * chord, ext = [];
+  let dir = 0, ei = 0;
+  for (let i = 1; i < off.length; i++) {
+    const o = off[i];
+    if (dir === 0) {
+      if (o - off[0] >= hh / 2) { dir = 1; ei = i; } else if (off[0] - o >= hh / 2) { dir = -1; ei = i; }
+    } else if (dir === 1) {
+      if (o > off[ei]) ei = i; else if (off[ei] - o >= hh) { ext.push({ i: ei, mountain: true }); dir = -1; ei = i; }
+    } else {
+      if (o < off[ei]) ei = i; else if (o - off[ei] >= hh) { ext.push({ i: ei, mountain: false }); dir = 1; ei = i; }
+    }
+  }
+  // 最後の極: 描き終わりまで戻り切らなくても、端から 3 点以上内側で、端から弦の 5% 以上離れていれば数える
+  if (dir !== 0 && ei < off.length - 3 && Math.abs(off[ei] - off[off.length - 1]) >= hh / 2) ext.push({ i: ei, mountain: dir === 1 });
+  if (ext.length < 2) return null;
+  const cps = cx.cornerPoints || [];
+  const dist = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+  const nb = k => k < 0 ? 0 : k >= ext.length ? pts.length - 1 : ext[k].i;
+  const apexes = ext.map((e, k) => {
+    // 角度 = 頂から、前と後ろの極 (端) までの真ん中の点への向きがなす角
+    const p = pts[e.i], u = pts[Math.round((nb(k - 1) + e.i) / 2)], v = pts[Math.round((e.i + nb(k + 1)) / 2)];
+    const ux = u.x - p.x, uy = u.y - p.y, vx = v.x - p.x, vy = v.y - p.y;
+    const cos = (ux * vx + uy * vy) / Math.max(1e-9, Math.hypot(ux, uy) * Math.hypot(vx, vy));
+    const angle = Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
+    const reach = Math.max(6, 0.25 * Math.min(dist(p, u), dist(p, v)));
+    return { mountain: e.mountain, sharp: cps.some(c => dist(c, p) <= reach), angle };
+  });
+  if (apexes.filter(x => x.sharp).length * 2 <= apexes.length) return null;
+  // 終わりの曲線 = 最後の頂が丸い、または最後の頂が鈍く (75° 以上) その後の線が角なしに合わせて 25° 以上曲がる
+  // (コウさん 👍 gibiin「最後の曲線に いいん」の描線 = 85° + 30° 前後・頂のすぐ後の 2 点は頂の曲がりなので数えない)
+  const lastA = apexes[apexes.length - 1], last = ext[ext.length - 1].i, n = pts.length - 1;
+  let curveEnd = !lastA.sharp;
+  if (!curveEnd && lastA.angle >= 75 && n - last >= 6) {
+    let turn = 0;
+    for (let i = last + 3; i < n; i++) {
+      let d = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x) - Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x);
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      turn += d;
+    }
+    let tailCorner = false;
+    for (const c of cps) for (let i = last + 3; i <= n; i++) if (dist(c, pts[i]) <= 4) { tailCorner = true; break; }
+    curveEnd = Math.abs(turn) >= 25 * Math.PI / 180 && !tailCorner;
+  }
+  return { apexes, curveEnd };
+}
+// smooth = 粗い筆を滑らかにした点 (ジグザグの族だけが使う・無ければジグザグは見ない)
+function familyMatch(points, cx, smooth = null) {
   if (points.length < 8 || cx.isClosed || cx.retraced) return null;
   const turns = familySpiralTurns(points, cx);
   if (turns != null) return { kind: "spiral", turns };
@@ -3736,8 +3800,12 @@ function familyMatch(points, cx) {
   if (count != null) return { kind: "loopRow", count };
   const crests = familyWaveCrests(points, cx);
   if (crests) return { kind: "wave", crests };
+  const zig = smooth ? familyZigzag(smooth, cx) : null;
+  if (zig) return { kind: "zigzag", ...zig };
   return null;
 }
+// ジグザグの尖った頂の子音 = コウさんの提案語 digaziba (mrlacsw0-1・07-15) の d → g → z → b を頂の番号で巡回 (PD-028)
+const ZIGZAG_CONSONANTS = ["d", "g", "z", "b"];
 const FAMILY_LOOP_SYLLABLE = LEXICON_KOU.family.loopRow;   // 輪 1 つ = くるんの語 (10-06 シート Q3・未確定) に従う
 // 族の語の規則を持たない辞書 (family: null) では null (Core Lexicon.waveWord / loopRowWord と同じ)
 function familyWord(match, lexicon = LEXICON_KOU) {
@@ -3750,6 +3818,17 @@ function familyWord(match, lexicon = LEXICON_KOU) {
   }
   if (match.kind === "loopRow")
     return { romaji: fam.loopRow.romaji.repeat(match.count), display: fam.loopRow.display.repeat(match.count) };
+  if (match.kind === "zigzag") {
+    // 頂を描いた順に 1 音節 (最大 7 + 終わり 1 = 8・波の族と同じ): 尖った頂 = digaziba の子音 + 山 い / 谷 あ・丸めた頂 = 波の音節 (山 にゅ / 谷 も)。
+    // 終わり: 曲線 = いん の着地 (前の音節が い なら いん・ほかは いいん = PF-01 の連続) / 角・直線 = digaziba の次の子音 + 最後の頂の反対の母音 (ん は付けない・原理 7)
+    if (!fam.waveCrest || !fam.waveTrough) return null;
+    const ap = match.apexes.slice(0, 7);
+    const syl = ap.map((x, k) => x.sharp ? ZIGZAG_CONSONANTS[k % 4] + (x.mountain ? "i" : "a") : (x.mountain ? fam.waveCrest : fam.waveTrough).romaji);
+    const lastSyl = syl[syl.length - 1];
+    syl.push(match.curveEnd ? (lastSyl.endsWith("i") ? "in" : "iin")
+      : ZIGZAG_CONSONANTS[ap.length % 4] + (ap[ap.length - 1].mountain ? "a" : "i"));
+    return { romaji: syl.join(""), display: null };
+  }
   return null;
 }
 function familySpiralEvent(base) {
@@ -3763,6 +3842,7 @@ const FAMILY_REASON = {
   wave: { ja: "波: 山 (∩) を にゅ・谷 (∪) を も として、描いた順につなぐ", en: "wave: each crest (∩) is nyu and each trough (∪) is mo, in drawing order" },
   loopRow: { ja: "並ぶ輪: 輪ごとに同じ音 (むう) を並べる", en: "a row of loops: the same sound (muu) for each loop" },
   spiral: { ja: "二周以上の渦: 前の二音をもう一度くり返す", en: "a spiral of two or more turns: the first two sounds repeat" },
+  zigzag: { ja: "ジグザグ: 山と谷を描いた順に、尖った頂は で・が・じ・ば の子音 (山 い・谷 あ)、丸めた頂は波の音 (仮決定 PD-028)", en: "zigzag: one syllable per peak and valley in drawing order (draft PD-028)" },
 };
 
 // lexicon = 固定語・族の語の辞書 (既定 = コウさん版)。戻り値の lex は語を作った辞書の版 (記録に残す印)。
@@ -3770,7 +3850,8 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja",
   if (inkPts.length < 2 || w <= 0 || h <= 0) return null;
   let ax = applyHandCorrection(extractAxes(inkPts, w, h), hc, !coarse);
   if (coarse) ax = bucketedAxes(ax, 0.25);
-  const cx = strokeComplexity(coreSplineSmoothed(inkPts), w, h, 16, true, inkPts);
+  const smooth = coreSplineSmoothed(inkPts);
+  const cx = strokeComplexity(smooth, w, h, 16, true, inkPts);
   const selection = selectStrokeVocabulary(inkPts, w, h, ax, cx, language, lexicon);
   let kDraw = cx.formK ?? drawK(ax.sharp, cx.corners, cx.cornerSharpness);
   if (coarse) kDraw = Math.round(kDraw / 0.125) * 0.125;
@@ -3785,7 +3866,7 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja",
   let event, route;
   // 族の語の規則 (固有語の後・かたち辞書と生成の前)
   // 族の語の規則を持たない辞書では、規則そのもの (渦も含む) を通らない
-  const family = selection.vocabWord || !lexicon.family ? null : familyMatch(inkPts, cx);
+  const family = selection.vocabWord || !lexicon.family ? null : familyMatch(inkPts, cx, smooth);
   const familyFixed = family ? familyWord(family, lexicon) : null;
   // 渦 (2 周以上): 生成した語の前半 2 音をくり返す (い が入るときはくり返さない)。
   // 録音を一時停止している音節 (ぎぃ 等) は語から除く (iOS PhonosymbolicEvent.init の SuspendedCV.removing と同じ)。
