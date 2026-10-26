@@ -236,6 +236,12 @@ console.log("── 語末の言い直し短母音: 長音に聞こえる余韻�
   for (const word of ["aii", "aai"])
     check(`${word}: 二重母音の後・長母音の後の言い直しも短く閉じる`,
       api.nvStandaloneVowelReleaseTailMs(q(word), bank) > 0 && api.nvStandaloneVowelReleaseTailMs(q(word), bank) <= 50);
+  // 2026-10-26 作者: いんい・いんあ が いんいー・いんあー に聞こえた → ん の後の語末の母音も短く閉じる
+  for (const [head, v] of [["in", "i"], ["in", "a"], ["kan", "o"], ["n", "e"]]) {
+    const moras = api.nvQuantizeMoras([...api.segmentWord(head), ...api.segmentWord(v)], MORA_MS);
+    const tail = api.nvStandaloneVowelReleaseTailMs(moras, bank);
+    check(`${head} ${v}: ん の後の語末の母音も短く閉じる`, moras[moras.length - 2].isN && tail > 0 && tail <= 50, `tail ${tail}`);
+  }
 }
 
 console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末尾孤立例外) ──");

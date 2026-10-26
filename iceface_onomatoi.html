@@ -5236,6 +5236,7 @@ function nvStandaloneVowelReleaseTailMs(moras, bank) {
   // feedback mukfgx5x-2 / giQnuuu (2026-09-28)。一文字の母音の自然な減衰は維持。
   const reattacks = nvSameVowelRunReattacks(index, moras)
     || last.gapMs > 0   // っ の後で言い直した語末の母音も短く閉じる (れっい が れっいー に聞こえた・2026-10-20 作者)
+    || (index > 0 && moras[index - 1].isN)   // ん の後も同じ (いんい が いんいー に聞こえた・2026-10-26 作者)
     || nvDiphReattackBreaks(index, moras)
     || nvExtendedRunBoundaryReattacks(index, moras);
   const maxReleaseMs = reattacks ? Math.min(50, last.durationMs * 0.2) : 350;
