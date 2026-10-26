@@ -4497,6 +4497,58 @@ function nvSustainWrap(t, duration) {
 
 // CV定常部終端: 10ms RMS / 2ms hop、peak-15dB未満が30ms続く直前。
 // Audio Inspectorとnative ConsonantSampleBankのロード時計測と同じ定義。
+// 延長 run (子音つき二重母音 + 同じ母音 + ん・PF-01 で切り直さない さいいん・くいいん・こううん) の渡し (2026-10-26 作者
+// 「さいいん の さい と いん の継ぎに低いノイズ」)。短い整形済み diph を往復で読み直すと、消えかけた声が膨らみ直し、
+// あ→い の移り目も逆に読む。ou / au / ei は声の後の雑音の尾を読んでいた → 声が減り始める前に伸ばし用の録音 (bank.v) へ渡す。
+// 10ms 枠の平均パワーで、声の終わり = 最大 (頭 20ms を除く) から 15dB 以内の最後の枠、減り始め = その手前 120ms の最大から
+// 3dB 以内の最後の枠。その枠の終わりまでの 40ms で渡し、倍率 = 渡す 40ms の diph と伸ばし用の録音 (0.2〜0.3 秒) のパワー比の平方根。
+// iOS ConsonantSampleBank.computeCvDiphRunHandoff / FormantSynth.cvDiphRunHandoffSample と同じ。
+const NV_CV_DIPH_RUN_HELD_START_SEC = 0.2;
+const NV_CV_DIPH_RUN_HANDOFF_SEC = 0.04;
+function nvComputeCvDiphRunHandoff(diph, held, sr) {
+  const frame = Math.trunc(sr * 0.01);
+  const heldStart = Math.trunc(sr * NV_CV_DIPH_RUN_HELD_START_SEC);
+  const heldEnd = heldStart + Math.trunc(sr * 0.1);
+  if (!(frame > 0) || !diph || !held || held.length < heldEnd) return null;
+  const power = (arr, from, to) => {
+    let e = 0;
+    for (let k = from; k < to; k++) e += arr[k] * arr[k];
+    return e / Math.max(1, to - from);
+  };
+  const count = Math.trunc(diph.length / frame);
+  if (count <= 3) return null;
+  const levels = [];
+  for (let f = 0; f < count; f++) levels.push(power(diph, f * frame, (f + 1) * frame));
+  let peak = 0;
+  for (let f = 2; f < count; f++) peak = Math.max(peak, levels[f]);
+  if (!(peak > 0)) return null;
+  let end = 2;
+  for (let f = count - 1; f >= 2; f--) if (levels[f] >= peak * Math.pow(10, -1.5)) { end = f; break; }
+  const lo = Math.max(2, end - 12);
+  let ref = 0;
+  for (let f = lo; f <= end; f++) ref = Math.max(ref, levels[f]);
+  let last = lo;
+  for (let f = end; f >= lo; f--) if (levels[f] >= ref * 0.5) { last = f; break; }
+  const stop = (last + 1) * frame;
+  const start = Math.max(0, stop - Math.trunc(sr * NV_CV_DIPH_RUN_HANDOFF_SEC));
+  const heldPower = power(held, heldStart, heldEnd);
+  if (!(stop > start) || !(heldPower > 0)) return null;
+  return { startSec: start / sr, endSec: stop / sr, heldStartSec: heldStart / sr,
+           heldGain: Math.fround(Math.sqrt(power(diph, start, stop) / heldPower)) };
+}
+// 渡す点の手前は diph のまま、渡す 40ms は等パワーで重ね、その後は伸ばし用の録音を大きさをそろえて読む
+function nvCvDiphRunHandoffSample(bank, arr, v2, handoff, t) {
+  const sr = bank.sr;
+  const diph = () => nvInterp(arr, sr, t) ?? 0;
+  if (t < handoff.startSec) return diph();
+  const heldArr = bank.v.get(v2);
+  const heldT = handoff.heldStartSec + (t - handoff.startSec);
+  const held = (nvInterp(heldArr, sr, nvSustainWrap(heldT, nvDur(heldArr, sr))) ?? 0) * handoff.heldGain;
+  if (t >= handoff.endSec) return held;
+  const u = (t - handoff.startSec) / (handoff.endSec - handoff.startSec);
+  return diph() * Math.cos(u * Math.PI / 2) + held * Math.sin(u * Math.PI / 2);
+}
+
 function nvComputeCvSustainHandoffEnd(arr, sr) {
   if (!arr || !arr.length || !(sr > 0)) return 0;
   const duration = arr.length / sr;
@@ -5623,7 +5675,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const runShape = nvCvDiphRunShape(i, moras);
         // 延長の無い diph は録音を読み切って閉じる (往復で声尾が戻らない・2026-10-12)
         return { ...plan, kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
-                 runShape, closesNaturally: !runShape.hasExtension, continuesRun };
+                 runShape, closesNaturally: !runShape.hasExtension, continuesRun,
+                 runHandoff: runShape.hasExtension ? bank.cvDiphRunHandoff?.get(cvd.v1 + cvd.v2) ?? null : null };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
@@ -5773,9 +5826,12 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const timing = nvCvDiphTiming(cvd.v1 + cvd.v2, cvd.prevDurationMs);
       const preRoll = timing.pre;
       const diphT = (timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000;
+      // 延長 run は往復させず、声が減り始める前に伸ばし用の録音へ渡す (2026-10-26 作者 さいいん・nvCvDiphRunHandoffSample)
       let value = plan.closesNaturally
         ? nvNaturalEndRead(plan.arr, sr, diphT)
-        : nvInterp(plan.arr, sr, nvSustainWrap(diphT, plan.dur));
+        : plan.runHandoff
+          ? nvCvDiphRunHandoffSample(bank, plan.arr, cvd.v2, plan.runHandoff, diphT)
+          : nvInterp(plan.arr, sr, nvSustainWrap(diphT, plan.dur));
       if (value === null) value = 0;
       const envTotal = plan.continuesRun
         ? m.durationMs + NV_SAMPLE_FADE_OUT_MS + 5 : m.durationMs;
@@ -6003,6 +6059,11 @@ function buildNativeVoiceBank(sr) {
     bank.diph.set(p, raw);
     const prepared = nvPrepared(raw, "cvDiph", () => nvPrepareCvDiph(raw, sr, p));
     if (prepared.length) bank.cvDiph.set(p, prepared);
+  }
+  bank.cvDiphRunHandoff = new Map();
+  for (const [p, arr] of bank.cvDiph) {
+    const h = nvComputeCvDiphRunHandoff(arr, bank.v.get(p[1]), sr);
+    if (h) bank.cvDiphRunHandoff.set(p, h);
   }
   return bank;
 }

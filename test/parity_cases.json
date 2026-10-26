@@ -2705,6 +2705,84 @@
    "tokens": "re q i n",
    "moraMs": 250,
    "cat": "qv"
+  },
+  {
+   "id": "cvrun__sa_i_i_n__125",
+   "tokens": "sa i i n",
+   "moraMs": 125,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__sa_i_i_n__250",
+   "tokens": "sa i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__sa_i_i_n__500",
+   "tokens": "sa i i n",
+   "moraMs": 500,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_i_i_n__250",
+   "tokens": "ka i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ku_i_i_n__250",
+   "tokens": "ku i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ko_u_u_n__125",
+   "tokens": "ko u u n",
+   "moraMs": 125,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ko_u_u_n__250",
+   "tokens": "ko u u n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ko_u_u_n__500",
+   "tokens": "ko u u n",
+   "moraMs": 500,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ke_i_i_n__250",
+   "tokens": "ke i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ki_a_a_n__250",
+   "tokens": "ki a a n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_e_e_n__250",
+   "tokens": "ka e e n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_u_u_n__250",
+   "tokens": "ka u u n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__sa_i_i_i_n__250",
+   "tokens": "sa i i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
   }
  ]
 }
