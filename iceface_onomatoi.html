@@ -3820,7 +3820,7 @@ function familyWord(match, lexicon = LEXICON_KOU) {
     return { romaji: fam.loopRow.romaji.repeat(match.count), display: fam.loopRow.display.repeat(match.count) };
   if (match.kind === "zigzag") {
     // 頂を描いた順に 1 音節 (最大 7 + 終わり 1 = 8・波の族と同じ): 尖った頂 = digaziba の子音 + 山 い / 谷 あ・丸めた頂 = 波の音節 (山 にゅ / 谷 も)。
-    // 終わり: 曲線 = いん の着地 (前の音節が い なら いん・ほかは いいん = PF-01 の連続) / 角・直線 = digaziba の次の子音 + 最後の頂の反対の母音 (ん は付けない・原理 7)
+    // 終わり: 曲線 = いん の着地 (前の音節が い なら いん・ほかは いいん = い・いん) / 角・直線 = digaziba の次の子音 + 最後の頂の反対の母音 (ん は付けない・原理 7)
     if (!fam.waveCrest || !fam.waveTrough) return null;
     const ap = match.apexes.slice(0, 7);
     const syl = ap.map((x, k) => x.sharp ? ZIGZAG_CONSONANTS[k % 4] + (x.mountain ? "i" : "a") : (x.mountain ? fam.waveCrest : fam.waveTrough).romaji);
@@ -4497,7 +4497,7 @@ function nvSustainWrap(t, duration) {
 
 // CV定常部終端: 10ms RMS / 2ms hop、peak-15dB未満が30ms続く直前。
 // Audio Inspectorとnative ConsonantSampleBankのロード時計測と同じ定義。
-// 延長 run (子音つき二重母音 + 同じ母音 + ん・PF-01 で切り直さない さいいん・くいいん・こううん) の渡し (2026-10-26 作者
+// 延長 run (子音つき二重母音 + 同じ母音を言い直さずに伸ばす run・いまは固定語 くおーん など) の渡し (2026-10-26 作者
 // 「さいいん の さい と いん の継ぎに低いノイズ」)。短い整形済み diph を往復で読み直すと、消えかけた声が膨らみ直し、
 // あ→い の移り目も逆に読む。ou / au / ei は声の後の雑音の尾を読んでいた → 声が減り始める前に伸ばし用の録音 (bank.v) へ渡す。
 // 10ms 枠の平均パワーで、声の終わり = 最大 (頭 20ms を除く) から 15dB 以内の最後の枠、減り始め = その手前 120ms の最大から
@@ -4807,16 +4807,32 @@ function nvDiphReattackBreaks(idx, moras) {
   if (v1.isN || v1.isSilentRest || v1.nucleus === cur.nucleus) return false;
   // 第2法で V2 自体を言い直した境界なら、次の同母音は通常の長音になる。
   if (nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
-  // aiin / kuiin のように同母音 run の直後が撥音なら、V2 を切り直さず
-  // 「いーん」を一続きにする (2026-08-14 PF-01 確認)。
+  // ん の前も言い直す (さい・いん / こう・うん / あい・いん)。旧 PF-01 の一続き (あいーん) はコウさんの固定語だけに残す。
   let end = idx;
   while (end + 1 < moras.length) {
     const n = moras[end + 1];
     if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== cur.nucleus) break;
     end++;
   }
-  if (end + 1 < moras.length && moras[end + 1].isN) return false;
+  if (end + 1 < moras.length && moras[end + 1].isN && nvIsDiphHoldBeforeNWord(idx, moras)) return false;
   return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus);
+}
+
+// 一続きを残す語 = コウさんの固定語のうち、二重母音の後の同じ母音を ん まで伸ばす語 (しずく くおーん・ぬおーん・るおーん・丸 あおーん)。
+// Core FormantSynth.diphHoldBeforeNWords と同じ。辞書との一致は test/native_voice.mjs が確かめる
+const NV_DIPH_HOLD_BEFORE_N_WORDS = ["kuoon", "nuoon", "ruoon", "aoon"];
+let nvDiphHoldBeforeNMoras = null;
+// idx を含む語 (休符で区切った区間) が一続きを残す語と同じ並び (子音・母音・ん) か
+function nvIsDiphHoldBeforeNWord(idx, moras) {
+  nvDiphHoldBeforeNMoras ??= NV_DIPH_HOLD_BEFORE_N_WORDS.map(segmentWord);
+  let start = idx, end = idx;
+  while (start > 0 && !moras[start - 1].isSilentRest) start--;
+  while (end + 1 < moras.length && !moras[end + 1].isSilentRest) end++;
+  return nvDiphHoldBeforeNMoras.some(word => word.length === end - start + 1 && word.every((a, k) => {
+    const b = moras[start + k];
+    return !!a.isN === !!b.isN && (a.isN || ((a.onset ?? null) === (b.onset ?? null) && a.nucleus === b.nucleus))
+      && !!a.isQ === !!b.isQ && ((a.gapMs || 0) > 0) === ((b.gapMs || 0) > 0);
+  }));
 }
 
 // 第3法: 同母音 run は2モーラごとに言い直す。直後が撥音んの 3 モーラまでの run は持続を保つ。

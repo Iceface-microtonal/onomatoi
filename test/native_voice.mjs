@@ -89,6 +89,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
+  "nvChainedVowelReattacks", "NV_DIPH_HOLD_BEFORE_N_WORDS", "LEXICON_KOU",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
   "nvLongVowelCVJoinRoot", "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample", "nvEndsRecordedAttackNaturally",
@@ -280,13 +281,53 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
     check(`${w}: 言い直し点はcvDiph継続に入らない`, api.nvCvDiphPrev(breakAt, ms, bank) === null);
   }
 
-  for (const w of ["aiin", "kuiin"]) {
+  // ん の前も 3 拍目から言い直す (さい・いん)。旧 PF-01 の一続きはコウさんの固定語だけ (Core DiphHoldBeforeNTests と同じ)
+  for (const w of ["aiin", "kuiin", "saiin", "kouun", "keiin"]) {
     const ms = q(w);
-    const extendedV2 = ms.length - 2;
-    check(`${w}: 撥音直前のV2延長は第1法で切らない`,
-          !api.nvDiphReattackBreaks(extendedV2, ms));
-    check(`${w}: 撥音までV2を一続きに延長`,
-          api.nvLongVowelExtension(extendedV2, ms) !== null);
+    check(`${w}: 撥音の前でも V2 の後の同じ母音を言い直す`, api.nvDiphReattackBreaks(2, ms));
+    check(`${w}: 言い直した母音は延長しない`, api.nvLongVowelExtension(2, ms) === null);
+  }
+  const aiiin = q("aiiin");
+  check("aiiin: あい・いーん (3 つ目からは言い直した母音の延長)",
+        api.nvDiphReattackBreaks(2, aiiin) && api.nvLongVowelExtension(3, aiiin) !== null);
+  for (const w of ["kuoon", "nuoon", "ruoon", "aoon"]) {
+    const ms = q(w);
+    check(`${w}: コウさんの固定語は ん まで一続き`, !api.nvDiphReattackBreaks(2, ms));
+    check(`${w}: 撥音までV2を一続きに延長`, api.nvLongVowelExtension(2, ms) !== null);
+  }
+  check("kuoonkuoon: 固定語と同じ並びでも語の一部なら言い直す", api.nvDiphReattackBreaks(2, q("kuoonkuoon")));
+  {
+    const rest = { onset: null, nucleus: "a", durationMs: MORA_MS, gapMs: 0, amplitude: 0, isN: false, isQ: false, isSilentRest: true };
+    const phrase = [rest, ...q("kuoon"), rest, ...q("saiin")];
+    check("句の中の くおーん は一続き・さいいん は言い直す",
+          !api.nvDiphReattackBreaks(3, phrase) && api.nvDiphReattackBreaks(8, phrase));
+  }
+  {
+    // 辞書の語のうち、旧 PF-01 で一続きになっていた並びの語 = NV_DIPH_HOLD_BEFORE_N_WORDS
+    const romaji = new Set();
+    const collect = n => {
+      if (Array.isArray(n)) n.forEach(collect);
+      else if (n && typeof n === "object") {
+        if (typeof n.romaji === "string") romaji.add(n.romaji);
+        Object.values(n).forEach(collect);
+      }
+    };
+    collect(api.LEXICON_KOU);
+    const oldPF01 = (idx, ms) => {
+      if (idx < 2) return false;
+      const cur = ms[idx], v2 = ms[idx - 1], v1 = ms[idx - 2];
+      if (cur.onset !== null || cur.isN || v2.onset !== null || v2.isN || v2.nucleus !== cur.nucleus) return false;
+      if (v1.isN || v1.nucleus === cur.nucleus) return false;
+      if (api.nvExtendedRunBoundaryReattacks(idx - 1, ms) || api.nvChainedVowelReattacks(idx, ms)) return false;
+      if (!api.DIPH_PAIRS.includes(v1.nucleus + cur.nucleus)) return false;
+      let end = idx;
+      while (end + 1 < ms.length && ms[end + 1].onset === null && !ms[end + 1].isN && ms[end + 1].nucleus === cur.nucleus) end++;
+      return end + 1 < ms.length && ms[end + 1].isN;
+    };
+    const held = [...romaji].filter(w => { const ms = api.segmentWord(w); return ms.some((_, i) => oldPF01(i, ms)); }).sort();
+    check("一続きを残す語 = 辞書の該当語 (kuoon・nuoon・ruoon・aoon)",
+          romaji.size > 40 && JSON.stringify(held) === JSON.stringify([...api.NV_DIPH_HOLD_BEFORE_N_WORDS].sort()),
+          JSON.stringify(held));
   }
 
   const i4 = q("iiii");
@@ -482,7 +523,8 @@ console.log("── 6.2. 言い直す母音を明記し、長音符は連続さ�
   const want = { aaa: "あーあ", aaaeee: "あーあえーえ", reeeyuuuu: "れーえゆーうー",
                  aaaa: "あーあー", kaaa: "かーあ", nyoooo: "にょーおー",
                  kaii: "かいい", uii: "ういい", gaa: "がー", zaazaa: "ざーざー", aaan: "あーあん",
-                 aiin: "あいーん", aaaaa: "あーあーあ", piuuuu: "ぴううーう" };   // iu が二重母音になって bouuuu と同じ表記 (iOS も ぴううーう・2026-10-17)
+                 aiin: "あいいん", saiin: "さいいん", aiiin: "あいいーん", aoon: "あおーん", kuoon: "くおーん",
+                 aaaaa: "あーあーあ", piuuuu: "ぴううーう" };   // iu が二重母音になって bouuuu と同じ表記 (iOS も ぴううーう・2026-10-17)
   for (const [w, kana] of Object.entries(want)) {
     const got = api.namingKanaOf(api.segmentWord(w));
     check(`${w} → ${kana}`, got === kana, `got ${got}`);
@@ -739,6 +781,7 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
 }
 
 // Raw V1+V2 → held V2: verify the rendered entry, not just route flags.
+// ん の前の一続き (旧 PF-01) はいまコウさんの固定語だけ → 母音で始まる あおーん で確かめる (さい・いん などは言い直し)
 {
   const bank = makeBank();
   for (const vowel of ["a", "i", "u", "e", "o"]) {
@@ -746,8 +789,10 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     bank.contN.set(vowel, new Float32Array(SR * 2));
   }
   for (const pair of api.DIPH_PAIRS) bank.diph.set(pair, new Float32Array(SR * 2).fill(-0.1));
-  for (const pair of api.DIPH_PAIRS) for (const bpm of [60, 90, 120]) {
-    const word = pair + pair[1] + "n", ms = 30000 / bpm;
+  const heldWords = api.NV_DIPH_HOLD_BEFORE_N_WORDS.filter(w => "aiueo".includes(w[0]));
+  check("母音で始まる一続きの固定語がある (あおーん)", heldWords.includes("aoon"));
+  for (const word of heldWords) for (const bpm of [60, 90, 120]) {
+    const ms = 30000 / bpm;
     const wave = api.nvRenderEvent(api.segmentWord(word), bank, SR, ms).data;
     const moras = api.nvApplyFollowingMoraAttenuation(api.nvQuantizeMoras(api.segmentWord(word), ms), bank);
     const gain = t => api.nvContinuousMoraGain(moras[1].amplitude, moras[2].amplitude, t, ms);

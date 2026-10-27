@@ -108,7 +108,7 @@ check("頂 5・山から → でぃがじばでぃが", w(zig(5)).word === "で�
 check("2 つ目の頂を丸める → その頂だけ波の音 (でぃもじばでぃが)", w(zig(5, { round: new Set([1]) })).word === "でぃもじばでぃが", w(zig(5, { round: new Set([1]) })).word);
 {
   const x = w(zig(5, { round: new Set([4]) }));
-  check("最後の頂を丸める (曲線で終わる) → いん の着地 (でぃがじばにゅいーん)", x.word === "でぃがじばにゅいーん", x.word);
+  check("最後の頂を丸める (曲線で終わる) → いん の着地 (でぃがじばにゅいいん・い は言い直す)", x.word === "でぃがじばにゅいいん", x.word);
   const ms = x.r.event.moras;
   check("曲線で終わる語は ん で終わり、伸ばした い を持つ (コウさん 👍 gibiin の性質)", ms[ms.length - 1].isN && ms.some(m => m.onset === null && !m.isN && m.nucleus === "i"));
 }

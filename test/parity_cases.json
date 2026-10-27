@@ -2783,6 +2783,36 @@
    "tokens": "sa i i i n",
    "moraMs": 250,
    "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ku_o_o_n__125",
+   "tokens": "ku o o n",
+   "moraMs": 125,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ku_o_o_n__250",
+   "tokens": "ku o o n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ku_o_o_n__500",
+   "tokens": "ku o o n",
+   "moraMs": 500,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__nu_o_o_n__250",
+   "tokens": "nu o o n",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ru_o_o_n__250",
+   "tokens": "ru o o n",
+   "moraMs": 250,
+   "cat": "cvrun"
   }
  ]
 }
