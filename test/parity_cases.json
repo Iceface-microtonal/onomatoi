@@ -2837,6 +2837,240 @@
    "tokens": "nyu i i n",
    "moraMs": 250,
    "cat": "cvrun"
+  },
+  {
+   "id": "reattack__a_a_i_i__125",
+   "tokens": "a a i i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_a_i_i__250",
+   "tokens": "a a i i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_a_i_i__500",
+   "tokens": "a a i i",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_i__125",
+   "tokens": "ka a i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_i__250",
+   "tokens": "ka a i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_i__500",
+   "tokens": "ka a i",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__o_o_u_u__125",
+   "tokens": "o o u u",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__o_o_u_u__250",
+   "tokens": "o o u u",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__o_o_u_u__500",
+   "tokens": "o o u u",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_a_a_a_a__125",
+   "tokens": "a a a a a",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_a_a_a_a__250",
+   "tokens": "a a a a a",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_a_a_a_a__500",
+   "tokens": "a a a a a",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_a__125",
+   "tokens": "ka a a",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_a__250",
+   "tokens": "ka a a",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_a_a__500",
+   "tokens": "ka a a",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_i_u_n__125",
+   "tokens": "u i u n",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_i_u_n__250",
+   "tokens": "u i u n",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_i_u_n__500",
+   "tokens": "u i u n",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_i__125",
+   "tokens": "ka u i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_i__250",
+   "tokens": "ka u i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_i__500",
+   "tokens": "ka u i",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o_i__125",
+   "tokens": "a u o i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o_i__250",
+   "tokens": "a u o i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o_i__500",
+   "tokens": "a u o i",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o__125",
+   "tokens": "a u o",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o__250",
+   "tokens": "a u o",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_u_o__500",
+   "tokens": "a u o",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_i_i__125",
+   "tokens": "a i i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_i_i__250",
+   "tokens": "a i i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__a_i_i__500",
+   "tokens": "a i i",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_o__125",
+   "tokens": "ka u o",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_o__250",
+   "tokens": "ka u o",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__ka_u_o__500",
+   "tokens": "ka u o",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_u_u_u_n__125",
+   "tokens": "u u u u n",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_u_u_u_n__250",
+   "tokens": "u u u u n",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__u_u_u_u_n__500",
+   "tokens": "u u u u n",
+   "moraMs": 500,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__i_i_i_i__125",
+   "tokens": "i i i i",
+   "moraMs": 125,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__i_i_i_i__250",
+   "tokens": "i i i i",
+   "moraMs": 250,
+   "cat": "reattack"
+  },
+  {
+   "id": "reattack__i_i_i_i__500",
+   "tokens": "i i i i",
+   "moraMs": 500,
+   "cat": "reattack"
   }
  ]
 }

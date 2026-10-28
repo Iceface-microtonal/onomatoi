@@ -4956,10 +4956,8 @@ function nvCvDiphRunShape(idx, moras) {
     if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== nucleus) break;
     first--;
   }
-  // 次の拍で同じ母音を言い直すなら、そこを語の切れ目として語末と同じに閉じる (さいいん = さい + いん・2026-10-28)
-  const after = moras[last + 1];
-  const isWordFinal = last === moras.length - 1 || !!after.isSilentRest ||
-    (after.onset === null && !after.isN && after.nucleus === nucleus && nvDiphReattackBreaks(last + 1, moras));
+  // 言い直し点の手前の run は、言い直し点で切った区間 (nvReattackSegments) の中では語末になる
+  const isWordFinal = last === moras.length - 1 || !!moras[last + 1].isSilentRest;
   return { isWordFinal, hasExtension: last > first };
 }
 
@@ -5625,9 +5623,25 @@ function nvComputeFricativeQVowelOnset(arr, sr) {
 // 分岐の選択 (モーラ単位で不変) は事前計画し、フレーム内は時刻・包絡・読み出しだけを行う。
 // 分岐順・数式・定数は Onomatoi iPhone の経路 (isolatedPhoneRecovery = 録音が尽きても録音で続ける)
 // と同一。音程バリアントとフォルマント合成 (録音が無い音) は持たない。
+// 母音どうしの言い直し点 (第1〜4法・表記と同じ nvIsSpokenVowelReattack) で語を切った区間 — FormantSynth.reattackSegments。
+// 2026-10-28 作者「同じパターンの 母音 同士 くっつく時の言い直しは全て、ただ並べただけに」: 区間ごとに単独の語として鳴らす
+// (さいいん = さい + いん・あーあー = あー + あー)。っ の後の母音・語末の っ は切らない
+function nvReattackSegments(moras) {
+  const starts = [0];
+  for (let i = 1; i < moras.length; i++) {
+    if (!moras[i].isQ && !(moras[i].gapMs > 0) && nvIsSpokenVowelReattack(i, moras)) starts.push(i);
+  }
+  return starts.map((from, k) => ({ from, moras: moras.slice(from, k + 1 < starts.length ? starts[k + 1] : moras.length) }));
+}
+
 function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
   const moras = nvApplyFollowingMoraAttenuation(nvQuantizeMoras(morasRaw, targetMoraMs), bank);
   if (!moras.length) return null;
+  // 各拍の文脈 = その拍を含む区間だけ (前後の区間の拍は見ない = 並べただけ)。語末の余韻は語全体で決め、最後の区間だけに付ける
+  const segs = nvReattackSegments(moras);
+  const ctx = [];
+  segs.forEach((seg, k) => seg.moras.forEach((_, li) =>
+    ctx.push({ moras: seg.moras, i: li, lastIndex: k === segs.length - 1 ? seg.moras.length - 1 : -1 })));
   const spans = [];
   let acc = 0;
   for (const m of moras) {
@@ -5640,10 +5654,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
   const frames = Math.ceil((playMs + 60) / 1000 * sr);   // +60ms 無音パッド
   const renderFrames = Math.floor(playMs / 1000 * sr);
   const out = new Float32Array(frames);
-  const lastIndex = moras.length - 1;
 
   // モーラ単位の計画 (native render の分岐順そのまま)
-  const plans = moras.map((m, i) => {
+  const plans = moras.map((m, gi) => {
+    const { moras, i, lastIndex } = ctx[gi];
     if (m.isSilentRest) return { kind: "silent" };
     if (m.isQ) {
       return { kind: "finalQ", arr: i > 0 && !nvDiphOmitsAdditionalQTail(i - 1, moras, bank)
@@ -5738,7 +5752,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
   });
 
   // 先行オーバーラップ / preQ の計画 (現モーラ側に持たせる)
-  const posts = moras.map((m, i) => {
+  const posts = moras.map((m, gi) => {
+    const { moras, i } = ctx[gi];
     const next = i + 1 < moras.length ? moras[i + 1] : null;
     const post = { contNArr: null, contNAmplitude: 1, contNRise: 0.22,
                    cvDiphArr: null, nextHasQ: false };
@@ -5762,6 +5777,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     const tMs = f / sr * 1000;
     while (mi + 1 < moras.length && tMs >= spans[mi].start + spans[mi].gapMs + spans[mi].durMs) mi++;
     const m = moras[mi], plan = plans[mi], post = posts[mi];
+    const segMoras = ctx[mi].moras, li = ctx[mi].i;   // 区間の中の前後の拍
     const tin = tMs - spans[mi].start;
     const eventFade = Math.sin(Math.min(1, tMs / NV_EVENT_FADE_IN_MS) * Math.PI / 2);
     const amp = m.amplitude;
@@ -5882,8 +5898,8 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       val = value * NV_DIPH_JOIN_GAIN * balance * amp * env * eventFade;
       // ao は CV のフェードが拍の境目を越える: 直前の子音付き a の CV を同じ時計のまま読み、
       // 境界前と同じフェードを完走させる (Core の base AO・iPhone 経路 = readRootCVSample)
-      if (cvd.v1 + cvd.v2 === "ao" && mi > 0 && cvd.sourceOnset != null) {
-        const prev = moras[mi - 1];
+      if (cvd.v1 + cvd.v2 === "ao" && li > 0 && cvd.sourceOnset != null) {
+        const prev = segMoras[li - 1];
         const elapsed = preRoll + phoneT;
         if (prev.onset === cvd.sourceOnset && prev.nucleus === cvd.v1 && elapsed < timing.end) {
           const cvTail = nvReadRootCVSample(bank, cvd.sourceOnset, cvd.v1, prev.durationMs + phoneT,
@@ -5894,7 +5910,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     } else if (plan.kind === "diph") {
       const t = plan.diph.baseMs + tin;
       const raw = nvInterp(plan.arr, sr, t / 1000);
-      const value = (raw === null ? 0 : raw) * nvStandaloneRawDiphReleaseGain(plan.pair, t, moras);
+      const value = (raw === null ? 0 : raw) * nvStandaloneRawDiphReleaseGain(plan.pair, t, segMoras);
       const envT = plan.isCVtoV ? t + NV_SAMPLE_FADE_IN_MS + 1 : t;
       const env = nvSampleEnvelope(envT, plan.diph.envTotalMs);
       val = value * NV_DIPH_JOIN_GAIN * amp * env * eventFade;
@@ -5904,7 +5920,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const value = nvReadLongVowelCVJoinSample(bank, plan.joinOnset, ext.sourceNucleus,
                                                 timeMs, plan.rootDurMs, plan.joinFricQ, plan.cvOnly);
       const envTotal = plan.suppressTail ? ext.totalMs + NV_SAMPLE_FADE_OUT_MS + 5 : ext.totalMs;
-      const gain = nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs);
+      const gain = nvContinuousMoraGain(segMoras[li - 1].amplitude, amp, phoneT, m.durationMs);
       val = (value === null ? 0 : value) * gain
         * nvSampleEnvelope(timeMs, envTotal, plan.customReleaseMs ?? NV_SAMPLE_FADE_OUT_MS) * eventFade;
     } else if (plan.kind === "ext") {
@@ -5917,7 +5933,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const xfadeMs = Math.min(45.0, m.durationMs * 0.6);
         if (phoneT < xfadeMs) {
           const cvVal = nvReadRootCVSample(bank, ext.sourceOnset, ext.sourceNucleus,
-                                           timeMs, moras[mi - 1].durationMs);
+                                           timeMs, segMoras[li - 1].durationMs);
           if (cvVal !== null) {
             const u = phoneT / xfadeMs;
             // 同音程の同一持続音。線形受け渡しで等パワー加算の最大+3dBを避ける。
@@ -5931,7 +5947,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       // v7.15b: ソースが diph → v_<v> へ切り替わるモーラは頭 12ms をフェードイン
       // A raw diph can switch to a held take even when its root vowel is unchanged.
       if ((ext.sourceSwitched || plan.followsRawDiph) && phoneT < 12.0) env *= phoneT / 12.0;
-      val = value * nvContinuousMoraGain(moras[mi - 1].amplitude, amp, phoneT, m.durationMs)
+      val = value * nvContinuousMoraGain(segMoras[li - 1].amplitude, amp, phoneT, m.durationMs)
           * env * eventFade;
     } else if (plan.kind === "v") {
       const value = nvReadRootVowelSample(bank, m.nucleus, phoneT / 1000, m.durationMs, plan.standalone, plan.naturalEnd);
@@ -5963,7 +5979,7 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
     // ─── CV→V diph の先行オーバーラップ ───
     if (post.cvDiphArr) {
       const boundary = m.gapMs + m.durationMs;
-      const next = moras[mi + 1];
+      const next = segMoras[li + 1];
       const timing = nvCvDiphTiming(m.nucleus + next.nucleus, m.durationMs);
       const preRoll = timing.pre;
       const tailT = tin - (boundary - preRoll);
