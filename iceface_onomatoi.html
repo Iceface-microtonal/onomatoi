@@ -4779,7 +4779,7 @@ function nvExtendedRunBoundaryReattacks(idx, moras) {
   if (v2.onset !== null || v2.isN || v2.isSilentRest) return false;
   if (v1.onset !== null || v1.isN || v1.isSilentRest || v1.nucleus === v2.nucleus) return false;
   if (root.isN || root.isSilentRest || root.nucleus !== v1.nucleus) return false;
-  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus);
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus) && !nvIsKouLexiconWord(idx, moras);
 }
 
 // 第4法 (2026-10-26 作者・Core chainedVowelReattacks と同じ): 母音が 3 つ以上続くとき、二重母音を連ねない。
@@ -4793,7 +4793,7 @@ function nvChainedVowelReattacks(idx, moras) {
   if (v1.isN || v1.isSilentRest || v1.nucleus === v2.nucleus) return false;
   // V2 自体が言い直しなら V2 は二重母音で着いていない (V2 と V3 は新しい組として二重母音を作れる)
   if (nvDiphReattackBreaks(idx - 1, moras) || nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
-  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus);
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + v2.nucleus) && !nvIsKouLexiconWord(idx, moras);
 }
 
 // 第1法: 実際に鳴った diph の V2 直後に続く同母音は、延長せず言い直す。
@@ -4807,28 +4807,41 @@ function nvDiphReattackBreaks(idx, moras) {
   if (v1.isN || v1.isSilentRest || v1.nucleus === cur.nucleus) return false;
   // 第2法で V2 自体を言い直した境界なら、次の同母音は通常の長音になる。
   if (nvExtendedRunBoundaryReattacks(idx - 1, moras)) return false;
-  // ん の前も言い直す (さい・いん / こう・うん / あい・いん)。旧 PF-01 の一続き (あいーん) はコウさんの固定語だけに残す。
-  let end = idx;
-  while (end + 1 < moras.length) {
-    const n = moras[end + 1];
-    if (n.onset !== null || n.isN || n.isSilentRest || n.nucleus !== cur.nucleus) break;
-    end++;
-  }
-  if (end + 1 < moras.length && moras[end + 1].isN && nvIsDiphHoldBeforeNWord(idx, moras)) return false;
-  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus);
+  // ん の前も言い直す (さい・いん / こう・うん / あい・いん)。コウさんの固有語は言い直さない (くおーん・あおーん)
+  return NV_DIPH_REATTACK_PAIRS.has(v1.nucleus + cur.nucleus) && !nvIsKouLexiconWord(idx, moras);
 }
 
-// 一続きを残す語 = コウさんの固定語のうち、二重母音の後の同じ母音を ん まで伸ばす語 (しずく くおーん・ぬおーん・るおーん・丸 あおーん)。
-// Core FormantSynth.diphHoldBeforeNWords と同じ。辞書との一致は test/native_voice.mjs が確かめる
-const NV_DIPH_HOLD_BEFORE_N_WORDS = ["kuoon", "nuoon", "ruoon", "aoon"];
-let nvDiphHoldBeforeNMoras = null;
-// idx を含む語 (休符で区切った区間) が一続きを残す語と同じ並び (子音・母音・ん) か
-function nvIsDiphHoldBeforeNWord(idx, moras) {
-  nvDiphHoldBeforeNMoras ??= NV_DIPH_HOLD_BEFORE_N_WORDS.map(segmentWord);
+// コウさんの固有語 (辞書 LEXICON_KOU の全語) は母音どうしの言い直し (第1〜4法) をしない (2026-10-28 作者):
+// 「固有語では基本、おーん・あおーん などは あおおん と解釈して あお・おん と言い直さなくて良い。母音が続くときの 3 モーラでの
+// 言い直しは固有語以外の原則」。ぎいい = ぎーー・あーあーん = あーーーん。Core FormantSynth.isKouLexiconWord と同じ
+function nvKouLexiconRomaji() {
+  const out = new Set();
+  const walk = n => {
+    if (Array.isArray(n)) n.forEach(walk);
+    else if (n && typeof n === "object") {
+      if (typeof n.romaji === "string") out.add(n.romaji);
+      else Object.values(n).forEach(walk);
+    }
+  };
+  walk(LEXICON_KOU.words); walk(LEXICON_KOU.family);
+  return [...out].sort();
+}
+let nvKouLexiconMorasByCount = null;
+// idx を含む語 (休符で区切った区間) が固有語と同じ並び (子音・母音・ん・っ) か。語の一部 (kuoonkuoon) は固有語ではない
+function nvIsKouLexiconWord(idx, moras) {
+  if (!nvKouLexiconMorasByCount) {
+    nvKouLexiconMorasByCount = new Map();
+    for (const w of nvKouLexiconRomaji()) {
+      const ms = segmentWord(w);
+      if (!nvKouLexiconMorasByCount.has(ms.length)) nvKouLexiconMorasByCount.set(ms.length, []);
+      nvKouLexiconMorasByCount.get(ms.length).push(ms);
+    }
+  }
   let start = idx, end = idx;
   while (start > 0 && !moras[start - 1].isSilentRest) start--;
   while (end + 1 < moras.length && !moras[end + 1].isSilentRest) end++;
-  return nvDiphHoldBeforeNMoras.some(word => word.length === end - start + 1 && word.every((a, k) => {
+  const words = nvKouLexiconMorasByCount.get(end - start + 1);
+  return !!words && words.some(word => word.every((a, k) => {
     const b = moras[start + k];
     return !!a.isN === !!b.isN && (a.isN || ((a.onset ?? null) === (b.onset ?? null) && a.nucleus === b.nucleus))
       && !!a.isQ === !!b.isQ && ((a.gapMs || 0) > 0) === ((b.gapMs || 0) > 0);
@@ -4857,7 +4870,7 @@ function nvSameVowelRunReattacks(idx, moras) {
   // ん の前の持続 (例外) は根を含めて 3 モーラまで。4 モーラ以上は ん の前でも言い直す (uuuun = うー・うーん・2026-10-18 作者)
   if (end + 1 < moras.length && moras[end + 1].isN && end - start + 1 <= 3) return false;
   const pos = idx - start;
-  return pos >= 2 && pos % 2 === 0;
+  return pos >= 2 && pos % 2 === 0 && !nvIsKouLexiconWord(idx, moras);   // コウさんの固有語は言い直さない
 }
 
 // 語中の ん の継続撥音キー (直前が母音モーラならその母音) — continuationNVowel

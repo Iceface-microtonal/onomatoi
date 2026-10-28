@@ -89,7 +89,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
-  "nvChainedVowelReattacks", "NV_DIPH_HOLD_BEFORE_N_WORDS", "LEXICON_KOU", "nvReattackSegments",
+  "nvChainedVowelReattacks", "nvKouLexiconRomaji", "nvIsSpokenVowelReattack", "LEXICON_KOU", "nvReattackSegments",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
   "nvLongVowelCVJoinRoot", "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample", "nvEndsRecordedAttackNaturally",
@@ -312,7 +312,7 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
           !api.nvDiphReattackBreaks(3, phrase) && api.nvDiphReattackBreaks(8, phrase));
   }
   {
-    // 辞書の語のうち、旧 PF-01 で一続きになっていた並びの語 = NV_DIPH_HOLD_BEFORE_N_WORDS
+    // コウさんの固有語 (辞書の全語) は母音どうしの言い直しをしない (Core KouLexiconNoReattackTests と同じ・2026-10-28 作者)
     const romaji = new Set();
     const collect = n => {
       if (Array.isArray(n)) n.forEach(collect);
@@ -322,21 +322,16 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
       }
     };
     collect(api.LEXICON_KOU);
-    const oldPF01 = (idx, ms) => {
-      if (idx < 2) return false;
-      const cur = ms[idx], v2 = ms[idx - 1], v1 = ms[idx - 2];
-      if (cur.onset !== null || cur.isN || v2.onset !== null || v2.isN || v2.nucleus !== cur.nucleus) return false;
-      if (v1.isN || v1.nucleus === cur.nucleus) return false;
-      if (api.nvExtendedRunBoundaryReattacks(idx - 1, ms) || api.nvChainedVowelReattacks(idx, ms)) return false;
-      if (!api.DIPH_PAIRS.includes(v1.nucleus + cur.nucleus)) return false;
-      let end = idx;
-      while (end + 1 < ms.length && ms[end + 1].onset === null && !ms[end + 1].isN && ms[end + 1].nucleus === cur.nucleus) end++;
-      return end + 1 < ms.length && ms[end + 1].isN;
-    };
-    const held = [...romaji].filter(w => { const ms = api.segmentWord(w); return ms.some((_, i) => oldPF01(i, ms)); }).sort();
-    check("一続きを残す語 = 辞書の該当語 (kuoon・nuoon・ruoon・aoon)",
-          romaji.size > 40 && JSON.stringify(held) === JSON.stringify([...api.NV_DIPH_HOLD_BEFORE_N_WORDS].sort()),
-          JSON.stringify(held));
+    check("言い直さない固有語 = 辞書の全語", romaji.size > 60 &&
+          JSON.stringify([...romaji].sort()) === JSON.stringify(api.nvKouLexiconRomaji()));
+    const reattacked = [...romaji].filter(w => {
+      const ms = api.segmentWord(w);
+      return ms.some((_, i) => api.nvIsSpokenVowelReattack(i, ms)) || api.nvReattackSegments(ms).length > 1;
+    });
+    check("固有語のどの拍も言い直さない (ぎいい・もーお・あーあーん・かああっ も一続き)", reattacked.length === 0, JSON.stringify(reattacked));
+    for (const [w, i] of [["giiiii", 2], ["aaaaan", 2], ["saiin", 2], ["kuoonkuoon", 2], ["gaaa", 2]]) {
+      check(`${w}: 固有語でなければ ${i + 1} 拍目で言い直す`, api.nvIsSpokenVowelReattack(i, api.segmentWord(w)));
+    }
   }
 
   const i4 = q("iiii");
@@ -798,8 +793,7 @@ console.log("── 8. 配布実音源による脱落パトロール (ffmpeg必�
     bank.contN.set(vowel, new Float32Array(SR * 2));
   }
   for (const pair of api.DIPH_PAIRS) bank.diph.set(pair, new Float32Array(SR * 2).fill(-0.1));
-  const heldWords = api.NV_DIPH_HOLD_BEFORE_N_WORDS.filter(w => "aiueo".includes(w[0]));
-  check("母音で始まる一続きの固定語がある (あおーん)", heldWords.includes("aoon"));
+  const heldWords = ["aoon"];   // 母音で始まる一続きの固有語 (丸の中 あおーん)
   for (const word of heldWords) for (const bpm of [60, 90, 120]) {
     const ms = 30000 / bpm;
     const wave = api.nvRenderEvent(api.segmentWord(word), bank, SR, ms).data;

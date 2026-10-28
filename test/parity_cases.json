@@ -3071,6 +3071,186 @@
    "tokens": "i i i i",
    "moraMs": 500,
    "cat": "reattack"
+  },
+  {
+   "id": "kouword__myi_i_i__125",
+   "tokens": "myi i i",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__myi_i_i__250",
+   "tokens": "myi i i",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__myi_i_i__500",
+   "tokens": "myi i i",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__myo_o_o__125",
+   "tokens": "myo o o",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__myo_o_o__250",
+   "tokens": "myo o o",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__myo_o_o__500",
+   "tokens": "myo o o",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__nyu_u_u__125",
+   "tokens": "nyu u u",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__nyu_u_u__250",
+   "tokens": "nyu u u",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__nyu_u_u__500",
+   "tokens": "nyu u u",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o__125",
+   "tokens": "mo o o",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o__250",
+   "tokens": "mo o o",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o__500",
+   "tokens": "mo o o",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o_o__125",
+   "tokens": "mo o o o",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o_o__250",
+   "tokens": "mo o o o",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__mo_o_o_o__500",
+   "tokens": "mo o o o",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__tsu_u_u__125",
+   "tokens": "tsu u u",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__tsu_u_u__250",
+   "tokens": "tsu u u",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__tsu_u_u__500",
+   "tokens": "tsu u u",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gya_a_a__125",
+   "tokens": "gya a a",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gya_a_a__250",
+   "tokens": "gya a a",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gya_a_a__500",
+   "tokens": "gya a a",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i__125",
+   "tokens": "gi i i",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i__250",
+   "tokens": "gi i i",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i__500",
+   "tokens": "gi i i",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i_i__125",
+   "tokens": "gi i i i",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i_i__250",
+   "tokens": "gi i i i",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__gi_i_i_i__500",
+   "tokens": "gi i i i",
+   "moraMs": 500,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__ka_a_a_q__125",
+   "tokens": "ka a a q",
+   "moraMs": 125,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__ka_a_a_q__250",
+   "tokens": "ka a a q",
+   "moraMs": 250,
+   "cat": "kouword"
+  },
+  {
+   "id": "kouword__ka_a_a_q__500",
+   "tokens": "ka a a q",
+   "moraMs": 500,
+   "cat": "kouword"
   }
  ]
 }
