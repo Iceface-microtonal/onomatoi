@@ -2813,6 +2813,30 @@
    "tokens": "ru o o n",
    "moraMs": 250,
    "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_i_i__125",
+   "tokens": "ka i i",
+   "moraMs": 125,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_i_i__250",
+   "tokens": "ka i i",
+   "moraMs": 250,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__ka_i_i__500",
+   "tokens": "ka i i",
+   "moraMs": 500,
+   "cat": "cvrun"
+  },
+  {
+   "id": "cvrun__nyu_i_i_n__250",
+   "tokens": "nyu i i n",
+   "moraMs": 250,
+   "cat": "cvrun"
   }
  ]
 }

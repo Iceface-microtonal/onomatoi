@@ -89,7 +89,7 @@ const EXPORTS = ["segmentWord", "romajiOf", "NAMING_NG_WORDS",
   "nvVvDiphPart1Takes", "nvCvDiphPrev", "nvDiphContext",
   "nvLongVowelExtension", "nvNextUsesCVtoVDiph", "nvPrepareCvDiph",
   "nvDiphReattackBreaks", "nvExtendedRunBoundaryReattacks", "nvSameVowelRunReattacks",
-  "nvChainedVowelReattacks", "NV_DIPH_HOLD_BEFORE_N_WORDS", "LEXICON_KOU",
+  "nvChainedVowelReattacks", "NV_DIPH_HOLD_BEFORE_N_WORDS", "LEXICON_KOU", "nvCvDiphRunShape",
   "nvCvDiphPreRollMs", "NV_DIPH_JOIN_GAIN",
   "nvTrimTrailingSilence", "nvSustainWrap", "nvRenderEvent", "nvInterp",
   "nvLongVowelCVJoinRoot", "nvComputeCvSustainHandoffEnd", "nvReadRootCVSample", "nvEndsRecordedAttackNaturally",
@@ -296,6 +296,13 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
     check(`${w}: 撥音までV2を一続きに延長`, api.nvLongVowelExtension(2, ms) !== null);
   }
   check("kuoonkuoon: 固定語と同じ並びでも語の一部なら言い直す", api.nvDiphReattackBreaks(2, q("kuoonkuoon")));
+  // 同じ母音を言い直す手前の二重母音 run は語末と同じに閉じる (さいいん = さい + いん・Core ReattackWordBoundaryTests と同じ)
+  for (const w of ["saiin", "kaii", "kouun", "keiin", "saiiin", "sai"]) {
+    const sh = api.nvCvDiphRunShape(1, q(w));
+    check(`${w}: 言い直しの手前 (2 拍目) の run は語末`, sh.isWordFinal && !sh.hasExtension);
+  }
+  check("kuoon: 固定語は ん まで一続き (語末ではない)", (s => !s.isWordFinal && s.hasExtension)(api.nvCvDiphRunShape(1, q("kuoon"))));
+  check("saiu: 次が別の母音 (第4法) は語末にしない", !api.nvCvDiphRunShape(1, q("saiu")).isWordFinal);
   {
     const rest = { onset: null, nucleus: "a", durationMs: MORA_MS, gapMs: 0, amplitude: 0, isN: false, isQ: false, isSilentRest: true };
     const phrase = [rest, ...q("kuoon"), rest, ...q("saiin")];

@@ -4956,7 +4956,10 @@ function nvCvDiphRunShape(idx, moras) {
     if (p.onset !== null || p.isN || p.isSilentRest || p.nucleus !== nucleus) break;
     first--;
   }
-  const isWordFinal = last === moras.length - 1 || !!moras[last + 1].isSilentRest;
+  // 次の拍で同じ母音を言い直すなら、そこを語の切れ目として語末と同じに閉じる (さいいん = さい + いん・2026-10-28)
+  const after = moras[last + 1];
+  const isWordFinal = last === moras.length - 1 || !!after.isSilentRest ||
+    (after.onset === null && !after.isN && after.nucleus === nucleus && nvDiphReattackBreaks(last + 1, moras));
   return { isWordFinal, hasExtension: last > first };
 }
 
@@ -5688,14 +5691,11 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const continuesRun = !!(next && next.onset === null && !next.isN &&
                                 !next.isSilentRest && next.nucleus === m.nucleus &&
                                 !nvDiphReattackBreaks(i + 1, moras));
-        // 次の拍で同じ母音を言い直す (さい・いん の い) — 拍の途中で消えないよう、延長 run と同じ渡しで拍の終わりまで鳴らす (2026-10-28)
-        const reattacksNext = !!(next && next.onset === null && !next.isN && !next.isSilentRest &&
-                                 next.nucleus === m.nucleus && nvDiphReattackBreaks(i + 1, moras));
         const runShape = nvCvDiphRunShape(i, moras);
         // 延長の無い diph は録音を読み切って閉じる (往復で声尾が戻らない・2026-10-12)
         return { ...plan, kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
                  runShape, closesNaturally: !runShape.hasExtension, continuesRun,
-                 runHandoff: runShape.hasExtension || reattacksNext ? bank.cvDiphRunHandoff?.get(cvd.v1 + cvd.v2) ?? null : null };
+                 runHandoff: runShape.hasExtension ? bank.cvDiphRunHandoff?.get(cvd.v1 + cvd.v2) ?? null : null };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
