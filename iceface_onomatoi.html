@@ -5688,11 +5688,14 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
         const continuesRun = !!(next && next.onset === null && !next.isN &&
                                 !next.isSilentRest && next.nucleus === m.nucleus &&
                                 !nvDiphReattackBreaks(i + 1, moras));
+        // 次の拍で同じ母音を言い直す (さい・いん の い) — 拍の途中で消えないよう、延長 run と同じ渡しで拍の終わりまで鳴らす (2026-10-28)
+        const reattacksNext = !!(next && next.onset === null && !next.isN && !next.isSilentRest &&
+                                 next.nucleus === m.nucleus && nvDiphReattackBreaks(i + 1, moras));
         const runShape = nvCvDiphRunShape(i, moras);
         // 延長の無い diph は録音を読み切って閉じる (往復で声尾が戻らない・2026-10-12)
         return { ...plan, kind: "cvDiph", cvd, arr, dur: nvDur(arr, sr),
                  runShape, closesNaturally: !runShape.hasExtension, continuesRun,
-                 runHandoff: runShape.hasExtension ? bank.cvDiphRunHandoff?.get(cvd.v1 + cvd.v2) ?? null : null };
+                 runHandoff: runShape.hasExtension || reattacksNext ? bank.cvDiphRunHandoff?.get(cvd.v1 + cvd.v2) ?? null : null };
       }
     }
     const diph = nvDiphContext(i, moras, bank);
@@ -5843,10 +5846,10 @@ function nvRenderEvent(morasRaw, bank, sr, targetMoraMs) {
       const preRoll = timing.pre;
       const diphT = (timing.offset + preRoll + cvd.timeOffsetMs + phoneT) / 1000;
       // 延長 run は往復させず、声が減り始める前に伸ばし用の録音へ渡す (2026-10-26 作者 さいいん・nvCvDiphRunHandoffSample)
-      let value = plan.closesNaturally
-        ? nvNaturalEndRead(plan.arr, sr, diphT)
-        : plan.runHandoff
-          ? nvCvDiphRunHandoffSample(bank, plan.arr, cvd.v2, plan.runHandoff, diphT)
+      let value = plan.runHandoff
+        ? nvCvDiphRunHandoffSample(bank, plan.arr, cvd.v2, plan.runHandoff, diphT)
+        : plan.closesNaturally
+          ? nvNaturalEndRead(plan.arr, sr, diphT)
           : nvInterp(plan.arr, sr, nvSustainWrap(diphT, plan.dur));
       if (value === null) value = 0;
       const envTotal = plan.continuesRun
