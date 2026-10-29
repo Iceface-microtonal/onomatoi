@@ -23,10 +23,10 @@ let sampleRate = 48000.0
 let resources = "/Volumes/Expansion/MacAPP/Onomatoi/Resources"
 // 2026-10-17: Onomatoi 本体 (Shared/UI/ContentView.swift の FormantRenderer 初期化) と同じ試聴設定
 //   CV の頭を保つ (Base・M300)・語頭の CV を 1ms で開く・Base / BPM120 は伸ばす CV を CV 録音だけで・
-//   Base の myu は 200ms 保ってから長母音へ・Base の mu は作者の Cubase 配置
+//   Base の myu・nyu は 200ms 保ってから長母音へ (nyu は 10-29)・Base の mu は作者の Cubase 配置
 guard let bundle = Bundle(path: resources), let bank = ConsonantSampleBank.loadFromBundle(
         bundle, preservedCVHeadPitchCents: [0, -300],
-        baseMinimumHeldVowelJoinStartMs: [.init(onset: .my, nucleus: .u): 200],
+        baseMinimumHeldVowelJoinStartMs: [.init(onset: .my, nucleus: .u): 200, .init(onset: .ny, nucleus: .u): 200],
         baseHeldVowelJoinLayouts: [.init(onset: .m, nucleus: .u): .init(
             startMs: 85, vowelRiseMs: 270, cvHoldMs: 109, cvZeroMs: 1000, terminalReleaseMs: 410)]) else {
     FileHandle.standardError.write("FATAL: bank load failed\n".data(using: .utf8)!); exit(1)

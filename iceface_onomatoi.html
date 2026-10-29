@@ -4457,8 +4457,8 @@ const NV_PRESERVES_CV_HEAD = true;
 const NV_INITIAL_RECORDED_CV_FADE_IN_MS = 1;
 // Base / BPM120: 伸ばす CV は CV 録音だけで鳴らし、伸ばし録音を混ぜない (baseCVOnlyLongVowelMoraMs)
 const NV_BASE_CV_ONLY_LONG_VOWEL_MORA_MS = 250;
-// Base の myu は my の聞き分けの部分を 200ms 保ってから長母音へ (baseMinimumHeldVowelJoinStartMs)
-const NV_BASE_MIN_HELD_JOIN_START_MS = { "my|u": 200 };
+// Base の myu・nyu は my / ny の聞き分けの部分を 200ms 保ってから長母音へ (baseMinimumHeldVowelJoinStartMs・nyu は 10-29)
+const NV_BASE_MIN_HELD_JOIN_START_MS = { "my|u": 200, "ny|u": 200 };
 // Base の mu は作者の Cubase 配置 (baseHeldVowelJoinLayouts・語末の終わり 410ms)
 const NV_BASE_HELD_JOIN_CUSTOM = {
   "m|u": { startMs: 85, vowelRiseMs: 270, cvHoldMs: 109, cvZeroMs: 1000, terminalReleaseMs: 410 },
