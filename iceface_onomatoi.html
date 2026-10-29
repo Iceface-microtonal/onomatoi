@@ -5172,7 +5172,8 @@ function nvUsesCVOnlyLongVowelRun(root, moras, bank) {
   if (!(target > 0) || root < 0 || root >= moras.length) return false;
   if (!nvUsesLongVowelCVJoin(root, moras, bank) || nvUsesFricativeQTake(moras[root], bank)) return false;
   const source = moras[root];
-  for (let i = root; ; i++) {
+  let i = root;
+  for (; ; i++) {
     const m = moras[i];
     if (!(m.durationMs > 0) || nvRoundHalfEven(30000 / m.durationMs) !== nvRoundHalfEven(30000 / target)) return false;
     if (nvNextUsesCVtoVDiph(i, moras, bank) || nvNextTakenByVVDiph(i, moras, bank)) return false;
@@ -5181,8 +5182,10 @@ function nvUsesCVOnlyLongVowelRun(root, moras, bank) {
     if (next.onset !== null || next.isN || next.isSilentRest) break;
     if (next.nucleus !== source.nucleus) return false;
   }
-  return true;
+  // CV の録音は 2 拍までしか持たない → 3 拍以上の run (言い直しの無い固有語) は伸ばし録音へ渡す従来の継ぎ
+  return i - root + 1 <= NV_CV_ONLY_LONG_VOWEL_MAX_MORAS;
 }
+const NV_CV_ONLY_LONG_VOWEL_MAX_MORAS = 2;
 function nvReadLongVowelCVJoinSample(bank, onset, vowel, runTimeMs, rootDurationMs, fricativeQ = false, cvOnly = false) {
   const t = runTimeMs / 1000;
   let cv, cvRemainingSec;
