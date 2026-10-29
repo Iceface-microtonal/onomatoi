@@ -100,7 +100,7 @@ function webInterpret(points, w, h) {
   return api.interpretStroke(free.points, free.w, free.h, { coarse: true, hc: 0, language: "ja" });
 }
 
-const ROUTE = { vocabulary: "vocab", units: "unit", generated: "global" };
+const ROUTE = { vocabulary: "vocab", katachi: "vocab", units: "unit", generated: "global" };   // katachi = かたち辞書の族の語 (ネイティブの strokeword は固有語の綴りを vocab と数える)
 const AXES = [["size", "size"], ["sharp", "sharpness"], ["tex", "texture"], ["bright", "brightness"],
   ["round", "roundness"], ["open", "openness"]];
 const MANNER = [["p", "plosive"], ["a", "affricate"], ["f", "fricative"], ["s", "sonorant"]];
