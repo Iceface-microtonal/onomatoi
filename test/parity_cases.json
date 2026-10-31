@@ -3251,6 +3251,42 @@
    "tokens": "ka a a q",
    "moraMs": 500,
    "cat": "kouword"
+  },
+  {
+   "id": "vvrun__ko_a_a_n__125",
+   "tokens": "ko a a n",
+   "moraMs": 125,
+   "cat": "vvrun"
+  },
+  {
+   "id": "vvrun__ko_a_a_n__250",
+   "tokens": "ko a a n",
+   "moraMs": 250,
+   "cat": "vvrun"
+  },
+  {
+   "id": "vvrun__ko_a_a_n__500",
+   "tokens": "ko a a n",
+   "moraMs": 500,
+   "cat": "vvrun"
+  },
+  {
+   "id": "vvrun__a_o_o_o_n__125",
+   "tokens": "a o o o n",
+   "moraMs": 125,
+   "cat": "vvrun"
+  },
+  {
+   "id": "vvrun__a_o_o_o_n__250",
+   "tokens": "a o o o n",
+   "moraMs": 250,
+   "cat": "vvrun"
+  },
+  {
+   "id": "vvrun__a_o_o_o_n__500",
+   "tokens": "a o o o n",
+   "moraMs": 500,
+   "cat": "vvrun"
   }
  ]
 }
