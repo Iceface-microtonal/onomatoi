@@ -322,7 +322,9 @@ console.log("── 1. 再アタック3法と振り分け (Core準拠 + Web末�
       }
     };
     collect(api.LEXICON_KOU);
-    check("言い直さない固有語 = 辞書の全語", romaji.size > 60 &&
+    // + しずくの語族の大きさ違い (2026-11-02 コウさん第6回 Q2・Core と同じ 6 語)
+    for (const w of ["kuon", "kuooon", "nuon", "nuooon", "ruon", "ruooon"]) romaji.add(w);
+    check("言い直さない固有語 = 辞書の全語 + しずくの大きさ違い", romaji.size > 60 &&
           JSON.stringify([...romaji].sort()) === JSON.stringify(api.nvKouLexiconRomaji()));
     const reattacked = [...romaji].filter(w => {
       const ms = api.segmentWord(w);

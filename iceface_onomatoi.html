@@ -3227,7 +3227,7 @@ function straightLineVocabSignal(cx) {
 }
 // <lexicon-kou>
 // コウさん版の辞書 (生成物・手で直さない): 正本 = OnomatoiCore/Data/lexicon_kou.json・同期 = OnomatoiCore/tools/sync_lexicon.py
-const LEXICON_KOU = {"v":1,"lex":"kou-2026-10","note":"正本 (コウさん版・凍結)。形 → 段階 → 語 の対応表だけを持つ。どの形ゲートを通ったか・段階の決め方・原理 7 の n の扱いはコード (Core StrokeWordInterpreter / Web selectStrokeVocabulary) にある。display が null の語は仮名の上書きなし (音の綴りから出す)。段階の三つ組は center=中心形 / neighbor=近傍形 / frontier=外縁形、配列は [小, 中, 大]。直すときは作者と相談 (docs/LEXICON_KOU.md)。同期 = tools/sync_lexicon.py","words":{"heart":{"normal":{"romaji":"myuun","display":"みゅーん"},"clean":{"romaji":"kuun","display":"くぅん"}},"star":{"romaji":"chigyaan","display":null},"oneStrokePentagram":{"center":{"romaji":"ayanoparu","display":"あやのぱる"},"neighbor":{"romaji":"ayanofaru","display":"あやのふぁる"},"frontier":{"romaji":"ayanoharu","display":"あやのはる"}},"hourglass":{"center":{"romaji":"gyogyaQgyagyo","display":"ぎょぎゃっぎゃぎょ"},"neighbor":{"romaji":"gyogyaQjagyo","display":"ぎょぎゃっじゃぎょ"},"frontier":{"romaji":"gyogyaQhyagyo","display":"ぎょぎゃっひゃぎょ"}},"bowtie":{"center":{"romaji":"gyagyoQgyagyo","display":"ぎゃぎょっぎゃぎょ"},"neighbor":{"romaji":"gyagyoQjagyo","display":"ぎゃぎょっじゃぎょ"},"frontier":{"romaji":"gyagyoQhyagyo","display":"ぎゃぎょっひゃぎょ"}},"leaf":{"center":{"romaji":"keen","display":"けーん"},"neighbor":{"romaji":"feen","display":"ふぇーん"},"frontier":{"romaji":"been","display":"べーん"}},"crescent":{"center":{"romaji":"heen","display":"へーん"},"neighbor":{"romaji":"peen","display":"ぺーん"},"frontier":{"romaji":"jeen","display":"じぇーん"}},"cloud":{"center":{"romaji":"hohoon","display":"ほほーん"},"neighbor":{"romaji":"popoon","display":"ぽぽーん"},"frontier":{"romaji":"bohoon","display":"ぼほーん"}},"flower":{"center":{"romaji":"haraan","display":"はらーん"},"neighbor":{"romaji":"furaan","display":"ふらーん"},"frontier":{"romaji":"waraan","display":"わらーん"}},"droplet":{"center":{"romaji":"kuoon","display":"くおーん"},"neighbor":{"romaji":"nuoon","display":"ぬおーん"},"frontier":{"romaji":"ruoon","display":"るおーん"}},"lightning":{"center":{"romaji":"suchiQ","display":"すちっ"},"neighbor":{"romaji":"zechiQ","display":"ぜちっ"},"frontier":{"romaji":"zochiQ","display":"ぞちっ"}},"arc":{"right":[{"romaji":"myi","display":null},{"romaji":"myii","display":null},{"romaji":"myiii","display":null}],"left":[{"romaji":"myo","display":null},{"romaji":"myoo","display":null},{"romaji":"myooo","display":null}],"up":[{"romaji":"nyu","display":null},{"romaji":"nyuu","display":null},{"romaji":"nyuuu","display":null}],"down":[{"romaji":"moo","display":null},{"romaji":"mooo","display":null},{"romaji":"moooo","display":null}]},"circle":[{"romaji":"oon","display":null},{"romaji":"aoon","display":null},{"romaji":"aaaan","display":null}],"triangle":{"romaji":"gyagyoon","display":null},"invertedTriangle":{"romaji":"gyogyaan","display":null},"square":[{"romaji":"teton","display":"てとん"},{"romaji":"tetoon","display":"てとおん"},{"romaji":"tetooon","display":"てとおおん"}],"rectangle":[{"romaji":"tsukon","display":"つこん"},{"romaji":"tsukoon","display":"つこおん"},{"romaji":"tsukooon","display":"つこおおん"}],"sharpness":{"0":[{"romaji":"tsu","display":"つ"},{"romaji":"tsuu","display":"つぅ"},{"romaji":"tsuuu","display":"つぅぅ"}],"1":[{"romaji":"gyaQ","display":"ぎゃっ"},{"romaji":"gyaa","display":"ぎゃあ"},{"romaji":"gyaaa","display":"ぎゃああ"}],"2":[{"romaji":"gii","display":"ぎい"},{"romaji":"giii","display":"ぎいい"},{"romaji":"giiii","display":"ぎいいい"}],"3":[{"romaji":"koQ","display":"こっ"},{"romaji":"kokoQ","display":"ここっ"},{"romaji":"kokokoQ","display":"こここっ"}],"4":[{"romaji":"kaQ","display":"かっ"},{"romaji":"kaaQ","display":"かあっ"},{"romaji":"kaaaQ","display":"かああっ"}],"6":[{"romaji":"chiQ","display":"ちっ"},{"romaji":"chiiQ","display":"ちいっ"},{"romaji":"chichiiQ","display":"ちちいっ"}]}},"family":{"waveCrest":{"romaji":"nyu","display":"にゅ"},"waveTrough":{"romaji":"mo","display":"も"},"loopRow":{"romaji":"muu","display":"むう"},"spiral":"reduplicate"}};
+const LEXICON_KOU = {"v":1,"lex":"kou-2026-10","note":"正本 (コウさん版・凍結)。形 → 段階 → 語 の対応表だけを持つ。どの形ゲートを通ったか・段階の決め方・原理 7 の n の扱いはコード (Core StrokeWordInterpreter / Web selectStrokeVocabulary) にある。display が null の語は仮名の上書きなし (音の綴りから出す)。段階の三つ組は center=中心形 / neighbor=近傍形 / frontier=外縁形、配列は [小, 中, 大]。直すときは作者と相談 (docs/LEXICON_KOU.md)。同期 = tools/sync_lexicon.py","words":{"heart":{"normal":{"romaji":"myuun","display":"みゅーん"},"clean":{"romaji":"kuun","display":"くぅん"}},"star":{"romaji":"chigyaan","display":null},"oneStrokePentagram":{"center":{"romaji":"ayanoparu","display":"あやのぱる"},"neighbor":{"romaji":"ayanofaru","display":"あやのふぁる"},"frontier":{"romaji":"ayanoharu","display":"あやのはる"}},"hourglass":{"center":{"romaji":"gyogyaQgyagyo","display":"ぎょぎゃっぎゃぎょ"},"neighbor":{"romaji":"gyogyaQjagyo","display":"ぎょぎゃっじゃぎょ"},"frontier":{"romaji":"gyogyaQhyagyo","display":"ぎょぎゃっひゃぎょ"}},"bowtie":{"center":{"romaji":"gyagyoQgyagyo","display":"ぎゃぎょっぎゃぎょ"},"neighbor":{"romaji":"gyagyoQjagyo","display":"ぎゃぎょっじゃぎょ"},"frontier":{"romaji":"gyagyoQhyagyo","display":"ぎゃぎょっひゃぎょ"}},"leaf":{"center":{"romaji":"keen","display":"けーん"},"neighbor":{"romaji":"feen","display":"ふぇーん"},"frontier":{"romaji":"been","display":"べーん"}},"crescent":{"center":{"romaji":"heen","display":"へーん"},"neighbor":{"romaji":"peen","display":"ぺーん"},"frontier":{"romaji":"jeen","display":"じぇーん"}},"cloud":{"center":{"romaji":"hohoon","display":"ほほーん"},"neighbor":{"romaji":"popoon","display":"ぽぽーん"},"frontier":{"romaji":"bohoon","display":"ぼほーん"}},"flower":{"center":{"romaji":"haraan","display":"はらーん"},"neighbor":{"romaji":"furaan","display":"ふらーん"},"frontier":{"romaji":"waraan","display":"わらーん"}},"droplet":{"center":{"romaji":"kuoon","display":"くおーん"},"neighbor":{"romaji":"nuoon","display":"ぬおーん"},"frontier":{"romaji":"ruoon","display":"るおーん"}},"lightning":{"center":{"romaji":"suchiQ","display":"すちっ"},"neighbor":{"romaji":"zechiQ","display":"ぜちっ"},"frontier":{"romaji":"zochiQ","display":"ぞちっ"}},"arc":{"right":[{"romaji":"myi","display":null},{"romaji":"myii","display":null},{"romaji":"myiii","display":null}],"left":[{"romaji":"myo","display":null},{"romaji":"myoo","display":null},{"romaji":"myooo","display":null}],"up":[{"romaji":"nyu","display":null},{"romaji":"nyuu","display":null},{"romaji":"nyuuu","display":null}],"down":[{"romaji":"moo","display":null},{"romaji":"mooo","display":null},{"romaji":"moooo","display":null}]},"circle":[{"romaji":"oon","display":null},{"romaji":"aoon","display":null},{"romaji":"aaaan","display":null}],"triangle":{"romaji":"gyagyoon","display":null},"invertedTriangle":{"romaji":"gyogyaan","display":null},"square":[{"romaji":"teton","display":"てとん"},{"romaji":"tetoon","display":"てとおん"},{"romaji":"tetooon","display":"てとおおん"}],"rectangle":[{"romaji":"tsukon","display":"つこん"},{"romaji":"tsukoon","display":"つこおん"},{"romaji":"tsukooon","display":"つこおおん"}],"sharpness":{"0":[{"romaji":"tsu","display":"つ"},{"romaji":"tsuu","display":"つぅ"},{"romaji":"tsuuu","display":"つぅぅ"}],"1":[{"romaji":"gyaQ","display":"ぎゃっ"},{"romaji":"gyaa","display":"ぎゃあ"},{"romaji":"gyaaa","display":"ぎゃああ"}],"2":[{"romaji":"gii","display":"ぎい"},{"romaji":"giii","display":"ぎいい"},{"romaji":"giiii","display":"ぎいいい"}],"3":[{"romaji":"koQ","display":"こっ"},{"romaji":"kokoQ","display":"ここっ"},{"romaji":"kokokoQ","display":"こここっ"}],"4":[{"romaji":"kaQ","display":"かっ"},{"romaji":"kaaQ","display":"かあっ"},{"romaji":"kaaaQ","display":"かああっ"}],"6":[{"romaji":"chiQ","display":"ちっ"},{"romaji":"chiiQ","display":"ちいっ"},{"romaji":"chichiiQ","display":"ちちいっ"}]}},"family":{"waveCrest":{"romaji":"nyu","display":"にゅ"},"waveTrough":{"romaji":"mo","display":"も"},"loopRow":{"romaji":"muu","display":"むう"},"kurun":[{"romaji":"muu","display":"むう"},{"romaji":"muuuu","display":"むーうー"},{"romaji":"muuuuuu","display":"むーうーうー"}],"spiral":"reduplicate"}};
 // </lexicon-kou>
 // 固定語なし・族の語の規則なしの辞書 (計画「二つの辞書」段 2・Core Lexicon.empty と同じ)。段 4 の B の置き場所の確かめ用。
 const LEXICON_EMPTY = { v: 1, lex: "empty", words: {}, family: null };
@@ -3255,6 +3255,35 @@ function circleVocabSignal(cx, ax) {
   return !cx.isHeart && cx.isClosed && cx.corners === 0 && cx.rotationFraction > 0.8
     && cx.pathRatio / Math.max(1e-6, cx.sizeRatio) < 3.2
     && Math.abs(ax.round) <= 0.25;
+}
+// しずくの語族の大きさの段 (2026-11-02 コウさん第6回 Q2「大きさで くおん → くおーん → くおおーん」・Core Lexicon.dropletSized と同じ):
+// 辞書の語 (くおーん・ぬおーん・るおーん) を 中 とし、語末の おーん を 小 = おん・大 = おおーん に。語末が おーん でない語はそのまま
+function dropletSized(e, sizeClass) {
+  const s = Math.max(0, Math.min(2, sizeClass));
+  if (!e || s === 1 || !e.romaji.endsWith("oon") || !(e.display ?? "").endsWith("おーん")) return e;
+  const r = e.romaji.slice(0, -3), d = e.display.slice(0, -3);
+  return s === 0 ? { romaji: r + "on", display: d + "おん" } : { romaji: r + "ooon", display: d + "おおーん" };
+}
+// 縦長の楕円・卵 (2026-11-02 コウさん第6回 Q2・Core StrokeWordInterpreter.ovalDropletLevel と同じ): しずくの語族。
+// 卵 (面積の重心が外枠の上下の真ん中から高さの EGG_MIN_ASYMMETRY 以上ずれる) = 近傍 (2)・楕円 = 外縁 (1)・どちらでもなければ null。
+// 閉じた線・なぞり直しでない・ハートでない・角 1 つ以下・縦横比 ≥ OVAL_MIN_ASPECT・道のりが外枠に比べて長すぎない (円と同じ 3.2)
+const OVAL_MIN_ASPECT = 1.3;
+const EGG_MIN_ASYMMETRY = 0.04;
+function ovalDropletLevel(cx, pts) {
+  if (!cx.isClosed || cx.retraced || cx.isHeart || cx.corners > 1 || pts.length < 3
+      || !(cx.pathRatio / Math.max(1e-6, cx.sizeRatio) < 3.2)) return null;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const minY = Math.min(...ys), w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - minY;
+  if (!(w > 1e-6 && h / w >= OVAL_MIN_ASPECT)) return null;
+  let area = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length], c = p.x * q.y - q.x * p.y;
+    area += c;
+    cy += (p.y + q.y) * c;
+  }
+  if (!(Math.abs(area) > 1e-9)) return null;
+  cy /= 3 * area;
+  return Math.abs(cy - (minY + h / 2)) / h >= EGG_MIN_ASYMMETRY ? 2 : 1;
 }
 
 // 固定形語彙は6軸の値を上書きする軸ではなく、完成形に対する初期プリセット。
@@ -3514,6 +3543,7 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon =
   // 砂時計形・蝶ネクタイ形: 尖った角 (90° 以下) のある交差四辺形だけ (Core と同じ・角の数は見ない)
   const crossedQuad = crossesInside && stage >= 3 ? crossedQuadrilateral(inkPts) : null;
   let vocabWord = null, vocabReason = null, displayWordOverride = null;
+  const ovalLevel = ovalDropletLevel(cx, inkPts);
   if (heartVocabSignal(cx) && !crossesInside && lw.heart) {
     const heartLevel = cx.heartRecognitionLevel;
     const heartEntry = lw.heart[heartLevel === 3 ? "clean" : "normal"];
@@ -3562,10 +3592,13 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon =
       ? `花・認識度${cx.flowerRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
       : `flower level ${cx.flowerRecognitionLevel} → ${vocabWord}`;
   } else if (cx.isDroplet && !crossesInside && lw.droplet) {
-    vocabWord = lexiconLevels(lw.droplet)[Math.max(1, Math.min(3, cx.dropletRecognitionLevel)) - 1].romaji;
+    // しずく (2026-11-02 コウさん第6回 Q2): 認識度で く・ぬ・る、大きさで くおん → くおーん → くおおーん
+    const e = dropletSized(lexiconLevels(lw.droplet)[Math.max(1, Math.min(3, cx.dropletRecognitionLevel)) - 1], sizeClass);
+    vocabWord = e.romaji;
+    displayWordOverride = e.display ?? null;
     vocabReason = language === "ja"
-      ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）→ ${vocabWord}`
-      : `droplet level ${cx.dropletRecognitionLevel} → ${vocabWord}`;
+      ? `しずく・認識度${cx.dropletRecognitionLevel}（スコア ${cx.shapeRecognition.confidence.toFixed(2)}）・${["小", "中", "大"][sizeClass]} → ${vocabWord}`
+      : `droplet level ${cx.dropletRecognitionLevel}, size ${sizeClass} → ${vocabWord}`;
   } else if (cx.isLightning && lw.lightning) {
     vocabWord = lexiconLevels(lw.lightning)[Math.max(1, Math.min(3, cx.lightningRecognitionLevel)) - 1].romaji;
     vocabReason = language === "ja"
@@ -3581,6 +3614,14 @@ function selectStrokeVocabulary(inkPts, w, h, ax, cx, language = "ja", lexicon =
     vocabReason = language === "ja"
       ? `開いた弧 ${dirJa}・${sizeJa} → ${vocabWord}（鼻音=柔らかさ・ん は円が完成するまで付かない）`
       : `open arc (${dir}, size ${sizeClass}) → ${vocabWord} (nasal = softness; no final N until the circle closes)`;
+  } else if (!crossesInside && lw.droplet && ovalLevel != null) {
+    // 縦長の楕円・卵 (2026-11-02 コウさん第6回 Q2「はい」): しずくの語族。卵 = ぬ・楕円 = る、大きさで 3 段 (円の語より先)
+    const e = dropletSized(lexiconLevels(lw.droplet)[ovalLevel - 1], sizeClass);
+    vocabWord = e.romaji;
+    displayWordOverride = e.display ?? null;
+    vocabReason = language === "ja"
+      ? `縦長の${ovalLevel === 2 ? "卵" : "楕円"}・${["小", "中", "大"][sizeClass]} → ${vocabWord}（しずくの仲間・しずくから離れるほど く → ぬ → る）`
+      : `tall ${ovalLevel === 2 ? "egg" : "ellipse"} (size ${sizeClass}) → ${vocabWord} (the droplet family)`;
   } else if (circleVocabSignal(cx, ax) && !crossesInside && lw.circle) {
     // 2026-07-21 立法: 円もサイズ3段階 (小=まとまり oon / 中=広がり→まとまり aoon / 大=全開 aaaan)。
     const circleSize = arcSizeClass(inkPts, w, h);
@@ -3691,7 +3732,7 @@ function katachiVocabularyWord(kind, inkPts, w, h, selection, typeId, shape, lex
     }
     case "arc": return selection.drawsLoops ? null : arcWord();
     case "circle": return closedOnly(lw.circle?.[size]);
-    case "droplet": return closedOnly(lw.droplet?.frontier);
+    case "droplet": return closedOnly(dropletSized(lw.droplet?.frontier, size));   // 大きさの段はしずくの語族と同じ (第6回 Q2)
     case "triangle": return closedOnly(katachiTriangleInverted(typeId) ? lw.invertedTriangle : lw.triangle);
     case "quadrilateral":   // 四角の語は辺が 4 つの一筆だけ
     case "polygon": return quadrilateralWord();   // 多角形の族 (f03): 辺が 4 つなら四角の語・五角以上は語なし (未立法)
@@ -3744,6 +3785,10 @@ function familySpiralTurns(points, cx) {
 // 並ぶ輪 (Core FamilyRules.loopRowCount と同じ): 交点の輪が 2 つ以上・大きさの比 ≤ 2・中心どうしの間 ≥ 直径の 0.5 倍・
 // 構造単位の輪が線の 6 割以上・渦でない・両端が離れている・輪の中心が描いた順に進む (一つごとに広がりの 15% 以上)。最大 4。
 function familyCrossingLoops(pts) {
+  return familyCrossingLoopRanges(pts).map(([i, j]) => pts.slice(i + 1, j + 1));
+}
+// familyCrossingLoops の輪の範囲 [i, j] (輪の点 = pts[i+1 … j])・描いた順 (Core FamilyRules.crossingLoopRanges と同じ)
+function familyCrossingLoopRanges(pts) {
   const n = pts.length;
   if (n < 4) return [];
   const cr = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
@@ -3764,7 +3809,31 @@ function familyCrossingLoops(pts) {
     for (let k = i; k <= j; k++) used[k] = true;
     loops.push([i, j]);
   }
-  return loops.sort((p, q) => p[0] - q[0]).map(([i, j]) => pts.slice(i + 1, j + 1));
+  return loops.sort((p, q) => p[0] - q[0]);
+}
+// くるん (2026-11-02 コウさん第6回 Q3・Core FamilyRules.isKurun と同じ式): 渦でも並ぶ輪でもない開いた線で、自分と交わってできる輪がちょうど 1 つ・
+// 角が 1 つ以下・丸い線 (鋭さ < 0)・輪の大きさ (輪の外枠の長い辺 ÷ 一筆の外枠の長い辺) が KURUN_LOOP_SIZE・両端が離れている (弦 ≥ 広がりの半分)・
+// 輪の前と後ろの線の向きの差が KURUN_MAX_TAIL_TURN 以下 (V の先端のはね返りの輪は外れる)
+const KURUN_LOOP_SIZE = [0.15, 0.8];
+const KURUN_MAX_TAIL_TURN = 90;
+function familyIsKurun(points, cx, sharp) {
+  if (!(cx.corners <= 1 && sharp < 0)) return false;
+  const ranges = familyCrossingLoopRanges(points);
+  if (ranges.length !== 1) return false;
+  const [i, j] = ranges[0], loop = points.slice(i + 1, j + 1);
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const lx = loop.map(p => p.x), ly = loop.map(p => p.y);
+  const loopSize = Math.max(Math.max(...lx) - Math.min(...lx), Math.max(...ly) - Math.min(...ly));
+  const a = points[0], b = points[points.length - 1];
+  const chord = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!(extent > 1e-6 && chord >= 0.5 * extent)) return false;
+  const r = loopSize / extent;
+  if (!(r >= KURUN_LOOP_SIZE[0] && r < KURUN_LOOP_SIZE[1])) return false;
+  const ux = points[i].x - a.x, uy = points[i].y - a.y, vx = b.x - points[j].x, vy = b.y - points[j].y;
+  const nu = Math.hypot(ux, uy), nv = Math.hypot(vx, vy);
+  if (!(nu > 1e-6 && nv > 1e-6)) return false;
+  return Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / nu / nv))) * 180 / Math.PI <= KURUN_MAX_TAIL_TURN;
 }
 function familyLoopRowCount(points, cx, seg) {
   if (familySpiralTurns(points, cx) != null) return null;
@@ -3890,12 +3959,14 @@ function familyZigzag(pts, cx) {
   return { apexes, curveEnd };
 }
 // smooth = 粗い筆を滑らかにした点 (ジグザグの族だけが使う・無ければジグザグは見ない)
-function familyMatch(points, cx, smooth = null) {
+// sharp = 軸の鋭さ (くるん は丸い線だけ・null なら くるん を見ない)
+function familyMatch(points, cx, smooth = null, sharp = null) {
   if (points.length < 8 || cx.isClosed || cx.retraced) return null;
   const turns = familySpiralTurns(points, cx);
   if (turns != null) return { kind: "spiral", turns };
   const count = familyLoopRowCount(points, cx, segmentStroke(points));
   if (count != null) return { kind: "loopRow", count };
+  if (sharp != null && familyIsKurun(points, cx, sharp)) return { kind: "kurun" };
   const crests = familyWaveCrests(points, cx);
   if (crests) return { kind: "wave", crests };
   const zig = smooth ? familyZigzag(smooth, cx) : null;
@@ -3916,6 +3987,10 @@ function familyWord(match, lexicon = LEXICON_KOU) {
   }
   if (match.kind === "loopRow")
     return { romaji: fam.loopRow.romaji.repeat(match.count), display: fam.loopRow.display.repeat(match.count) };
+  if (match.kind === "kurun") {   // くるん (第6回 Q3): 大きさで むう → むーうー → むーうーうー
+    const e = fam.kurun?.[Math.max(0, Math.min(2, match.sizeClass ?? 1))];
+    return e && e.display ? { romaji: e.romaji, display: e.display } : null;
+  }
   if (match.kind === "zigzag") {
     // 頂を描いた順に 1 音節 (最大 7 + 終わり 1 = 8・波の族と同じ): 尖った頂 = digaziba の子音 + 山 い / 谷 あ・丸めた頂 = 波の音節 (山 にゅ / 谷 も)。
     // 終わり: 曲線 = いん の着地 (前の音節が い なら いん・ほかは いいん = い・いん) / 角・直線 = digaziba の次の子音 + 最後の頂の反対の母音 (ん は付けない・原理 7)
@@ -3939,6 +4014,7 @@ function familySpiralEvent(base) {
 const FAMILY_REASON = {
   wave: { ja: "波: 山 (∩) を にゅ・谷 (∪) を も として、描いた順につなぐ", en: "wave: each crest (∩) is nyu and each trough (∪) is mo, in drawing order" },
   loopRow: { ja: "並ぶ輪: 輪ごとに同じ音 (むう) を並べる", en: "a row of loops: the same sound (muu) for each loop" },
+  kurun: { ja: "くるん (線の途中の輪): 大きさで むう → むーうー → むーうーうー", en: "a curl in the line: muu → muuuu → muuuuuu by size" },
   spiral: { ja: "二周以上の渦: 前の二音をもう一度くり返す", en: "a spiral of two or more turns: the first two sounds repeat" },
   zigzag: { ja: "ジグザグ: 山と谷を描いた順に、尖った頂は で・が・じ・ば の子音 (山 い・谷 あ)、丸めた頂は波の音 (仮決定 PD-028)", en: "zigzag: one syllable per peak and valley in drawing order (draft PD-028)" },
 };
@@ -3974,7 +4050,8 @@ function interpretStroke(inkPts, w, h, { coarse = true, hc = 0, language = "ja",
   let event, route;
   // 族の語の規則 (固有語の後・かたち辞書と生成の前)
   // 族の語の規則を持たない辞書では、規則そのもの (渦も含む) を通らない
-  const family = selection.vocabWord || !lexicon.family ? null : familyMatch(inkPts, cx, smooth);
+  const family = selection.vocabWord || !lexicon.family ? null : familyMatch(inkPts, cx, smooth, ax.sharp);
+  if (family && family.kind === "kurun") family.sizeClass = arcSizeClass(inkPts, w, h);
   const familyFixed = family ? familyWord(family, lexicon) : null;
   // 渦 (2 周以上): 生成した語の前半 2 音をくり返す (い が入るときはくり返さない)。
   // 録音を一時停止している音節 (ぎぃ 等) は語から除く (iOS PhonosymbolicEvent.init の SuspendedCV.removing と同じ)。
@@ -4942,6 +5019,8 @@ function nvKouLexiconRomaji() {
     }
   };
   walk(LEXICON_KOU.words); walk(LEXICON_KOU.family);
+  // しずくの語族の大きさ違い (くおん・くおおーん 等・dropletSized) も固有語 (Core LexiconKou.allRomaji と同じ)
+  for (const e of lexiconLevels(LEXICON_KOU.words.droplet)) for (const s of [0, 2]) out.add(dropletSized(e, s).romaji);
   return [...out].sort();
 }
 let nvKouLexiconMorasByCount = null;
