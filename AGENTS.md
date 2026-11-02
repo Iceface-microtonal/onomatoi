@@ -16,7 +16,7 @@ Onomatoi (描いた形を音象徴 + 口の形として読み、日本語に似�
 |---|---|
 | 機能・使い方・現行版と旧版の差・フィードバック形式 (`FB_VERSION`) | `README.md` |
 | エンジン本体 (音声生成・描線判定) | `iceface_onomatoi.html` 内の `<script>` (**唯一の実装**。`web-play.js` / `web-play.css` は表示・操作専用) |
-| 継続撥音 mp3 のベイク手順 (正本) | `scripts/bake_contn.py` (冒頭コメント。ネイティブ `prepareContN` v6 の忠実移植) |
+| 音声の同期 (iOS base → `ConsonantsOnomatoi/`) | `scripts/sync_ios_base_voice.py` (冒頭コメント。Web の音声は iOS 版 base の録音だけから作る・継続撥音 `v_<v>_nn` も wav のまま同期しベイクはしない) |
 | 音声の監査記録 | `test/WEB_AUDIO_AUDIT_2026-09-12.md` |
 | 文法の性質テストの仕様・fixture | `test/kou_properties.mjs` 冒頭コメント (仕様と fixture は隣の `Onomatoi` repo にある) |
 | ネイティブ側の規則 (音声フォーマット・Family 配布・言語の統治) | 隣の `../Onomatoi/AGENTS.md` (非公開 repo) |
@@ -25,17 +25,31 @@ Onomatoi (描いた形を音象徴 + 口の形として読み、日本語に似�
 
 ```sh
 python3 -m http.server 8765        # mp3 を fetch するため file:// 直開きは不可 → http://localhost:8765/
-node test/closed_form.mjs          # 71
-node test/naming_placement.mjs     # 27
-node test/native_voice.mjs         # 251
-node test/symbol_vocab.mjs         # 349
+node test/closed_form.mjs          # ほかも「0 failed」で合格
+node test/naming_placement.mjs
+node test/native_voice.mjs
+node test/symbol_vocab.mjs         # golden の作り直しは Onomatoi/docs/WEB_DRAWING_PARITY_AUDIT_2026-09-12.md
+node test/feedback_worker.mjs      # 「送る」の受け口 (Worker) の検査とメール本文
+node test/audio_session.mjs
+node test/reaction_modes.mjs
+node test/reaction_native_access.mjs
+node test/reaction_sound_map.mjs
 node test/kou_properties.mjs       # 幾何 + regression が green であること (target は進捗指標・落ちてよい)
-node test/stroke_parity.mjs        # 一筆→語 のネイティブ一致 (進捗指標・fixture は隣の非公開 repo `../Onomatoi Film/parity/`)
+node test/stroke_parity.mjs        # 一筆→語 のネイティブ一致 (語の不一致 0・fixture は隣の非公開 repo `../Onomatoi Film/parity/`)
+node test/family_rules.mjs
+node test/ng_reroll.mjs
+node test/loop_gate.mjs
+node test/zigzag_family.mjs
+node test/katachi_sheet6.mjs
+node test/why_reasons.mjs          # 「なぜ?」の文の golden。語の規則を変えたら --diff で前後を確かめてから --write
+node test/twins.mjs
 node test/lexicon_kou.mjs          # 語の出どころは辞書 (LEXICON_KOU) だけ・書き換えると語が変わる
-node test/feedback_worker.mjs       # 「送る」の受け口 (Worker) の検査とメール本文
+node test/kana_input.mjs
+node test/lexicon_switch.mjs
+node test/web_parity.mjs           # iOS の参照音 (test/parity_out/native) と比べて「比較 N / 合格 N」が等しいこと
 ```
 
-(件数は 2026-09-19 時点・全 green)。テストは HTML から純粋なエンジン宣言を自動抽出して `vm` で評価する
+(この一覧が合格ゲート・2026-11-02 に全部合格)。テストは HTML から純粋なエンジン宣言を自動抽出して `vm` で評価する
 — **DOM / audio / storage に触れる関数をエンジン宣言に混ぜると抽出が壊れる**。
 **テストが通っても実聴合格ではない。** 聴感の判定は作者だけが行う。
 
@@ -43,7 +57,8 @@ node test/feedback_worker.mjs       # 「送る」の受け口 (Worker) の検�
 
 - 読出し先は `ConsonantsOnomatoi/` (現行版・通常音声は 80kbps mp3、接合に使う diph と伸ばしは wav)。`Consonants/` は旧版 (2026-06-22 アーカイブ) で触らない。
 - マスターはネイティブ側 (`../Onomatoi/Resources/Consonants*`・mono/48k/16bit wav)。Web へは**変換して持ち込む**:
-  継続撥音 `v_<v>_nn` は必ず `scripts/bake_contn.py` を通す (末尾トリムだけでは母音ダブりが鳴る)。
+  `python3 scripts/sync_ios_base_voice.py` (`--only <名前>` で 1 本・`--check` で差分だけ)。継続撥音 `v_<v>_nn` も
+  wav のまま同期する (頭の母音を切る位置を音量で決めるので mp3 にしない)。録音を同期したら `test/parity_out/native` も作り直す。
 - ファイル名がローダのキー。`のコピー` / 連番付き / 別拡張子は読まれない。
 - 置換は事前に現物を控えてから。差し替え後は `node test/native_voice.mjs` と実聴。
 
