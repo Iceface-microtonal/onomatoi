@@ -6227,9 +6227,9 @@ function nvPrepared(arr, kind, compute) {
 // v_eeee -3 dB (native = ConsonantSampleBank.knownSampleGainDb)。伸ばし録音が使われたときだけ。
 const NV_SAMPLE_GAIN_DB = { v_uuuu: -3.0, v_iiii: -5.0, v_eeee: -3.0 };
 // 二重母音の録音を読み込むときの整え (native = ConsonantSampleBank.closeRecordedDiphTail・knownSampleGainDb)。
-// えい・あい は声が終わった後の尾を閉じて無音に (長さは変えない)・diph_ue は +2.5dB (うえ が小さい)
+// えい・あい は声が終わった後の尾を閉じて無音に (長さは変えない)・diph_ue は +8.5dB (うえ が小さい)
 const NV_DIPH_TAIL_CLOSE_MS = { diph_ei: [400, 450], diph_ai: [420, 470] };
-const NV_DIPH_GAIN_DB = { diph_ue: 2.5 };
+const NV_DIPH_GAIN_DB = { diph_ue: 8.5 };
 function nvShapeRecordedDiph(rec, sr, name) {
   const close = NV_DIPH_TAIL_CLOSE_MS[name], db = NV_DIPH_GAIN_DB[name];
   if (!close && db === undefined) return rec;
