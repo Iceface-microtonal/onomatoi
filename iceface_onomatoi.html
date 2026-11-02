@@ -6226,6 +6226,28 @@ function nvPrepared(arr, kind, compute) {
 // 個別サンプルの録音レベル差の是正 (2026-07-24 実聴報告): 伸ばし録音のうち v_uuuu -3 / v_iiii -5 /
 // v_eeee -3 dB (native = ConsonantSampleBank.knownSampleGainDb)。伸ばし録音が使われたときだけ。
 const NV_SAMPLE_GAIN_DB = { v_uuuu: -3.0, v_iiii: -5.0, v_eeee: -3.0 };
+// 二重母音の録音を読み込むときの整え (native = ConsonantSampleBank.closeRecordedDiphTail・knownSampleGainDb)。
+// えい・あい は声が終わった後の尾を閉じて無音に (長さは変えない)・diph_ue は +2.5dB (うえ が小さい)
+const NV_DIPH_TAIL_CLOSE_MS = { diph_ei: [400, 450], diph_ai: [420, 470] };
+const NV_DIPH_GAIN_DB = { diph_ue: 2.5 };
+function nvShapeRecordedDiph(rec, sr, name) {
+  const close = NV_DIPH_TAIL_CLOSE_MS[name], db = NV_DIPH_GAIN_DB[name];
+  if (!close && db === undefined) return rec;
+  const out = Float32Array.from(rec);
+  if (close) {
+    const start = Math.trunc(close[0] / 1000 * sr), end = Math.trunc(close[1] / 1000 * sr);
+    for (let i = start; i < Math.min(end, out.length); i++) {
+      const c = Math.cos((i - start) / (end - start) * Math.PI / 2);
+      out[i] = Math.fround(out[i] * Math.fround(c * c));
+    }
+    if (out.length > end) out.fill(0, end);
+  }
+  if (db !== undefined) {
+    const g = Math.fround(Math.pow(10, db / 20));
+    for (let i = 0; i < out.length; i++) out[i] = Math.fround(out[i] * g);
+  }
+  return out;
+}
 let nvBank = null, nvBankStamp = -1;
 function nvChan(key) { const b = sampleBank.get(key); return b ? b.getChannelData(0) : null; }
 function buildNativeVoiceBank(sr) {
@@ -6286,8 +6308,9 @@ function buildNativeVoiceBank(sr) {
   }
   bank.nN = nvChan("n_N");
   for (const p of DIPH_PAIRS) {
-    const raw = nvChan("diph_" + p);
-    if (!raw) continue;
+    const rec = nvChan("diph_" + p);
+    if (!rec) continue;
+    const raw = nvPrepared(rec, "diphShaped", () => nvShapeRecordedDiph(rec, sr, "diph_" + p));
     bank.diph.set(p, raw);
     const prepared = nvPrepared(raw, "cvDiph", () => nvPrepareCvDiph(raw, sr, p));
     if (prepared.length) bank.cvDiph.set(p, prepared);
