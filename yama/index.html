@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="yama-api" content="https://yama-api.puppetwin.workers.dev">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>オノマトペの山</title>
+<title>オノマトペ遊技場</title>
 <style>
   :root {
     --bg: #f4f3f1;
@@ -42,6 +42,20 @@
   canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .top { position: fixed; left: 0; right: 0; top: max(28px, env(safe-area-inset-top)); display: flex;
     flex-direction: column; align-items: center; gap: 14px; padding: 0 16px; pointer-events: none; }
+  .title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .14em; color: var(--ink); }
+  .lead { margin: -8px 0 0; font-size: 12.5px; color: var(--ink-soft); text-align: center; }
+  .howto { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding: 24px 16px;
+    background: rgba(20, 18, 16, .28); }
+  .howto[hidden] { display: none; }
+  .howto-card { position: relative; width: min(440px, 100%); max-height: 100%; overflow: auto; border-radius: 18px;
+    background: var(--box); color: var(--ink); box-shadow: var(--box-shadow); padding: 22px 24px 20px;
+    font-size: 14.5px; line-height: 1.75; }
+  .howto-card h2 { margin: 0 0 8px; font-size: 17px; letter-spacing: .08em; }
+  .howto-card ol { margin: 0; padding-left: 1.3em; }
+  .howto-card li + li { margin-top: 6px; }
+  .howto-card .note { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+  .howto-close { position: absolute; right: 10px; top: 8px; border: 0; background: none; color: var(--ink-soft);
+    font-size: 22px; line-height: 1; padding: 6px 8px; cursor: pointer; }
   .search { pointer-events: auto; width: min(560px, 100%); height: 60px; border-radius: 18px;
     background: var(--box); box-shadow: var(--box-shadow); display: flex; align-items: center;
     padding: 0 20px 0 24px; font-size: 21px; letter-spacing: .02em; }
@@ -70,7 +84,13 @@
   .notice { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 24px;
     font-size: 15px; line-height: 1.8; }
   .notice code { background: var(--box); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+  /* 右上のボタンと題が重なる幅では、題と検索を右上のボタンの下へ */
+  @media (min-width: 561px) and (max-width: 1199px) {
+    .top { top: max(64px, env(safe-area-inset-top)); }
+  }
   @media (max-width: 560px) {
+    .title { font-size: 19px; }
+    .lead { font-size: 11.5px; }
     .search { height: 52px; font-size: 18px; }
     .chip { font-size: 12.5px; padding: 6px 11px; flex: none; }
     .chips { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none;
@@ -85,6 +105,8 @@
 <body>
 <canvas id="c"></canvas>
 <div class="top">
+  <h1 class="title">オノマトペ遊技場</h1>
+  <p class="lead">感じを選ぶと、合うことばが山から浮かびあがります。</p>
   <div class="search" role="search">
     <input id="query" type="text" enterkeyhint="search" maxlength="40" autocomplete="off" spellcheck="false"
       placeholder="どんな音をさがす?" aria-label="どんな音をさがす">
@@ -98,7 +120,22 @@
     <button data-set="onomatoi" aria-pressed="false">Onomatoi<span class="long"> のことば</span></button>
     <button data-set="ja" aria-pressed="false">日本<span class="long">のオノマトペ</span></button>
   </div>
+  <button id="howto-open" aria-expanded="false" aria-controls="howto">遊び方</button>
   <button id="sound" aria-pressed="false">🔈 音を出す</button>
+</div>
+<div class="howto" id="howto" hidden>
+  <section class="howto-card" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+    <button class="howto-close" aria-label="閉じる">×</button>
+    <h2 id="howto-title">遊び方</h2>
+    <ol>
+      <li>上のボタン (「とげとげしたもの」「まるくてやわらかい」など) を押すと、その感じに合うことばが山から浮かびあがり、声で読み上げます。</li>
+      <li>上の欄に、さがしたい感じを書いて探すこともできます。書いて探せないときは、ボタンから選んでください。</li>
+      <li>ことばにさわると、その声が鳴ります。ぷるぷる震えていることばは、合うかどうか迷っていることばです。</li>
+      <li>「▶ おまかせ」を押すと、いろいろな感じを順にめぐります。</li>
+      <li>「日本のオノマトペ」と「Onomatoi のことば」(おのまといが生んだ、辞書にないことば) を切り替えて、同じ感じで比べられます。</li>
+    </ol>
+    <p class="note">合うかどうかは、AI (Jev) がことばの響きだけから前もって判定したものです。正解はありません。</p>
+  </section>
 </div>
 <div class="foot">Onomatoi × Jev — 判定は Jev の事前計算 · 声は Onomatoi · PuppeTwin</div>
 <div class="notice" id="notice"></div>
@@ -129,7 +166,8 @@ function css(name) { return getComputedStyle(document.documentElement).getProper
 
 // ─── データ ───
 // 組: ja = 日本語の代表的なオノマトペ / onomatoi = Onomatoi が生成した辞書にない語
-const SET = new URLSearchParams(location.search).get("set") === "ja" ? "ja" : "onomatoi";
+// 既定は日本のオノマトペ (2026-11-08 作者「山のデフォルトを日本のオノマトペに」)。Onomatoi のことばは ?set=onomatoi
+const SET = new URLSearchParams(location.search).get("set") === "onomatoi" ? "onomatoi" : "ja";
 for (const b of document.querySelectorAll(".sets button")) {
   b.setAttribute("aria-pressed", String(b.dataset.set === SET));
   b.addEventListener("click", () => {
@@ -252,6 +290,17 @@ function speak(tile, pan = 0, level = 1) {
   });
 }
 $sound.addEventListener("click", () => soundOn ? disableSound() : enableSound());
+
+// ─── 遊び方 ───
+const $howto = document.getElementById("howto"), $howtoOpen = document.getElementById("howto-open");
+function setHowto(open) {
+  $howto.hidden = !open;
+  $howtoOpen.setAttribute("aria-expanded", String(open));
+  (open ? $howto.querySelector(".howto-close") : $howtoOpen).focus({ preventScroll: true });
+}
+$howtoOpen.addEventListener("click", () => setHowto($howto.hidden));
+$howto.addEventListener("click", e => { if (e.target === $howto || e.target.closest(".howto-close")) setHowto(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$howto.hidden) setHowto(false); });
 
 // ─── タイル (剛体) ───
 function hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }

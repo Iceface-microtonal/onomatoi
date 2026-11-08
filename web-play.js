@@ -24,7 +24,7 @@
     poemTitle:'A gathering of songs', poemDescription:'Your words, woven into five–seven–five.',
     footer:'Created and voiced by PuppeTwin', about:'About Onomatoi',
     shapeMouth:'Mouth from shape', spokenMouth:'Mouth while speaking',
-    yamaKicker:'Another place to play', yamaTitle:'Onomatoi Mountain',
+    yamaKicker:'Onomatopoeia Playground', yamaTitle:'Onomatopoeia Mountain',
     yamaDescription:'Explore a mountain of floating words and the impressions they evoke.',
     yamaOpen:'Explore the mountain ↗', aboutCardTitle:'About Onomatoi',
     aboutCardDescription:'A little guide to shapes and words. Discover how Onomatoi works.',
